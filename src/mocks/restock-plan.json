@@ -1,0 +1,12 @@
+{
+  "weekOf": "2025-07-21",
+  "plan": [
+    { "day": "Mon", "quantity": 120 },
+    { "day": "Tue", "quantity": 85 },
+    { "day": "Wed", "quantity": 200 },
+    { "day": "Thu", "quantity": 60 },
+    { "day": "Fri", "quantity": 175 },
+    { "day": "Sat", "quantity": 310 },
+    { "day": "Sun", "quantity": 45 }
+  ]
+}

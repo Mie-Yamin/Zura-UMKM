@@ -1,0 +1,18 @@
+{
+  "todayRevenue": {
+    "value": 4750000,
+    "currency": "IDR",
+    "trend": "up",
+    "trendPercent": 12.5,
+    "sparkline": [3200000, 3500000, 3800000, 4100000, 3950000, 4400000, 4750000]
+  },
+  "todayTransactions": 142,
+  "bestSellerProduct": {
+    "name": "Indomie Goreng Spesial",
+    "unitsSold": 87
+  },
+  "stockAlerts": {
+    "count": 3,
+    "productIds": ["prod-004", "prod-007", "prod-012"]
+  }
+}

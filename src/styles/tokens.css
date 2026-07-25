@@ -1,0 +1,11 @@
+:root {
+  --color-deep-teal: #0D7377;
+  --color-neon-green: #39FF14;
+  --color-soft-red: #FF6B6B;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E7EB;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+
+  --spacing-base: 8px;
+}
