@@ -39,11 +39,33 @@ export default function SalesChartPanel({
   predictionData,
   isLoading,
   ariaLabel,
+  isError,
+  refetch,
 }: SalesChartProps) {
   if (isLoading) {
     return (
-      <div aria-label={ariaLabel}>
+      <div role="region" aria-label={ariaLabel}>
         <LoadingSkeleton />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div role="region" aria-label={ariaLabel}>
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <span>Failed to load sales chart data.</span>
+          <button
+            type="button"
+            onClick={() => refetch?.()}
+            className="ml-auto rounded bg-red-100 px-3 py-1 font-medium hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -52,7 +74,7 @@ export default function SalesChartPanel({
 
   if (isEmpty) {
     return (
-      <div aria-label={ariaLabel}>
+      <div role="region" aria-label={ariaLabel}>
         <EmptyState />
       </div>
     );
@@ -86,7 +108,7 @@ export default function SalesChartPanel({
   );
 
   return (
-    <div aria-label={ariaLabel}>
+    <div role="region" aria-label={ariaLabel}>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={combined} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
           <XAxis dataKey="date" tick={{ fontSize: 11 }} />

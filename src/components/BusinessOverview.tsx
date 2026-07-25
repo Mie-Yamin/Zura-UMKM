@@ -21,28 +21,14 @@ export default function BusinessOverview() {
       {/* KPI Summary Cards */}
       <SummaryCardRow />
 
-      {/* Sales Chart — error banner when fetch fails */}
-      {isError && (
-        <div
-          role="alert"
-          className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          <span>Failed to load sales chart data.</span>
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="ml-auto rounded bg-red-100 px-3 py-1 font-medium hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-400"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
+      {/* Sales Chart — error banner rendered inline by the component */}
       <SalesChartPanel
         historicalData={historicalData}
         predictionData={predictionData}
         isLoading={isLoading}
         ariaLabel={ariaLabel}
+        isError={isError}
+        refetch={() => void refetch()}
       />
     </section>
   );

@@ -175,8 +175,8 @@ Build the UMKM Pulse Dashboard as a React + TypeScript SPA using Vite, Tailwind 
     - Test `aria-label` and semantic `<th>` elements present for screen reader support
     - _Requirements: 5.1–5.8, 8.4_
 
-- [-] 13. Implement SmartInventoryFocus — RestockChartPanel
-  - [ ] 13.1 Create `src/components/RestockChartPanel.tsx`
+- [x] 13. Implement SmartInventoryFocus — RestockChartPanel
+  - [x] 13.1 Create `src/components/RestockChartPanel.tsx`
     - Use Recharts `<BarChart>` inside a `<ResponsiveContainer>`
     - Render `<Bar>` with Deep_Teal fill color
     - Render `<XAxis>` (day abbreviation labels) and `<YAxis>` (quantity labels)
@@ -185,58 +185,58 @@ Build the UMKM Pulse Dashboard as a React + TypeScript SPA using Vite, Tailwind 
     - When `isLoading`, render a loading skeleton
     - _Requirements: 6.1–6.5, 7.2, 8.5_
 
-  - [~] 13.2 Write unit tests for RestockChartPanel
+  - [x] 13.2 Write unit tests for RestockChartPanel
     - Test empty-state message renders when data array is empty
     - Test `aria-label` attribute is present on chart container
     - _Requirements: 6.5, 8.5_
 
-  - [~] 13.3 Write property test for restock day validity
+  - [x] 13.3 Write property test for restock day validity
     - **Property 7: Restock chart days are a subset of the week**
     - **Validates: Requirements 6.2, 6.4**
     - Generate arbitrary `RestockPlanResponse`; assert every `RestockDataPoint.day` is in `["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]` and `quantity >= 0`
 
-- [~] 14. Assemble SmartInventoryFocus section and DashboardPage
-  - [~] 14.1 Create `src/components/SmartInventoryFocus.tsx`
+- [x] 14. Assemble SmartInventoryFocus section and DashboardPage
+  - [x] 14.1 Create `src/components/SmartInventoryFocus.tsx`
     - Render `<ProductList />` followed by `<RestockChartPanel />` in a vertical flex column
     - Apply `flex-[1]` width to match the one-third layout
     - Wire `useInventory()` and `useRestockPlan()` hooks; pass `isLoading` and data to children
     - Pass `ariaLabel` to `RestockChartPanel`
     - _Requirements: 2.2, 2.3, 5.8, 6.1_
 
-  - [~] 14.2 Create `src/pages/DashboardPage.tsx`
+  - [x] 14.2 Create `src/pages/DashboardPage.tsx`
     - Render `<BusinessOverview />` and `<SmartInventoryFocus />` side by side in a flex row
     - Apply white background, generous whitespace (base-8px scale), and soft grey section borders
     - Ensure layout is responsive and readable at ≥ 1280px viewport width
     - _Requirements: 2.1–2.5, 7.1, 7.6_
 
-- [~] 15. Add error boundaries and global error handling
+- [x] 15. Add error boundaries and global error handling
   - Create `src/components/ErrorBoundary.tsx` using React class-based `ErrorBoundary` pattern
   - Wrap `<DashboardPage />` (and other page routes) with `<ErrorBoundary>` in `AppShell`
   - Implement inline error banners with a "Retry" button inside `SalesChartPanel`, `ProductList`, `RestockChartPanel`, and `SummaryCardRow` for API failures
   - _Requirements: 4.7, 5.8, 6.5_
 
-- [~] 16. Checkpoint — Ensure all tests pass
+- [x] 16. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 17. Accessibility hardening and design system audit
-  - [~] 17.1 Audit and fix color contrast
+- [x] 17. Accessibility hardening and design system audit
+  - [x] 17.1 Audit and fix color contrast
     - Run the contrast-checker script against all design token combinations to verify minimum 4.5:1 ratio for normal text
     - Adjust token values if any combination fails WCAG 2.1 AA
     - _Requirements: 8.1_
 
-  - [~] 17.2 Add automated accessibility tests with vitest-axe
+  - [x] 17.2 Add automated accessibility tests with vitest-axe
     - Run `axe` against rendered `<DashboardPage />`, `<NavBar />`, `<ProductList />`, `<SalesChartPanel />`, and `<RestockChartPanel />` in Vitest
     - Assert zero violations for each component
     - _Requirements: 8.1–8.6_
 
-  - [~] 17.3 Verify all aria attributes are in place
+  - [x] 17.3 Verify all aria attributes are in place
     - Confirm `aria-label` on trend graphic in `SummaryCard` (req 8.3)
     - Confirm `aria-label` on `SalesChartPanel` and `RestockChartPanel` wrappers (req 8.5)
     - Confirm `aria-label` on Stock_Alert badge (req 8.6)
     - Confirm `<th>` elements in `ProductList` table (req 8.4)
     - _Requirements: 8.3–8.6_
 
-- [~] 18. Final checkpoint — Ensure all tests pass
+- [x] 18. Final checkpoint — Ensure all tests pass
   - Run the full test suite (`vitest --run`) and confirm all unit, property, and accessibility tests pass.
   - Fix any remaining failures before considering the implementation complete.
   - Ensure all tests pass, ask the user if questions arise.

@@ -1,8 +1,19 @@
+import BusinessOverview from '../components/BusinessOverview';
+import SmartInventoryFocus from '../components/SmartInventoryFocus';
+
+// ─── DashboardPage ────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-      <p className="mt-2 text-text-secondary">Business overview coming soon.</p>
+    <div
+      className="flex min-h-full w-full bg-white min-w-[1280px]"
+      aria-label="Dashboard"
+    >
+      {/* Two-thirds: Business Overview */}
+      <BusinessOverview />
+
+      {/* One-third: Smart Inventory Focus */}
+      <SmartInventoryFocus />
     </div>
   );
 }

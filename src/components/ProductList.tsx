@@ -47,11 +47,26 @@ function StatusBadge({ status }: StatusBadgeProps) {
 
 // ─── ProductList ──────────────────────────────────────────────────────────────
 
-export default function ProductList({ products, isLoading }: ProductListProps) {
+export default function ProductList({ products, isLoading, isError, refetch }: ProductListProps) {
   const emphasizedProducts = isLoading ? [] : applyRowEmphasis(products);
 
   return (
-    <div role="table" className="overflow-x-auto">
+    <div className="overflow-x-auto">
+      {isError && (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-3"
+        >
+          <span>Failed to load inventory data.</span>
+          <button
+            type="button"
+            onClick={() => refetch?.()}
+            className="ml-auto rounded bg-red-100 px-3 py-1 font-medium hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <table
         className="w-full text-sm border-collapse"
         aria-label="Product inventory table"

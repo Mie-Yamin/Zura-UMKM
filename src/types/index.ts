@@ -49,6 +49,10 @@ export interface SalesChartProps {
   isLoading: boolean;
   /** aria-label for the chart container */
   ariaLabel: string;
+  /** Whether the data fetch encountered an error */
+  isError?: boolean;
+  /** Callback to retry the failed fetch */
+  refetch?: () => void;
 }
 
 // ─────────────────────────────────────────────
@@ -68,6 +72,10 @@ export interface Product {
 export interface ProductListProps {
   products: Product[];
   isLoading: boolean;
+  /** Whether the data fetch encountered an error */
+  isError?: boolean;
+  /** Callback to retry the failed fetch */
+  refetch?: () => void;
 }
 
 // ─────────────────────────────────────────────
@@ -85,6 +93,10 @@ export interface RestockChartProps {
   isLoading: boolean;
   /** aria-label for the chart container */
   ariaLabel: string;
+  /** Whether the data fetch encountered an error */
+  isError?: boolean;
+  /** Callback to retry the failed fetch */
+  refetch?: () => void;
 }
 
 // ─────────────────────────────────────────────
