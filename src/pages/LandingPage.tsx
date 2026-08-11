@@ -1,44 +1,106 @@
 import React from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Play, TrendingDown, Users } from 'lucide-react';
 
 export default function AntiGravityLandingPage() {
   const navigate = useNavigate();
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = React.useState<'home' | 'sales' | 'inventory' | 'customers'>('home');
 
   const products = [
     {
       name: 'TEH BOTOL',
-      image:
-        'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/11/17/572cbf08-f40b-4dc1-beea-2ef83c8ffbf8.png',
+      image: 'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/11/17/572cbf08-f40b-4dc1-beea-2ef83c8ffbf8.png',
     },
     {
       name: 'MIE GORENG',
-      image:
-        'https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png',
+      image: 'https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png',
     },
     {
       name: 'BENG - BENG',
-      image:
-        'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/4/27/c887201c-6d87-43ca-a387-9556ee252fdf.png',
+      image: 'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/4/27/c887201c-6d87-43ca-a387-9556ee252fdf.png',
     },
   ];
 
+  // Capture vertical mouse wheel scroll and convert it to horizontal scroll
+  React.useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        container.scrollLeft += e.deltaY;
+      }
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, []);
+
+  // Update active section state based on scroll position
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const width = container.clientWidth;
+    const scrollLeft = container.scrollLeft;
+    const index = Math.round(scrollLeft / width);
+
+    if (index === 0) {
+      setActiveSection('home');
+    } else if (index === 1) {
+      setActiveSection('sales');
+    } else if (index === 2) {
+      setActiveSection('inventory');
+    } else if (index === 3) {
+      setActiveSection('customers');
+    }
+  };
+
+  // Scroll smoothly to a section
+  const scrollToSection = (id: string) => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const width = container.clientWidth;
+      let index = 0;
+      if (id === 'home') index = 0;
+      else if (id === 'sales') index = 1;
+      else if (id === 'inventory') index = 2;
+      else if (id === 'customers') index = 3;
+
+      container.scrollTo({
+        left: index * width,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
-    <div className="relative min-h-screen bg-[#575F1E] text-white font-sans overflow-hidden flex flex-col justify-between p-6 md:px-12 select-none">
+    <div className={`fixed inset-0 w-screen h-screen ${activeSection === 'home' ? 'bg-[#575F1E]' : activeSection === 'sales' ? 'bg-[#1E405F]' : 'bg-[#5F1E1E]'} text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500`}>
 
-      {/* Background Ornament */}
+      {/* Hide Scrollbar style */}
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
+      {/* Background Ornament - FIXED */}
       <div
-        className="absolute top-0 left-0 w-72 h-72 bg-contain bg-no-repeat opacity-80 pointer-events-none -translate-x-10 -translate-y-10"
+        className="absolute top-0 left-0 w-72 h-72 bg-contain bg-no-repeat opacity-80 pointer-events-none -translate-x-10 -translate-y-10 z-0"
         style={{ backgroundImage: `url('/ukiran.png')` }}
       />
-
       <div
-        className="absolute top-0 right-0 w-80 h-80 bg-contain bg-no-repeat opacity-80 pointer-events-none translate-x-10 -translate-y-10"
+        className="absolute top-0 right-0 w-80 h-80 bg-contain bg-no-repeat opacity-80 pointer-events-none translate-x-10 -translate-y-10 z-0"
         style={{ backgroundImage: `url('/ukiran.png')` }}
       />
-
       <div
-        className="absolute bottom-0 left-1/3 w-96 h-96 bg-contain bg-no-repeat opacity-80 pointer-events-none translate-y-20"
+        className="absolute bottom-0 left-1/3 w-96 h-96 bg-contain bg-no-repeat opacity-80 pointer-events-none translate-y-20 z-0"
         style={{ backgroundImage: `url('/ukiran.png')` }}
       />
 
@@ -49,62 +111,61 @@ export default function AntiGravityLandingPage() {
         <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-white rounded-full blur-[1px] opacity-60" />
       </div>
 
-      {/* Navbar */}
-      <nav className="relative z-10 flex items-center justify-between pt-0 pb-4">
+      {/* Navbar - FIXED OVERLAY */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between p-6 md:px-12 bg-gradient-to-b ${activeSection === 'home' ? 'from-[#575F1E]/80' : activeSection === 'sales' ? 'from-[#1E405F]/80' : 'from-[#5F1E1E]/80'} to-transparent backdrop-blur-[2px] transition-colors duration-500`}>
         <div className="flex items-center space-x-2">
           <img
             src="/logo.png"
             alt="Zura Logo"
-            onClick={() => navigate('/')}
+            onClick={() => scrollToSection('home')}
             className="cursor-pointer w-16 h-16 object-contain hover:scale-105 transition-transform"
           />
         </div>
 
         <div className="hidden md:flex space-x-8 text-sm font-medium items-center">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              isActive
+          <button
+            onClick={() => scrollToSection('home')}
+            className={
+              activeSection === 'home'
                 ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
                 : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
             }
           >
             Home
-          </NavLink>
+          </button>
 
-          <NavLink
-            to="/pos"
-            className={({ isActive }) =>
-              isActive
+          <button
+            onClick={() => scrollToSection('sales')}
+            className={
+              activeSection === 'sales'
                 ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
                 : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
             }
           >
             Sales
-          </NavLink>
+          </button>
 
-          <NavLink
-            to="/inventory"
-            className={({ isActive }) =>
-              isActive
+          <button
+            onClick={() => scrollToSection('inventory')}
+            className={
+              activeSection === 'inventory'
                 ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
                 : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
             }
           >
             Inventory
-          </NavLink>
+          </button>
 
-          <NavLink
-            to="/customers"
-            className={({ isActive }) =>
-              isActive
+          <button
+            onClick={() => navigate('/customers')}
+            className={
+              activeSection === 'customers'
                 ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
                 : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
             }
           >
             Customers
-          </NavLink>
+          </button>
         </div>
 
         <button
@@ -115,171 +176,367 @@ export default function AntiGravityLandingPage() {
         </button>
       </nav>
 
-      {/* Hero Section */}
-      <main className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center my-auto py-8">
+      {/* Horizontal Scroll Container */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth no-scrollbar z-10"
+      >
 
-        {/* Left Column */}
-        <div className="space-y-6 max-w-xl">
+        {/* SECTION 1: HOME */}
+        <section
+          id="home"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center px-6 md:px-12 pt-20 pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto w-full">
 
-          <h1 className="text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
-            Kelola Usaha Lebih Mudah,
-            <br />
+            {/* Left Column */}
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Kelola Usaha Lebih Mudah,
+                <br />
+                <span className="text-yellow-300">
+                  Pantau & Prediksi Secara Real-Time.
+                </span>
+              </h1>
 
-            <span className="text-yellow-300">
-              Pantau & Prediksi Secara Real-Time.
-            </span>
-          </h1>
+              <p className="text-base md:text-lg text-white/80 leading-relaxed max-w-lg">
+                Pantau transaksi, stok barang, dan keuntungan usaha kamu
+                dalam satu dashboard terpadu.
+              </p>
 
-          <p className="text-base md:text-lg text-white/80 leading-relaxed max-w-lg">
-            Pantau transaksi, stok barang, dan keuntungan usaha kamu
-            dalam satu dashboard terpadu.
-          </p>
-
-          <div className="flex items-center space-x-4 pt-4">
-
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-black hover:bg-gray-900 text-white font-semibold text-sm px-6 py-3 rounded-full transition shadow-xl"
-            >
-              Cek Selengkapnya
-            </button>
-
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="w-11 h-11 bg-black hover:bg-gray-900 rounded-full flex items-center justify-center transition shadow-xl"
-            >
-              <Play className="w-5 h-5 text-white fill-current translate-x-0.5" />
-            </button>
-
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="relative w-full max-w-lg mx-auto h-[440px]">
-
-          {/* Top Dashboard Card - STATIC */}
-          <div className="absolute top-0 left-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-4 shadow-2xl z-10">
-
-            <div className="grid grid-cols-3 gap-2 mb-4">
-
-              <div className="bg-neutral-800 text-white p-2 rounded-md text-center">
-                <p className="text-[10px] text-gray-300">
-                  Today's Revenue
-                </p>
-
-                <p className="text-xs font-bold text-red-400 flex items-center justify-center gap-1">
-                  <TrendingDown className="w-3 h-3" />
-                  Rp 6.700.000
-                </p>
-              </div>
-
-              <div className="bg-neutral-800 text-white p-2 rounded-md text-center">
-                <p className="text-[10px] text-gray-300">
-                  Transaction
-                </p>
-
-                <p className="text-xs font-bold flex items-center justify-center gap-1">
-                  <Users className="w-3 h-3" />
-                  2902
-                </p>
-              </div>
-
-              <div className="bg-neutral-800 text-white p-2 rounded-md text-center flex flex-col justify-center items-center">
-                <p className="text-[10px] text-gray-300">
-                  Best Seller
-                </p>
-
-                <img
-                  src="https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png"
-                  alt="Best Seller"
-                  className="w-5 h-5 object-contain mt-1"
-                />
-              </div>
-
-            </div>
-
-            {/* Chart */}
-            <div className="h-32 border-b border-l border-gray-400 relative flex items-end p-2">
-              <svg
-                className="w-full h-full overflow-visible"
-                viewBox="0 0 100 50"
-              >
-                <path
-                  fill="none"
-                  stroke="#22c55e"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M 0 35 L 25 20 L 50 40 L 75 10"
-                />
-
-                <path
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M 75 10 L 100 25"
-                />
-              </svg>
-            </div>
-
-          </div>
-
-          {/* Bottom Product Card - STATIC */}
-          <div className="absolute bottom-2 right-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-5 shadow-2xl z-20">
-
-            <h2 className="text-lg font-black text-center mb-4 tracking-wider">
-              DAFTAR PRODUK
-            </h2>
-
-            <div className="grid grid-cols-3 gap-3">
-
-              {products.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col items-center group"
+              <div className="flex items-center space-x-4 pt-4">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="bg-black hover:bg-gray-900 text-white font-semibold text-sm px-6 py-3 rounded-full transition shadow-xl"
                 >
+                  Cek Selengkapnya
+                </button>
 
-                  <div className="bg-[#8E24AA] w-full aspect-square rounded-xl p-2 flex items-center justify-center mb-2 shadow-md">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="max-h-full object-contain"
-                    />
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="w-11 h-11 bg-black hover:bg-gray-900 rounded-full flex items-center justify-center transition shadow-xl"
+                >
+                  <Play className="w-5 h-5 text-white fill-current translate-x-0.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="relative w-full max-w-lg mx-auto h-[440px]">
+
+              {/* Top Dashboard Card - STATIC */}
+              <div className="absolute top-0 left-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-4 shadow-2xl z-10">
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="bg-neutral-800 text-white p-2 rounded-md text-center">
+                    <p className="text-[10px] text-gray-300">Today's Revenue</p>
+                    <p className="text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+                      <TrendingDown className="w-3 h-3" /> Rp 6.700.000
+                    </p>
                   </div>
 
-                  <span className="text-[10px] font-bold text-center leading-tight mb-1">
-                    {item.name}
-                  </span>
+                  <div className="bg-neutral-800 text-white p-2 rounded-md text-center">
+                    <p className="text-[10px] text-gray-300">Transaction</p>
+                    <p className="text-xs font-bold flex items-center justify-center gap-1">
+                      <Users className="w-3 h-3" /> 2902
+                    </p>
+                  </div>
 
-                  <button
-                    onClick={() => navigate('/inventory')}
-                    className="bg-black text-white text-[8px] px-2 py-0.5 rounded-full hover:bg-gray-800 transition"
-                  >
-                    Cek Rincian →
-                  </button>
-
+                  <div className="bg-neutral-800 text-white p-2 rounded-md text-center flex flex-col justify-center items-center">
+                    <p className="text-[10px] text-gray-300">Best Seller</p>
+                    <img
+                      src="https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png"
+                      alt="Best Seller"
+                      className="w-5 h-5 object-contain mt-1"
+                    />
+                  </div>
                 </div>
-              ))}
 
+                {/* Chart */}
+                <div className="h-32 border-b border-l border-gray-400 relative flex items-end p-2">
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 50">
+                    <path
+                      fill="none; stroke=#22c55e"
+                      stroke="#22c55e"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M 0 35 L 25 20 L 50 40 L 75 10"
+                    />
+                    <path
+                      fill="none"
+                      stroke="#ef4444"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M 75 10 L 100 25"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Bottom Product Card - STATIC */}
+              <div className="absolute bottom-2 right-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-5 shadow-2xl z-20">
+                <h2 className="text-lg font-black text-center mb-4 tracking-wider">DAFTAR PRODUK</h2>
+                <div className="grid grid-cols-3 gap-3">
+                  {products.map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center group">
+                      <div className="bg-[#8E24AA] w-full aspect-square rounded-xl p-2 flex items-center justify-center mb-2 shadow-md">
+                        <img src={item.image} alt={item.name} className="max-h-full object-contain" />
+                      </div>
+                      <span className="text-[10px] font-bold text-center leading-tight mb-1">{item.name}</span>
+                      <button
+                        onClick={() => navigate('/inventory')}
+                        className="bg-black text-white text-[8px] px-2 py-0.5 rounded-full hover:bg-gray-800 transition"
+                      >
+                        Cek Rincian →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
+        </section>
 
-        </div>
-      </main>
+        {/* SECTION 2: SALES */}
+        <section
+          id="sales"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center px-6 md:px-12 pt-20 pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto w-full">
 
-      {/* Carousel Dots - STATIC */}
-      <div className="relative z-10 flex justify-center items-center space-x-3 py-4">
-        <span className="w-4 h-4 bg-white rounded-full cursor-pointer shadow-md"></span>
+            {/* Left Column */}
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Kelola Penjualan
+                <br />
+                <span className="text-yellow-300">Lebih Mudah</span>
+              </h1>
 
-        <span className="w-3.5 h-3.5 bg-black rounded-full cursor-pointer opacity-80 hover:opacity-100 transition"></span>
+              <p className="text-base md:text-lg text-white/80 leading-relaxed max-w-lg">
+                Catat transaksi, pantau penjualan, dan lihat performa usaha kamu secara real-time.
+              </p>
+            </div>
 
-        <span className="w-3.5 h-3.5 bg-black rounded-full cursor-pointer opacity-80 hover:opacity-100 transition"></span>
+            {/* Right Column: Visual Sales Dashboard */}
+            <div className="relative w-full max-w-lg mx-auto h-[440px]">
 
-        <span className="w-3.5 h-3.5 bg-black rounded-full cursor-pointer opacity-80 hover:opacity-100 transition"></span>
+              {/* Sales Metrics Card - STATIC */}
+              <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
 
-        <span className="w-3.5 h-3.5 bg-black rounded-full cursor-pointer opacity-80 hover:opacity-100 transition"></span>
+                {/* Header Metrics */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-neutral-800 text-white p-3 rounded-lg text-center shadow-md">
+                    <p className="text-[10px] text-gray-300 font-medium">Total Penjualan</p>
+                    <p className="text-sm font-black text-emerald-400 mt-1">Rp 24.500.000</p>
+                    <span className="text-[9px] text-emerald-300 font-semibold block mt-0.5">+12.4% vs last week</span>
+                  </div>
+
+                  <div className="bg-neutral-800 text-white p-3 rounded-lg text-center shadow-md">
+                    <p className="text-[10px] text-gray-300 font-medium">Total Transaksi</p>
+                    <p className="text-sm font-black text-yellow-400 mt-1">1,240 Transaksi</p>
+                    <span className="text-[9px] text-yellow-300 font-semibold block mt-0.5">+8.1% vs last week</span>
+                  </div>
+                </div>
+
+                {/* Sales Performance Chart (SVG Bar Chart) */}
+                <div className="flex-1 min-h-[140px] border-b border-l border-gray-300 relative flex items-end justify-around px-4 pt-4 pb-1 bg-gray-50/50 rounded-lg mb-4">
+                  {/* Monday */}
+                  <div className="flex flex-col items-center w-8">
+                    <div className="w-4 bg-emerald-500 rounded-t-sm h-12" />
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">Sen</span>
+                  </div>
+                  {/* Tuesday */}
+                  <div className="flex flex-col items-center w-8">
+                    <div className="w-4 bg-emerald-500 rounded-t-sm h-20" />
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">Sel</span>
+                  </div>
+                  {/* Wednesday */}
+                  <div className="flex flex-col items-center w-8">
+                    <div className="w-4 bg-emerald-500 rounded-t-sm h-16" />
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">Rab</span>
+                  </div>
+                  {/* Thursday */}
+                  <div className="flex flex-col items-center w-8">
+                    <div className="w-4 bg-emerald-500 rounded-t-sm h-28" />
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">Kam</span>
+                  </div>
+                  {/* Friday */}
+                  <div className="flex flex-col items-center w-8">
+                    <div className="w-4 bg-emerald-600 rounded-t-sm h-24" />
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">Jum</span>
+                  </div>
+                </div>
+
+                {/* Recent Transaction Info */}
+                <div className="bg-neutral-800 text-white rounded-lg p-3">
+                  <div className="flex justify-between items-center border-b border-neutral-700 pb-1.5 mb-1.5">
+                    <span className="text-[10px] font-black text-amber-400">TRANSAKSI TERBARU</span>
+                    <span className="text-[9px] text-gray-400">Live POS</span>
+                  </div>
+                  <div className="space-y-1 text-[10px]">
+                    <div className="flex justify-between">
+                      <span>Teh Botol (3 pcs)</span>
+                      <span className="font-bold text-emerald-400">Rp 15.000</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Mie Goreng (2 pcs)</span>
+                      <span className="font-bold text-emerald-400">Rp 7.000</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 3: INVENTORY */}
+        <section
+          id="inventory"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center px-6 md:px-12 pt-20 pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto w-full">
+
+            {/* Left Column */}
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Stok Terkontrol
+                <br />
+                <span className="text-yellow-300">Dengan AI</span>
+              </h1>
+
+              <p className="text-base md:text-lg text-white/80 leading-relaxed max-w-lg">
+                Pantau ketersediaan produk, kelola SKU, dan dapatkan prediksi kebutuhan stok otomatis menggunakan kecerdasan buatan.
+              </p>
+            </div>
+
+            {/* Right Column: Visual Inventory Dashboard */}
+            <div className="relative w-full max-w-lg mx-auto h-[440px]">
+
+              {/* Inventory Metrics Card - STATIC */}
+              <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
+
+                {/* Header Stats */}
+                <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+                  <div>
+                    <h3 className="text-sm font-black tracking-wider text-neutral-700">STATUS INVENTORY</h3>
+                    <p className="text-[10px] text-gray-500 font-medium">Auto-Sync Zura Cloud</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">4 Menipis</span>
+                    <span className="bg-neutral-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">158 SKU</span>
+                  </div>
+                </div>
+
+                {/* Product List Table */}
+                <div className="flex-1 overflow-hidden mb-4">
+                  <table className="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-gray-400 font-bold">
+                        <th className="pb-1.5 font-bold">Produk</th>
+                        <th className="pb-1.5 font-bold">SKU</th>
+                        <th className="pb-1.5 font-bold">Stok</th>
+                        <th className="pb-1.5 font-bold">Status</th>
+                        <th className="pb-1.5 font-bold">AI Forecast</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-semibold text-neutral-800">
+                      <tr>
+                        <td className="py-2 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                          Teh Botol
+                        </td>
+                        <td className="py-2 text-gray-500">TB-250ML</td>
+                        <td className="py-2">120 Pcs</td>
+                        <td className="py-2 text-emerald-600">Aman</td>
+                        <td className="py-2 text-neutral-700 font-bold">Restock +50</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                          Mie Goreng
+                        </td>
+                        <td className="py-2 text-gray-500">MG-IND</td>
+                        <td className="py-2 font-bold text-red-600">8 Pcs</td>
+                        <td className="py-2 text-red-600 font-bold">Menipis</td>
+                        <td className="py-2 text-amber-600 font-extrabold">Restock +200!</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                          Beng-Beng
+                        </td>
+                        <td className="py-2 text-gray-500">BB-20G</td>
+                        <td className="py-2">45 Pcs</td>
+                        <td className="py-2 text-emerald-600">Aman</td>
+                        <td className="py-2 text-gray-400 font-normal">Aman</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* AI Restock Suggestion Alert */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-neutral-800">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-[10px] font-bold text-amber-700">Rekomendasi Restock AI</span>
+                    <span className="bg-amber-100 text-amber-800 text-[8px] px-1.5 py-0.5 rounded font-black">PENTING</span>
+                  </div>
+                  <p className="text-[9px] leading-relaxed text-neutral-600">
+                    Lakukan pemesanan <strong>Mie Goreng (200 pcs)</strong> sebelum 14 Agustus untuk menghindari kekosongan stok berdasarkan tren akhir pekan.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      {/* Carousel Dots - FIXED OVERLAY */}
+      <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center items-center space-x-1 py-3 bg-gradient-to-t ${activeSection === 'home' ? 'from-[#575F1E]/60' : activeSection === 'sales' ? 'from-[#1E405F]/60' : 'from-[#5F1E1E]/60'} to-transparent transition-colors duration-500`}>
+        <button
+          type="button"
+          onClick={() => scrollToSection('home')}
+          className="p-3 focus:outline-none"
+        >
+          <div className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${activeSection === 'home' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <span className="sr-only">Home Section</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection('sales')}
+          className="p-3 focus:outline-none"
+        >
+          <div className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${activeSection === 'sales' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <span className="sr-only">Sales Section</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection('inventory')}
+          className="p-3 focus:outline-none"
+        >
+          <div className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${activeSection === 'inventory' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <span className="sr-only">Inventory Page</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/customers')}
+          className="p-3 focus:outline-none"
+        >
+          <div className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${activeSection === 'customers' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <span className="sr-only">Customers Page</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="p-3 focus:outline-none"
+        >
+          <div className="w-3.5 h-3.5 rounded-full bg-black/50 hover:bg-black/80 transition-all" />
+          <span className="sr-only">Dashboard Page</span>
+        </button>
       </div>
 
     </div>
