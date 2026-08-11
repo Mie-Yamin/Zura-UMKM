@@ -106,7 +106,7 @@ function FinanceIcon({ className }: { className?: string }) {
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', path: '/', icon: DashboardIcon },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
   { id: 'pos', label: 'Sales/POS', path: '/pos', icon: PosIcon },
   { id: 'inventory', label: 'Smart Inventory', path: '/inventory', icon: InventoryIcon },
   { id: 'customers', label: 'Customers', path: '/customers', icon: CustomersIcon },
@@ -135,7 +135,7 @@ export default function NavBar() {
             <li key={item.id}>
               <NavLink
                 to={item.path}
-                end={item.path === '/'}
+                end={item.path === '/dashboard'}
                 className={({ isActive }) =>
                   [
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',

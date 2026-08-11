@@ -26,7 +26,7 @@ describe('NavBar', () => {
   it('exports NAV_ITEMS with five entries covering all required paths', () => {
     const paths = NAV_ITEMS.map((item) => item.path);
     expect(NAV_ITEMS).toHaveLength(5);
-    expect(paths).toContain('/');
+    expect(paths).toContain('/dashboard');
     expect(paths).toContain('/pos');
     expect(paths).toContain('/inventory');
     expect(paths).toContain('/customers');
@@ -38,8 +38,8 @@ describe('NavBar', () => {
     expect(screen.getByText('UMKM Pulse')).toBeInTheDocument();
   });
 
-  it('applies active styling class to the Dashboard link when path is "/"', () => {
-    renderNavBar('/');
+  it('applies active styling class to the Dashboard link when path is "/dashboard"', () => {
+    renderNavBar('/dashboard');
     const dashboardLink = screen.getByRole('link', { name: /dashboard/i });
     expect(dashboardLink.className).toContain('bg-deep-teal');
     expect(dashboardLink.className).toContain('text-white');
@@ -60,7 +60,7 @@ describe('NavBar', () => {
   });
 
   it('does not apply active styling to inactive links', () => {
-    renderNavBar('/');
+    renderNavBar('/dashboard');
     const posLink = screen.getByRole('link', { name: /sales\/pos/i });
     expect(posLink.className).not.toContain('bg-deep-teal');
   });
