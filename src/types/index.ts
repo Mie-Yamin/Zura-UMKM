@@ -67,6 +67,11 @@ export interface Product {
   stockCount: number;
   /** Estimated days until stockout (AI forecast) */
   aiForecasterDays: number;
+  buyPrice?: number;
+  sellPrice?: number;
+  category?: string;
+  minStock?: number;
+  isDeadstock?: boolean;
 }
 
 export interface ProductListProps {
@@ -157,4 +162,53 @@ export interface QueryResult<T> {
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
+}
+
+// ─────────────────────────────────────────────
+// CRM & POS Transaction Types
+// ─────────────────────────────────────────────
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  points: number;
+  totalTransactions: number;
+  lastTxDate: string;
+  tier: 'Gold' | 'Silver' | 'Bronze';
+}
+
+export interface TransactionItem {
+  id: string;
+  name: string;
+  qty: number;
+  price: number;
+}
+
+export interface Transaction {
+  id: string;
+  time: string;
+  date: string;
+  customer: string;
+  customerId?: string;
+  amount: number;
+  discountApplied: number;
+  paymentStatus: 'Lunas' | 'Pending';
+  stockStatus: 'Tersinkronisasi' | 'Proses';
+  items: TransactionItem[];
+  paymentMethod: 'Tunai' | 'QRIS' | 'Kartu';
+  cashPaid?: number;
+  changeGiven?: number;
+}
+
+export interface SalesRecap {
+  id: string;
+  date: string;
+  source: 'Shopee' | 'Tokopedia' | 'TikTok Shop' | 'Manual';
+  unitsSold: number;
+  totalAmount: number;
+  adminFee: number;
+  status: 'Tersinkronisasi' | 'Draft';
+  items?: { id: string; name: string; qty: number; price: number }[];
 }

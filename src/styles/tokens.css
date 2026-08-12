@@ -15,13 +15,20 @@
  */
 
 :root {
-  --color-deep-teal: #0D7377;
-  --color-neon-green: #39FF14;
-  --color-soft-red: #FF6B6B;
+  --color-deep-teal: #3B82F6; /* Electric Blue / Primary Accent */
+  --color-neon-green: #10B981; /* Green Stock Indicator */
+  --color-soft-red: #EF4444; /* Warning/Critical Red */
+  --color-warning: #F59E0B; /* Yellow Alert */
+  --color-ai-violet: #8B5CF6; /* AI Violet / Purple Accent */
   --color-surface: #FFFFFF;
-  --color-border: #E5E7EB;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6B7280;
+  --color-border: #E2E8F0;
+  --color-text-primary: #0F172A; /* Charcoal Black / Primary Text */
+  --color-text-secondary: #64748B; /* Slate Gray / Secondary Text */
 
   --spacing-base: 8px;
+}
+
+body {
+  background-color: #F8FAFC;
+  color: var(--color-text-primary);
 }

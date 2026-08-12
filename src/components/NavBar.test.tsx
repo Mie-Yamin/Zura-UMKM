@@ -13,56 +13,58 @@ function renderNavBar(initialPath = '/') {
 }
 
 describe('NavBar', () => {
-  it('renders all five module links with correct labels', () => {
+  it('renders all six module links with correct labels', () => {
     renderNavBar();
 
-    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sales\/pos/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /smart inventory/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /customers/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /finance/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /pemantauan/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /rekap/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /stok/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /pelanggan/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /keuangan/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ai insights/i })).toBeInTheDocument();
   });
 
-  it('exports NAV_ITEMS with five entries covering all required paths', () => {
+  it('exports NAV_ITEMS with six entries covering all required paths', () => {
     const paths = NAV_ITEMS.map((item) => item.path);
-    expect(NAV_ITEMS).toHaveLength(5);
+    expect(NAV_ITEMS).toHaveLength(6);
     expect(paths).toContain('/dashboard');
-    expect(paths).toContain('/pos');
+    expect(paths).toContain('/rekap');
     expect(paths).toContain('/inventory');
     expect(paths).toContain('/customers');
     expect(paths).toContain('/finance');
+    expect(paths).toContain('/ai-insights');
   });
 
-  it('displays the UMKM Pulse application name at the top', () => {
+  it('displays the Zura Retail application name at the top', () => {
     renderNavBar();
-    expect(screen.getByText('UMKM Pulse')).toBeInTheDocument();
+    expect(screen.getByText('Zura Retail')).toBeInTheDocument();
   });
 
   it('applies active styling class to the Dashboard link when path is "/dashboard"', () => {
     renderNavBar('/dashboard');
-    const dashboardLink = screen.getByRole('link', { name: /dashboard/i });
-    expect(dashboardLink.className).toContain('bg-deep-teal');
+    const dashboardLink = screen.getByRole('link', { name: /pemantauan/i });
+    expect(dashboardLink.className).toContain('bg-[#3B82F6]');
     expect(dashboardLink.className).toContain('text-white');
   });
 
-  it('applies active styling to the Sales/POS link when path is "/pos"', () => {
-    renderNavBar('/pos');
-    const posLink = screen.getByRole('link', { name: /sales\/pos/i });
-    expect(posLink.className).toContain('bg-deep-teal');
+  it('applies active styling to the Point of Sale link when path is "/rekap"', () => {
+    renderNavBar('/rekap');
+    const posLink = screen.getByRole('link', { name: /rekap/i });
+    expect(posLink.className).toContain('bg-[#3B82F6]');
     expect(posLink.className).toContain('text-white');
   });
 
-  it('applies active styling to the Smart Inventory link when path is "/inventory"', () => {
+  it('applies active styling to the Inventory link when path is "/inventory"', () => {
     renderNavBar('/inventory');
-    const inventoryLink = screen.getByRole('link', { name: /smart inventory/i });
-    expect(inventoryLink.className).toContain('bg-deep-teal');
+    const inventoryLink = screen.getByRole('link', { name: /stok/i });
+    expect(inventoryLink.className).toContain('bg-[#3B82F6]');
     expect(inventoryLink.className).toContain('text-white');
   });
 
   it('does not apply active styling to inactive links', () => {
     renderNavBar('/dashboard');
-    const posLink = screen.getByRole('link', { name: /sales\/pos/i });
-    expect(posLink.className).not.toContain('bg-deep-teal');
+    const posLink = screen.getByRole('link', { name: /rekap/i });
+    expect(posLink.className).not.toContain('bg-[#3B82F6]');
   });
 
   it('has a nav element with role="navigation" and accessible label', () => {
@@ -76,8 +78,8 @@ describe('NavBar', () => {
     renderNavBar();
 
     const links = screen.getAllByRole('link');
-    // There should be 5 nav links
-    expect(links).toHaveLength(5);
+    // There should be 6 nav links
+    expect(links).toHaveLength(6);
 
     // Start with body focused; tabbing should move into the links
     links[0].focus();

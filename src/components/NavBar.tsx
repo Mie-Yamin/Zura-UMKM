@@ -103,14 +103,58 @@ function FinanceIcon({ className }: { className?: string }) {
   );
 }
 
+function SparklesIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.813 15.904L9 21m0 0l-.813-5.096L3.6 15.3M9 21l5.4-5.7m-2.868-6.104l1.906-17.15a1.204 1.204 0 0 1 2.384 0l1.906 17.15a1.204 1.204 0 0 1-2.384 0Z"
+      />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+      />
+    </svg>
+  );
+}
+
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
-  { id: 'pos', label: 'Sales/POS', path: '/pos', icon: PosIcon },
-  { id: 'inventory', label: 'Smart Inventory', path: '/inventory', icon: InventoryIcon },
-  { id: 'customers', label: 'Customers', path: '/customers', icon: CustomersIcon },
-  { id: 'finance', label: 'Finance', path: '/finance', icon: FinanceIcon },
+  { id: 'dashboard', label: 'Dashboard (Pemantauan Utama)', path: '/dashboard', icon: DashboardIcon },
+  { id: 'rekap', label: 'Rekap Penjualan & Input Data', path: '/rekap', icon: PosIcon },
+  { id: 'inventory', label: 'Manajemen Stok Pusat', path: '/inventory', icon: InventoryIcon },
+  { id: 'finance', label: 'Laporan Keuangan & Laba Rugi', path: '/finance', icon: FinanceIcon },
+  { id: 'customers', label: 'CRM & Database Pelanggan', path: '/customers', icon: CustomersIcon },
+  { id: 'ai-insights', label: 'AI Insights Hub', path: '/ai-insights', icon: SparklesIcon },
 ];
 
 // ─── NavBar Component ─────────────────────────────────────────────────────────
@@ -120,38 +164,75 @@ export default function NavBar() {
     <nav
       role="navigation"
       aria-label="Main navigation"
-      className="flex flex-col w-64 h-full bg-white border-r border-border flex-shrink-0"
+      className="flex flex-col w-64 h-full bg-white border-r border-border flex-shrink-0 justify-between"
     >
-      {/* Logo / App name */}
-      <div className="flex items-center px-6 py-5 border-b border-border">
-        <span className="text-xl font-bold text-deep-teal tracking-tight">UMKM Pulse</span>
+      <div>
+        {/* Logo / App name */}
+        <div className="flex items-center px-6 py-5 border-b border-border">
+          <div className="w-8 h-8 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold mr-2 text-lg shadow-sm">
+            Z
+          </div>
+          <span className="text-xl font-bold text-text-primary tracking-tight">Zura Retail</span>
+        </div>
+
+        {/* Nav links */}
+        <ul className="flex flex-col gap-1 px-3 py-4">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isAiHub = item.id === 'ai-insights';
+            return (
+              <li key={item.id}>
+                <NavLink
+                  to={item.path}
+                  end={item.path === '/dashboard'}
+                  className={({ isActive }) =>
+                    [
+                      'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative group',
+                      isActive
+                        ? isAiHub
+                          ? 'bg-[#8B5CF6] text-white shadow-md'
+                          : 'bg-[#3B82F6] text-white shadow-sm'
+                        : 'text-text-secondary hover:bg-slate-50 hover:text-text-primary',
+                    ].join(' ')
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isAiHub && (
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8B5CF6] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#8B5CF6]"></span>
+                    </span>
+                  )}
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
-      {/* Nav links */}
-      <ul className="flex flex-col gap-1 px-3 py-4 flex-1">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <li key={item.id}>
-              <NavLink
-                to={item.path}
-                end={item.path === '/dashboard'}
-                className={({ isActive }) =>
-                  [
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-deep-teal text-white'
-                      : 'text-text-secondary hover:bg-gray-100 hover:text-text-primary',
-                  ].join(' ')
-                }
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Bottom Profile and Settings Footer */}
+      <div className="border-t border-border p-4 bg-slate-50/50">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#3B82F6] to-[#8B5CF6] flex items-center justify-center text-white font-semibold text-sm shadow-sm select-none">
+            AC
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-text-primary truncate">Alex Carter</p>
+            <p className="text-xs text-text-secondary truncate">Manajer Toko</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-slate-100 hover:text-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+        >
+          <SettingsIcon className="w-5 h-5 flex-shrink-0" />
+          <span>Pengaturan Sistem</span>
+        </button>
+      </div>
     </nav>
   );
 }
