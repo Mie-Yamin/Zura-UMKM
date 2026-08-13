@@ -79,7 +79,7 @@ export default function AntiGravityLandingPage() {
   };
 
   return (
-    <div className={`fixed inset-0 w-screen h-screen ${activeSection === 'home' ? 'bg-[#575F1E]' : activeSection === 'sales' ? 'bg-[#1E405F]' : 'bg-[#5F1E1E]'} text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500`}>
+    <div className={`fixed inset-0 w-screen h-screen ${activeSection === 'home' ? 'bg-[#5F1E1E]' : activeSection === 'sales' ? 'bg-[#5F1E1E]' : 'bg-[#5F1E1E]'} text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500`}>
 
       {/* Hide Scrollbar style */}
       <style>{`
@@ -114,7 +114,7 @@ export default function AntiGravityLandingPage() {
       </div>
 
       {/* Navbar - FIXED OVERLAY */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:p-6 md:px-12 bg-gradient-to-b ${activeSection === 'home' ? 'from-[#575F1E]/80' : activeSection === 'sales' ? 'from-[#1E405F]/80' : 'from-[#5F1E1E]/80'} to-transparent backdrop-blur-[2px] transition-colors duration-500`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:p-6 md:px-12 bg-gradient-to-b ${activeSection === 'home' ? 'from-[#5F1E1Ev]/80' : activeSection === 'sales' ? 'from-[#5F1E1E]/80' : 'from-[#5F1E1E]/80'} to-transparent backdrop-blur-[2px] transition-colors duration-500`}>
         <div className="flex items-center space-x-2">
           <img
             src="/logo.png"
@@ -194,7 +194,7 @@ export default function AntiGravityLandingPage() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className={`absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 ${activeSection === 'home' ? 'bg-[#575F1E]' : activeSection === 'sales' ? 'bg-[#1E405F]' : 'bg-[#5F1E1E]'} border border-white/20`}>
+          <div className={`absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 ${activeSection === 'home' ? 'bg-[#5F1E1E]' : activeSection === 'sales' ? 'bg-[#5F1E1E]' : 'bg-[#5F1E1E]'} border border-white/20`}>
             {(['home', 'sales', 'inventory'] as const).map((section) => (
               <button
                 key={section}
@@ -534,7 +534,7 @@ export default function AntiGravityLandingPage() {
       </div>
 
       {/* Carousel Dots - FIXED OVERLAY */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center items-center space-x-1 py-2 md:py-3 bg-gradient-to-t ${activeSection === 'home' ? 'from-[#575F1E]/60' : activeSection === 'sales' ? 'from-[#1E405F]/60' : 'from-[#5F1E1E]/60'} to-transparent transition-colors duration-500`}>
+      <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center items-center space-x-1 py-2 md:py-3 bg-gradient-to-t ${activeSection === 'home' ? 'from-[#5F1E1E]/60' : activeSection === 'sales' ? 'from-[#5F1E1E]/60' : 'from-[#5F1E1E]/60'} to-transparent transition-colors duration-500`}>
         <button
           type="button"
           onClick={() => scrollToSection('home')}
