@@ -547,50 +547,79 @@ export default function AntiGravityLandingPage() {
 
       </div>
 
-      {/* Carousel Dots - FIXED OVERLAY */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 flex justify-center items-center space-x-1 py-2 md:py-3 bg-gradient-to-t ${activeSection === 'home' ? 'from-[#5F1E1E]/60' : activeSection === 'sales' ? 'from-[#5F1E1E]/60' : 'from-[#5F1E1E]/60'} to-transparent transition-colors duration-500`}>
+      {/* Carousel Dots - DENGAN JARAK PINGGIR PAS */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-end items-center space-x-2 md:space-x-3 py-4 md:py-6 px-8 md:px-16 lg:px-24 max-w-7xl mx-auto bg-gradient-to-t from-[#5F1E1E]/80 to-transparent transition-colors duration-500">
+
+        {/* Dot 1: Home */}
         <button
           type="button"
           onClick={() => scrollToSection('home')}
-          className="p-2 md:p-3 focus:outline-none"
+          className="p-1.5 focus:outline-none"
         >
-          <div className={`w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full transition-all duration-300 ${activeSection === 'home' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <div
+            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'home'
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
+              }`}
+          />
           <span className="sr-only">Home Section</span>
         </button>
+
+        {/* Dot 2: Sales */}
         <button
           type="button"
           onClick={() => scrollToSection('sales')}
-          className="p-2 md:p-3 focus:outline-none"
+          className="p-1.5 focus:outline-none"
         >
-          <div className={`w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full transition-all duration-300 ${activeSection === 'sales' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <div
+            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'sales'
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
+              }`}
+          />
           <span className="sr-only">Sales Section</span>
         </button>
+
+        {/* Dot 3: Inventory */}
         <button
           type="button"
           onClick={() => scrollToSection('inventory')}
-          className="p-2 md:p-3 focus:outline-none"
+          className="p-1.5 focus:outline-none"
         >
-          <div className={`w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full transition-all duration-300 ${activeSection === 'inventory' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <div
+            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'inventory'
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
+              }`}
+          />
           <span className="sr-only">Inventory Page</span>
         </button>
+
+        {/* Dot 4: Customers */}
         <button
           type="button"
           onClick={() => navigate('/customers')}
-          className="p-2 md:p-3 focus:outline-none"
+          className="p-1.5 focus:outline-none"
         >
-          <div className={`w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full transition-all duration-300 ${activeSection === 'customers' ? 'bg-white scale-110 shadow-md' : 'bg-black/50 hover:bg-black/80'}`} />
+          <div
+            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'customers'
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
+              }`}
+          />
           <span className="sr-only">Customers Page</span>
         </button>
+
+        {/* Dot 5: Dashboard */}
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="p-2 md:p-3 focus:outline-none"
+          className="p-1.5 focus:outline-none"
         >
-          <div className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full bg-black/50 hover:bg-black/80 transition-all" />
+          <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-[#E5C88B] hover:opacity-80 transition-all duration-300" />
           <span className="sr-only">Dashboard Page</span>
         </button>
       </div>
-
     </div>
   );
 }
