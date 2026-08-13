@@ -5,7 +5,8 @@ import { Play, TrendingDown, Users, Menu, X } from 'lucide-react';
 export default function AntiGravityLandingPage() {
   const navigate = useNavigate();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const [activeSection, setActiveSection] = React.useState<'home' | 'sales' | 'inventory' | 'customers'>('home');
+  const [activeSection, setActiveSection] = React.useState<'home' | 'menu'>('home');
+  const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const products = [
@@ -41,45 +42,31 @@ export default function AntiGravityLandingPage() {
     };
   }, []);
 
-  // Update active section state based on scroll position
+  // Update active slide index based on scroll position
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
     const width = container.clientWidth;
     const scrollLeft = container.scrollLeft;
     const index = Math.round(scrollLeft / width);
-
-    if (index === 0) {
-      setActiveSection('home');
-    } else if (index === 1) {
-      setActiveSection('sales');
-    } else if (index === 2) {
-      setActiveSection('inventory');
-    } else if (index === 3) {
-      setActiveSection('customers');
-    }
+    setCurrentSlideIndex(index);
   };
 
-  // Scroll smoothly to a section
-  const scrollToSection = (id: string) => {
+  // Scroll smoothly to a slide index (0 - 5)
+  const scrollToSlide = (index: number) => {
     const container = scrollContainerRef.current;
     if (container) {
       const width = container.clientWidth;
-      let index = 0;
-      if (id === 'home') index = 0;
-      else if (id === 'sales') index = 1;
-      else if (id === 'inventory') index = 2;
-      else if (id === 'customers') index = 3;
-
       container.scrollTo({
         left: index * width,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     }
+    setActiveSection('home');
     setMobileMenuOpen(false);
   };
 
   return (
-    <div className={`fixed inset-0 w-screen h-screen ${activeSection === 'home' ? 'bg-[#5F1E1E]' : activeSection === 'sales' ? 'bg-[#5F1E1E]' : 'bg-[#5F1E1E]'} text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500`}>
+    <div className="fixed inset-0 w-screen h-screen bg-[#5F1E1E] text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500">
 
       {/* Hide Scrollbar style */}
       <style>{`
@@ -92,7 +79,7 @@ export default function AntiGravityLandingPage() {
         }
       `}</style>
 
-      {/* Background Ornament - FIXED, responsive sizes */}
+      {/* Background Ornament - FIXED */}
       <div
         className="absolute top-0 left-0 w-40 h-40 md:w-72 md:h-72 bg-contain bg-no-repeat opacity-60 md:opacity-80 pointer-events-none -translate-x-6 -translate-y-6 md:-translate-x-10 md:-translate-y-10 z-0"
         style={{ backgroundImage: `url('/ukiran.png')` }}
@@ -114,81 +101,55 @@ export default function AntiGravityLandingPage() {
       </div>
 
       {/* Navbar - FIXED OVERLAY */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:p-6 md:px-12 bg-gradient-to-b ${activeSection === 'home' ? 'from-[#5F1E1Ev]/80' : activeSection === 'sales' ? 'from-[#5F1E1E]/80' : 'from-[#5F1E1E]/80'} to-transparent backdrop-blur-[2px] transition-colors duration-500`}>
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:py-4 md:px-12 bg-gradient-to-b from-[#5F1E1E]/90 to-transparent backdrop-blur-[2px] transition-colors duration-500">
+
+        {/* Logo */}
         <div className="flex items-center space-x-2">
           <img
             src="/logo.png"
             alt="Zura Logo"
-            onClick={() => scrollToSection('home')}
+            onClick={() => scrollToSlide(0)}
             className="cursor-pointer w-10 h-10 md:w-16 md:h-16 object-contain hover:scale-105 transition-transform"
           />
         </div>
 
-        {/* Desktop nav links */}
-        <div className="hidden md:flex space-x-6 lg:space-x-8 text-sm font-bold font-dmsans items-center">
+        {/* Desktop Nav Links (Home & Menu) */}
+        <div className="hidden md:flex space-x-6 lg:space-x-8 text-sm font-medium font-dmsans items-center">
           <button
-            onClick={() => scrollToSection('home')}
+            onClick={() => scrollToSlide(0)}
             className={
               activeSection === 'home'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium"
             }
           >
             Home
           </button>
 
           <button
-            onClick={() => scrollToSection('sales')}
+            onClick={() => {
+              setActiveSection('menu');
+              navigate('/menu');
+            }}
             className={
-              activeSection === 'sales'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
+              activeSection === 'menu'
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium"
             }
           >
-            Sales
-          </button>
-
-          <button
-            onClick={() => scrollToSection('inventory')}
-            className={
-              activeSection === 'inventory'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
-            }
-          >
-            Inventory
-          </button>
-
-          <button
-            onClick={() => navigate('/customers')}
-            className={
-              activeSection === 'customers'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
-            }
-          >
-            Customers
+            Menu
           </button>
         </div>
 
-        {/* Right side: LOGIN + Hamburger */}
-        <div className="flex items-center space-x-2 md:space-x-0">
+        {/* Right Side: LOGIN + Hamburger */}
+        <div className="flex items-center space-x-2 md:space-x-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="relative flex items-center justify-center hover:scale-105 active:scale-95 transition-transform duration-200 bg-transparent p-0 border-none outline-none group"
+            className="border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider"
           >
-            <img
-              src="/borderLogin.png"
-              alt="Login Frame"
-              className="w-28 md:w-36 h-auto object-contain pointer-events-none"
-            />
-
-            <span className="absolute text-[#E8D3A7] text-xs md:text-sm font-bold font-dmsans tracking-wider">
-              LOGIN
-            </span>
+            LOGIN
           </button>
 
-          {/* Hamburger button - mobile only */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition"
@@ -202,41 +163,41 @@ export default function AntiGravityLandingPage() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className={`absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 ${activeSection === 'home' ? 'bg-[#5F1E1E]' : activeSection === 'sales' ? 'bg-[#5F1E1E]' : 'bg-[#5F1E1E]'} border border-white/20`}>
-            {(['home', 'sales', 'inventory'] as const).map((section) => (
-              <button
-                key={section}
-                onClick={() => scrollToSection(section)}
-                className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all ${activeSection === section ? 'bg-white text-black font-semibold' : 'text-white hover:bg-white/10'}`}
-              >
-                {section.charAt(0).toUpperCase() + section.slice(1)}
-              </button>
-            ))}
+          <div className="absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 bg-[#5F1E1E] border border-[#E8D3A7]/30">
             <button
-              onClick={() => { navigate('/customers'); setMobileMenuOpen(false); }}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all ${activeSection === 'customers' ? 'bg-white text-black font-semibold' : 'text-white hover:bg-white/10'}`}
+              onClick={() => scrollToSlide(0)}
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans ${activeSection === 'home' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+                }`}
             >
-              Customers
+              Home
+            </button>
+            <button
+              onClick={() => {
+                setActiveSection('menu');
+                navigate('/menu');
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans ${activeSection === 'menu' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+                }`}
+            >
+              Menu
             </button>
           </div>
         </div>
       )}
 
-      {/* Horizontal Scroll Container */}
+      {/* Horizontal Scroll Container (6 SECTIONS) */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
         className="w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth no-scrollbar z-10"
       >
-
-        {/* SECTION 1: HOME */}
+        {/* SECTION 1: HOME (UTUH TIDAK DIUBAH) */}
         <section
           id="home"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
-
-            {/* Left Column */}
             <div className="space-y-3 md:space-y-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
                 Kelola Usaha Lebih Mudah,
@@ -245,39 +206,27 @@ export default function AntiGravityLandingPage() {
                   Pantau & Prediksi Secara Real-Time.
                 </span>
               </h1>
-
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
                 Pantau transaksi, stok barang, dan keuntungan usaha kamu
                 dalam satu dashboard terpadu.
               </p>
-
               <div className="flex items-center space-x-3 md:space-x-4 pt-2 md:pt-4">
-                {/* Button Cek Selengkapnya */}
                 <button
                   onClick={() => navigate('/dashboard')}
                   className="bg-[#E8D3A7] hover:bg-[#dec391] text-[#705244] font-bold text-xs md:text-sm px-4 py-2.5 md:px-6 md:py-3 rounded-full transition-all shadow-xl"
                 >
                   Cek Selengkapnya
                 </button>
-
-                {/* Pure Button Gambar Play */}
                 <button
                   onClick={() => navigate('/dashboard')}
                   className="w-9 h-9 md:w-11 md:h-11 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center p-0"
                 >
-                  <img
-                    src="/playButton.png"
-                    alt="Play"
-                    className="w-full h-full object-contain"
-                  />
+                  <img src="/playButton.png" alt="Play" className="w-full h-full object-contain" />
                 </button>
               </div>
             </div>
 
-            {/* Right Column */}
             <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-
-              {/* Top Dashboard Card - STATIC */}
               <div className="absolute top-0 left-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-4 shadow-2xl z-10">
                 <div className="grid grid-cols-3 gap-1.5 md:gap-2 mb-3 md:mb-4">
                   <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center">
@@ -286,14 +235,12 @@ export default function AntiGravityLandingPage() {
                       <TrendingDown className="w-2.5 h-2.5 md:w-3 md:h-3" /> Rp 6.700.000
                     </p>
                   </div>
-
                   <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center">
                     <p className="text-[8px] md:text-[10px] text-gray-300">Transaction</p>
                     <p className="text-[10px] md:text-xs font-bold flex items-center justify-center gap-0.5 md:gap-1">
                       <Users className="w-2.5 h-2.5 md:w-3 md:h-3" /> 2902
                     </p>
                   </div>
-
                   <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center flex flex-col justify-center items-center">
                     <p className="text-[8px] md:text-[10px] text-gray-300">Best Seller</p>
                     <img
@@ -304,11 +251,10 @@ export default function AntiGravityLandingPage() {
                   </div>
                 </div>
 
-                {/* Chart */}
                 <div className="h-20 md:h-32 border-b border-l border-gray-400 relative flex items-end p-1.5 md:p-2">
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 100 50">
                     <path
-                      fill="none; stroke=#22c55e"
+                      fill="none"
                       stroke="#22c55e"
                       strokeWidth="2.5"
                       strokeLinecap="round"
@@ -327,7 +273,6 @@ export default function AntiGravityLandingPage() {
                 </div>
               </div>
 
-              {/* Bottom Product Card - STATIC */}
               <div className="absolute bottom-1 md:bottom-2 right-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl z-20">
                 <h2 className="text-sm md:text-lg font-black text-center mb-2 md:mb-4 tracking-wider">DAFTAR PRODUK</h2>
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
@@ -351,40 +296,31 @@ export default function AntiGravityLandingPage() {
           </div>
         </section>
 
-        {/* SECTION 2: SALES */}
+        {/* SECTION 2: SALES (UTUH TIDAK DIUBAH) */}
         <section
           id="sales"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
-
-            {/* Left Column */}
             <div className="space-y-3 md:space-y-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
                 Kelola Penjualan
                 <br />
                 <span className="text-yellow-300">Lebih Mudah</span>
               </h1>
-
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
                 Catat transaksi, pantau penjualan, dan lihat performa usaha kamu secara real-time.
               </p>
             </div>
 
-            {/* Right Column: Visual Sales Dashboard */}
             <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-
-              {/* Sales Metrics Card - STATIC */}
               <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
-
-                {/* Header Metrics */}
                 <div className="grid grid-cols-2 gap-2 md:gap-4 mb-2 md:mb-4">
                   <div className="bg-neutral-800 text-white p-2 md:p-3 rounded-lg text-center shadow-md">
                     <p className="text-[8px] md:text-[10px] text-gray-300 font-medium">Total Penjualan</p>
                     <p className="text-xs md:text-sm font-black text-emerald-400 mt-0.5 md:mt-1">Rp 24.500.000</p>
                     <span className="text-[8px] md:text-[9px] text-emerald-300 font-semibold block mt-0.5">+12.4% vs last week</span>
                   </div>
-
                   <div className="bg-neutral-800 text-white p-2 md:p-3 rounded-lg text-center shadow-md">
                     <p className="text-[8px] md:text-[10px] text-gray-300 font-medium">Total Transaksi</p>
                     <p className="text-xs md:text-sm font-black text-yellow-400 mt-0.5 md:mt-1">1,240 Transaksi</p>
@@ -392,36 +328,29 @@ export default function AntiGravityLandingPage() {
                   </div>
                 </div>
 
-                {/* Sales Performance Chart (SVG Bar Chart) */}
                 <div className="flex-1 min-h-[80px] md:min-h-[140px] border-b border-l border-gray-300 relative flex items-end justify-around px-2 md:px-4 pt-2 md:pt-4 pb-1 bg-gray-50/50 rounded-lg mb-2 md:mb-4">
-                  {/* Monday */}
                   <div className="flex flex-col items-center w-6 md:w-8">
                     <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-8 md:h-12" />
                     <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Sen</span>
                   </div>
-                  {/* Tuesday */}
                   <div className="flex flex-col items-center w-6 md:w-8">
                     <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-12 md:h-20" />
                     <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Sel</span>
                   </div>
-                  {/* Wednesday */}
                   <div className="flex flex-col items-center w-6 md:w-8">
                     <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-10 md:h-16" />
                     <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Rab</span>
                   </div>
-                  {/* Thursday */}
                   <div className="flex flex-col items-center w-6 md:w-8">
                     <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-16 md:h-28" />
                     <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Kam</span>
                   </div>
-                  {/* Friday */}
                   <div className="flex flex-col items-center w-6 md:w-8">
                     <div className="w-3 md:w-4 bg-emerald-600 rounded-t-sm h-14 md:h-24" />
                     <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Jum</span>
                   </div>
                 </div>
 
-                {/* Recent Transaction Info */}
                 <div className="bg-neutral-800 text-white rounded-lg p-2 md:p-3">
                   <div className="flex justify-between items-center border-b border-neutral-700 pb-1 md:pb-1.5 mb-1 md:mb-1.5">
                     <span className="text-[8px] md:text-[10px] font-black text-amber-400">TRANSAKSI TERBARU</span>
@@ -438,39 +367,30 @@ export default function AntiGravityLandingPage() {
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
         </section>
 
-        {/* SECTION 3: INVENTORY */}
+        {/* SECTION 3: INVENTORY (UTUH TIDAK DIUBAH) */}
         <section
           id="inventory"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
-
-            {/* Left Column */}
             <div className="space-y-3 md:space-y-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
                 Stok Terkontrol
                 <br />
                 <span className="text-yellow-300">Dengan AI</span>
               </h1>
-
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
                 Pantau ketersediaan produk, kelola SKU, dan dapatkan prediksi kebutuhan stok otomatis menggunakan kecerdasan buatan.
               </p>
             </div>
 
-            {/* Right Column: Visual Inventory Dashboard */}
             <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-
-              {/* Inventory Metrics Card - STATIC */}
               <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
-
-                {/* Header Stats */}
                 <div className="flex justify-between items-center mb-2 md:mb-4 border-b border-gray-200 pb-2 md:pb-3">
                   <div>
                     <h3 className="text-xs md:text-sm font-black tracking-wider text-neutral-700">STATUS INVENTORY</h3>
@@ -482,7 +402,6 @@ export default function AntiGravityLandingPage() {
                   </div>
                 </div>
 
-                {/* Product List Table */}
                 <div className="flex-1 overflow-hidden mb-2 md:mb-4">
                   <table className="w-full text-left border-collapse text-[8px] md:text-[10px]">
                     <thead>
@@ -529,7 +448,6 @@ export default function AntiGravityLandingPage() {
                   </table>
                 </div>
 
-                {/* AI Restock Suggestion Alert */}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 md:p-3 text-neutral-800">
                   <div className="flex items-center space-x-1.5 md:space-x-2 mb-0.5 md:mb-1">
                     <span className="text-[8px] md:text-[10px] font-bold text-amber-700">Rekomendasi Restock AI</span>
@@ -539,87 +457,108 @@ export default function AntiGravityLandingPage() {
                     Lakukan pemesanan <strong>Mie Goreng (200 pcs)</strong> sebelum 14 Agustus untuk menghindari kekosongan stok berdasarkan tren akhir pekan.
                   </p>
                 </div>
-
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 4 (TAMBAHAN SLIDE 4) */}
+        <section
+          id="section-4"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
+            <div className="space-y-3 md:space-y-6">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Fitur Unggulan Ke-4
+                <br />
+                <span className="text-yellow-300">Lorem Ipsum Dolor</span>
+              </h1>
+              <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              </p>
+            </div>
+            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
+              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 4</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 5 (TAMBAHAN SLIDE 5) */}
+        <section
+          id="section-5"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
+            <div className="space-y-3 md:space-y-6">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Fitur Unggulan Ke-5
+                <br />
+                <span className="text-yellow-300">Consectetur Adipiscing</span>
+              </h1>
+              <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
+                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+              </p>
+            </div>
+            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
+              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 5</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 6 (TAMBAHAN SLIDE 6) */}
+        <section
+          id="section-6"
+          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
+            <div className="space-y-3 md:space-y-6">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
+                Fitur Unggulan Ke-6
+                <br />
+                <span className="text-yellow-300">Sunt In Culpa Officiis</span>
+              </h1>
+              <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
+                Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.
+              </p>
+            </div>
+            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
+              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 6</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores.
+              </p>
             </div>
           </div>
         </section>
 
       </div>
 
-      {/* Carousel Dots - DENGAN JARAK PINGGIR PAS */}
+      {/* Carousel Dots - 6 SECTIONS DI KANAN BAWAH */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-end items-center space-x-2 md:space-x-3 py-4 md:py-6 px-8 md:px-16 lg:px-24 max-w-7xl mx-auto bg-gradient-to-t from-[#5F1E1E]/80 to-transparent transition-colors duration-500">
-
-        {/* Dot 1: Home */}
-        <button
-          type="button"
-          onClick={() => scrollToSection('home')}
-          className="p-1.5 focus:outline-none"
-        >
-          <div
-            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'home'
-              ? 'bg-[#ECDFC4] scale-110 shadow-md'
-              : 'bg-[#E5C88B] hover:opacity-80'
-              }`}
-          />
-          <span className="sr-only">Home Section</span>
-        </button>
-
-        {/* Dot 2: Sales */}
-        <button
-          type="button"
-          onClick={() => scrollToSection('sales')}
-          className="p-1.5 focus:outline-none"
-        >
-          <div
-            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'sales'
-              ? 'bg-[#ECDFC4] scale-110 shadow-md'
-              : 'bg-[#E5C88B] hover:opacity-80'
-              }`}
-          />
-          <span className="sr-only">Sales Section</span>
-        </button>
-
-        {/* Dot 3: Inventory */}
-        <button
-          type="button"
-          onClick={() => scrollToSection('inventory')}
-          className="p-1.5 focus:outline-none"
-        >
-          <div
-            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'inventory'
-              ? 'bg-[#ECDFC4] scale-110 shadow-md'
-              : 'bg-[#E5C88B] hover:opacity-80'
-              }`}
-          />
-          <span className="sr-only">Inventory Page</span>
-        </button>
-
-        {/* Dot 4: Customers */}
-        <button
-          type="button"
-          onClick={() => navigate('/customers')}
-          className="p-1.5 focus:outline-none"
-        >
-          <div
-            className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'customers'
-              ? 'bg-[#ECDFC4] scale-110 shadow-md'
-              : 'bg-[#E5C88B] hover:opacity-80'
-              }`}
-          />
-          <span className="sr-only">Customers Page</span>
-        </button>
-
-        {/* Dot 5: Dashboard */}
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="p-1.5 focus:outline-none"
-        >
-          <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-[#E5C88B] hover:opacity-80 transition-all duration-300" />
-          <span className="sr-only">Dashboard Page</span>
-        </button>
+        {[0, 1, 2, 3, 4, 5].map((index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => scrollToSlide(index)}
+            className="p-1.5 focus:outline-none"
+          >
+            <div
+              className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${currentSlideIndex === index
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
+                }`}
+            />
+            <span className="sr-only">Slide {index + 1}</span>
+          </button>
+        ))}
       </div>
+
     </div>
   );
 }
