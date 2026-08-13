@@ -125,13 +125,13 @@ export default function AntiGravityLandingPage() {
         </div>
 
         {/* Desktop nav links */}
-        <div className="hidden md:flex space-x-8 text-sm font-medium items-center">
+        <div className="hidden md:flex space-x-6 lg:space-x-8 text-sm font-bold font-dmsans items-center">
           <button
             onClick={() => scrollToSection('home')}
             className={
               activeSection === 'home'
-                ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
-                : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
             }
           >
             Home
@@ -141,8 +141,8 @@ export default function AntiGravityLandingPage() {
             onClick={() => scrollToSection('sales')}
             className={
               activeSection === 'sales'
-                ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
-                : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
             }
           >
             Sales
@@ -152,8 +152,8 @@ export default function AntiGravityLandingPage() {
             onClick={() => scrollToSection('inventory')}
             className={
               activeSection === 'inventory'
-                ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
-                : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
             }
           >
             Inventory
@@ -163,8 +163,8 @@ export default function AntiGravityLandingPage() {
             onClick={() => navigate('/customers')}
             className={
               activeSection === 'customers'
-                ? "bg-white text-black py-[5px] px-[16px] rounded-full transition-all duration-300 font-semibold"
-                : "text-white hover:text-purple-200 py-[5px] px-[16px] rounded-full transition-all duration-300"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300"
             }
           >
             Customers
@@ -558,8 +558,8 @@ export default function AntiGravityLandingPage() {
         >
           <div
             className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'home'
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+              ? 'bg-[#ECDFC4] scale-110 shadow-md'
+              : 'bg-[#E5C88B] hover:opacity-80'
               }`}
           />
           <span className="sr-only">Home Section</span>
@@ -573,8 +573,8 @@ export default function AntiGravityLandingPage() {
         >
           <div
             className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'sales'
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+              ? 'bg-[#ECDFC4] scale-110 shadow-md'
+              : 'bg-[#E5C88B] hover:opacity-80'
               }`}
           />
           <span className="sr-only">Sales Section</span>
@@ -588,8 +588,8 @@ export default function AntiGravityLandingPage() {
         >
           <div
             className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'inventory'
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+              ? 'bg-[#ECDFC4] scale-110 shadow-md'
+              : 'bg-[#E5C88B] hover:opacity-80'
               }`}
           />
           <span className="sr-only">Inventory Page</span>
@@ -603,8 +603,8 @@ export default function AntiGravityLandingPage() {
         >
           <div
             className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${activeSection === 'customers'
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+              ? 'bg-[#ECDFC4] scale-110 shadow-md'
+              : 'bg-[#E5C88B] hover:opacity-80'
               }`}
           />
           <span className="sr-only">Customers Page</span>
