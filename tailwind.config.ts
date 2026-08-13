@@ -4,6 +4,9 @@ const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        dmsans: ['"DM Sans"', 'sans-serif'],
+      },
       colors: {
         'deep-teal': 'var(--color-deep-teal)',
         'neon-green': 'var(--color-neon-green)',

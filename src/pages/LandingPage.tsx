@@ -175,9 +175,17 @@ export default function AntiGravityLandingPage() {
         <div className="flex items-center space-x-2 md:space-x-0">
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-black hover:bg-gray-900 text-white text-xs md:text-sm font-bold px-4 py-2 md:px-8 md:py-2.5 rounded-full transition shadow-lg hover:shadow-purple-900/50"
+            className="relative flex items-center justify-center hover:scale-105 active:scale-95 transition-transform duration-200 bg-transparent p-0 border-none outline-none group"
           >
-            LOGIN
+            <img
+              src="/borderLogin.png"
+              alt="Login Frame"
+              className="w-28 md:w-36 h-auto object-contain pointer-events-none"
+            />
+
+            <span className="absolute text-[#E8D3A7] text-xs md:text-sm font-bold font-dmsans tracking-wider">
+              LOGIN
+            </span>
           </button>
 
           {/* Hamburger button - mobile only */}
@@ -244,18 +252,24 @@ export default function AntiGravityLandingPage() {
               </p>
 
               <div className="flex items-center space-x-3 md:space-x-4 pt-2 md:pt-4">
+                {/* Button Cek Selengkapnya */}
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="bg-black hover:bg-gray-900 text-white font-semibold text-xs md:text-sm px-4 py-2.5 md:px-6 md:py-3 rounded-full transition shadow-xl"
+                  className="bg-[#E8D3A7] hover:bg-[#dec391] text-[#705244] font-bold text-xs md:text-sm px-4 py-2.5 md:px-6 md:py-3 rounded-full transition-all shadow-xl"
                 >
                   Cek Selengkapnya
                 </button>
 
+                {/* Pure Button Gambar Play */}
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="w-9 h-9 md:w-11 md:h-11 bg-black hover:bg-gray-900 rounded-full flex items-center justify-center transition shadow-xl"
+                  className="w-9 h-9 md:w-11 md:h-11 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center p-0"
                 >
-                  <Play className="w-4 h-4 md:w-5 md:h-5 text-white fill-current translate-x-0.5" />
+                  <img
+                    src="/playButton.png"
+                    alt="Play"
+                    className="w-full h-full object-contain"
+                  />
                 </button>
               </div>
             </div>
