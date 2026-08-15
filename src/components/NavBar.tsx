@@ -12,13 +12,13 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   {
     id: 'dashboard',
-    label: 'Dashboard\n(Pemantauan Utama)',
+    label: 'Dashboard',
     path: '/dashboard',
-    image: '/dashboard.svg'
+    image: '/sideBar/dashboard.svg'
   },
   {
     id: 'rekap',
-    label: 'Rekap Penjualan &\nInput Data',
+    label: 'Penjualan',
     path: '/rekap',
     image: '/sideBar/rekapPenjualan.svg'
   },
