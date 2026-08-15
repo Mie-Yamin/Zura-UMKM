@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import LandingPage from './pages/LandingPage';
+import MenuPage from './pages/MenuPage'; // Tambahkan import ini
 import DashboardPage from './pages/DashboardPage';
 import AiInsightsPage from './pages/AiInsightsPage';
 import SalesRecapPage from './pages/SalesRecapPage';
@@ -13,6 +14,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        {/* Tambahkan Route /menu di luar AppShell agar tampil full-screen */}
+        <Route path="/menu" element={<MenuPage />} />
+
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/ai-insights" element={<AiInsightsPage />} />
