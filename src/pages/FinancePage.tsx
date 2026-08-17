@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { getLocalRecaps, getLocalProducts } from '../api/client';
 import {
   LineChart,
@@ -53,7 +53,7 @@ export default function FinancePage() {
       }
     });
 
-    // Base historical financial values (to make the stats represent a real shop)
+    // Base historical financial values
     const baseRevenue = 66500000;
     const baseHpp = 28200000;
     const baseAdminFee = 2450000; // historical admin fees
@@ -112,17 +112,17 @@ export default function FinancePage() {
   // 3. AI Financial Narrative Summary Generator
   const aiNarrativeText = useMemo(() => {
     const profitMargin = ((finances.netProfit / finances.totalRevenue) * 100).toFixed(1);
-    
+
     return `Kesehatan Keuangan SaaS Command Center dinilai Sangat Sehat (A) dengan Laba Bersih aktual ${formatRupiah(finances.netProfit)} dan Margin Laba Bersih ${profitMargin}%. Biaya admin platform rata-rata berkontribusi sebesar 4.2% dari omzet kotor. AI menyarankan optimasi pengunggahan laporan rekap Shopee dan Tokopedia setiap hari Jumat sore untuk menghindari keterlambatan pembukuan kas bulanan.`;
   }, [finances]);
 
   // 4. Excel/PDF Export Trigger
   const handleExport = (type: 'Excel' | 'PDF') => {
     setIsExporting(type);
-    
+
     setTimeout(() => {
       setIsExporting(null);
-      
+
       if (type === 'Excel') {
         const headers = 'Komponen Laporan Finansial,Jumlah (Rupiah)\n';
         const rows = [
@@ -136,7 +136,7 @@ export default function FinancePage() {
           `Total Pengeluaran Buku Kas,${finances.totalExpenses}`,
           `Laba Bersih Riil,${finances.netProfit}`,
         ].join('\n');
-        
+
         const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -146,7 +146,7 @@ export default function FinancePage() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         showToast('Laporan Keuangan Laba/Rugi berhasil diunduh dalam format Excel (CSV)!');
       } else {
         showToast('Laporan Keuangan PDF berhasil dibuat dan dicetak!');
@@ -155,15 +155,13 @@ export default function FinancePage() {
     }, 1800);
   };
 
-
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] p-6 flex flex-col gap-6" aria-label="Laporan Keuangan Laba Rugi">
-      
+    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-6 flex flex-col gap-6 font-dmsans" aria-label="Laporan Keuangan Laba Rugi">
+
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#0F172A] text-white px-4 py-3 rounded-lg shadow-lg border border-slate-700 text-sm gap-2 animate-bounce">
-          <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
+        <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#5F1E1E] text-[#E8D3A7] px-4 py-3 rounded-xl shadow-xl border border-[#B48328] text-sm gap-2 animate-bounce font-bold">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
           {toastMessage}
         </div>
       )}
@@ -172,87 +170,86 @@ export default function FinancePage() {
       {isExporting && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 text-center">
-            <span className="w-10 h-10 border-4 border-[#3B82F6] border-t-transparent rounded-full animate-spin"></span>
+            <span className="w-10 h-10 border-4 border-[#5F1E1E] border-t-transparent rounded-full animate-spin"></span>
             <div className="flex flex-col gap-1">
-              <p className="font-bold text-text-primary text-sm">Menyiapkan Berkas Laporan</p>
-              <p className="text-xs text-text-secondary">Sedang memproses pengeksporan berkas {isExporting}...</p>
+              <p className="font-extrabold text-[#5F1E1E] text-sm">Menyiapkan Berkas Laporan</p>
+              <p className="text-xs text-[#B48328] font-bold">Sedang memproses pengeksporan berkas {isExporting}...</p>
             </div>
           </div>
         </div>
       )}
 
       {/* ─── HEADER FINANSIAL ─── */}
-      <header className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="bg-white p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Laporan Keuangan & Laba Rugi</h1>
-          <p className="text-xs text-text-secondary mt-0.5">Analisis margin operasional laba rugi riil, komisi admin platform marketplace, dan visualisasi arus kas.</p>
+          <h1 className="text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">Laporan Keuangan & Laba Rugi</h1>
+          <p className="text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">Analisis margin operasional laba rugi riil, komisi admin platform marketplace, dan visualisasi arus kas.</p>
         </div>
       </header>
 
-      {/* ─── KARTU METRIK UTAMA (4 Kolom) ─── */}
+      {/* ─── KARTU METRIK UTAMA ─── */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Ringkasan Finansial">
-        
+
         {/* Pemasukan Kotor */}
         <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Pemasukan Kotor (Bruto)</p>
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">Pemasukan Kotor (Bruto)</p>
           <div className="mt-2 flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-text-primary tracking-tight">{formatRupiah(finances.totalRevenue)}</h3>
-            <span className="bg-emerald-50 text-[#10B981] text-[10px] font-bold px-2 py-0.5 rounded">Omzet</span>
+            <h3 className="text-2xl font-bold text-[#B48328] tracking-tight">{formatRupiah(finances.totalRevenue)}</h3>
+            <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[10px] font-bold px-2 py-0.5 rounded">Omzet</span>
           </div>
         </article>
 
         {/* Biaya Admin Platform */}
         <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Biaya Admin Platform</p>
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">Biaya Admin Platform</p>
           <div className="mt-2 flex items-baseline justify-between">
             <h3 className="text-2xl font-bold text-[#EF4444] tracking-tight">-{formatRupiah(finances.totalAdminFee)}</h3>
-            <span className="bg-red-50 text-[#EF4444] text-[10px] font-bold px-2 py-0.5 rounded">Marketplace Cuts</span>
+            <span className="bg-red-50 text-[#EF4444] text-[10px] font-bold px-2 py-0.5 rounded">Fee Cuts</span>
           </div>
         </article>
 
         {/* Beban Operasional */}
         <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Beban Operasional</p>
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">Beban Operasional</p>
           <div className="mt-2 flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-text-primary tracking-tight">{formatRupiah(finances.operational)}</h3>
-            <span className="bg-slate-50 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded">Sewa + Gaji</span>
+            <h3 className="text-2xl font-bold text-[#5F1E1E] tracking-tight">{formatRupiah(finances.operational)}</h3>
+            <span className="bg-[#E8D3A7]/50 text-[#5F1E1E] text-[10px] font-semibold px-2 py-0.5 rounded">Sewa + Gaji</span>
           </div>
         </article>
 
         {/* Laba Bersih Riil */}
         <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Laba Bersih Riil</p>
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">Laba Bersih Riil</p>
           <div className="mt-2 flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-[#3B82F6] tracking-tight">{formatRupiah(finances.netProfit)}</h3>
-            <span className="bg-blue-50 text-[#3B82F6] text-[10px] font-bold px-2 py-0.5 rounded">Estimasi Net</span>
+            <h3 className="text-2xl font-bold text-[#B48328] tracking-tight">{formatRupiah(finances.netProfit)}</h3>
+            <span className="bg-[#E5C88B] text-[#5F1E1E] text-[10px] font-bold px-2 py-0.5 rounded border border-[#5F1E1E]/20">Estimasi Net</span>
           </div>
         </article>
 
       </section>
 
-      {/* ─── TENGAH: GRAFIK TREN KAS ARUS ─── */}
+      {/* ─── TENGAH: GRAFIK TREN ARUS KAS & RANGKUMAN AI ─── */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Kiri: Grafik Tren Arus Kas */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-base font-bold text-text-primary">Tren Arus Kas Bulanan (Cashflow)</h2>
-              <p className="text-xs text-text-secondary mt-0.5">Komparasi Pemasukan kotor vs Pengeluaran total bulanan.</p>
+              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Tren Arus Kas Bulanan (Cashflow)</h2>
+              <p className="text-xs font-medium text-[#B48328]">Komparasi Pemasukan kotor vs Pengeluaran total bulanan.</p>
             </div>
 
             {/* Period Selector */}
-            <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+            <div className="flex bg-[#E8D3A7]/30 border-2 border-[#B48328] rounded-xl p-0.5">
               {(['3_bulan', '6_bulan', '1_tahun'] as const).map((period) => (
                 <button
                   key={period}
                   type="button"
                   onClick={() => setSelectedPeriod(period)}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                    selectedPeriod === period
-                      ? 'bg-white text-text-primary shadow-sm'
-                      : 'text-text-secondary hover:text-text-primary'
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${selectedPeriod === period
+                    ? 'bg-[#5F1E1E] text-[#E8D3A7] shadow-sm'
+                    : 'text-[#5F1E1E] hover:bg-[#E8D3A7]/50'
+                    }`}
                 >
                   {period === '3_bulan' ? '3 Bulan' : period === '6_bulan' ? '6 Bulan' : '1 Tahun'}
                 </button>
@@ -264,29 +261,29 @@ export default function FinancePage() {
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="bulan" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis dataKey="bulan" tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
+                <YAxis tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', color: '#FFF', borderRadius: '8px', border: 'none', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: '#5F1E1E', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '11px' }}
                   formatter={(value: any) => [formatRupiah(value), '']}
                 />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                 <Line
                   type="monotone"
                   dataKey="Pemasukan"
                   name="Pemasukan Kotor (Bruto)"
-                  stroke="#3B82F6"
+                  stroke="#B48328"
                   strokeWidth={2.5}
-                  dot={{ r: 3 }}
+                  dot={{ r: 4, fill: '#B48328' }}
                 />
                 <Line
                   type="monotone"
                   dataKey="Pengeluaran"
                   name="Pengeluaran Total (HPP + Ops + Fee)"
-                  stroke="#EF4444"
+                  stroke="#5F1E1E"
                   strokeWidth={2.5}
-                  dot={{ r: 3 }}
+                  dot={{ r: 4, fill: '#5F1E1E' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -294,22 +291,22 @@ export default function FinancePage() {
         </div>
 
         {/* Kanan: AI Summary Narrative */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
           <div>
-            <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]"></span>
+            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
               Rangkuman Finansial AI
             </h2>
-            <p className="text-xs text-text-secondary mt-0.5">Analisis kesehatan operasional dari asisten kecerdasan buatan.</p>
+            <p className="text-xs font-medium text-[#B48328]">Analisis kesehatan operasional dari asisten kecerdasan buatan.</p>
           </div>
 
-          <div className="bg-[#8B5CF6]/5 border border-[#8B5CF6]/20 rounded-xl p-5 flex flex-col gap-3">
-            <p className="text-xs text-text-secondary leading-relaxed">
+          <div className="bg-[#E8D3A7]/30 border border-[#B48328]/30 rounded-2xl p-5 flex flex-col gap-3">
+            <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
               {aiNarrativeText}
             </p>
-            <div className="border-t border-slate-200/50 pt-3 flex justify-between text-xs font-bold text-[#8B5CF6]">
+            <div className="border-t border-[#B48328]/30 pt-3 flex justify-between text-xs font-extrabold text-[#5F1E1E]">
               <span>Rasio Net Profit Margin:</span>
-              <span>{((finances.netProfit / finances.totalRevenue) * 100).toFixed(1)}%</span>
+              <span className="text-[#B48328]">{((finances.netProfit / finances.totalRevenue) * 100).toFixed(1)}%</span>
             </div>
           </div>
         </div>
@@ -317,23 +314,23 @@ export default function FinancePage() {
       </section>
 
       {/* ─── BAWAH: RINCIAN LABA RUGI & EKSPOR ─── */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
-        
+      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
+
         {/* Table Header with Active Exports */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <h2 className="text-base font-bold text-text-primary">Laporan Rincian Laba / Rugi Omnichannel</h2>
-            <p className="text-xs text-text-secondary mt-0.5">Komponen rincian pendapatan kotor, pengeluaran, HPP, komisi platform, dan keuntungan bersih.</p>
+            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Laporan Rincian Laba / Rugi Omnichannel</h2>
+            <p className="text-xs font-medium text-[#B48328]">Komponen rincian pendapatan kotor, pengeluaran, HPP, komisi platform, dan keuntungan bersih.</p>
           </div>
 
           {/* Export buttons */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => handleExport('Excel')}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-text-secondary hover:text-text-primary font-semibold px-3.5 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1"
+              className="bg-white border-2 border-[#B48328] hover:bg-[#E8D3A7]/20 text-[#5F1E1E] font-bold px-3.5 py-2 rounded-xl text-xs transition-colors flex items-center gap-1.5"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5 stroke-[#5F1E1E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               Ekspor Excel
@@ -341,7 +338,7 @@ export default function FinancePage() {
             <button
               type="button"
               onClick={() => handleExport('PDF')}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-text-secondary hover:text-text-primary font-semibold px-3.5 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1"
+              className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -351,89 +348,89 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* Laba Rugi Table */}
+        {/* Laba Rugi Table*/}
         <div className="max-w-xl mx-auto w-full">
-          <table className="w-full text-left text-xs border-collapse font-medium text-text-primary" role="table">
+          <table className="w-full text-left text-xs border-collapse font-bold text-[#5F1E1E]" role="table">
             <tbody className="divide-y divide-slate-100">
-              
-              {/* Pendapatan */}
+
+              {/* 1. Pendapatan */}
               <tr>
-                <td className="py-3 font-bold text-sm text-[#3B82F6]">1. Pendapatan Penjualan (Bruto)</td>
-                <td className="py-3 text-right font-bold text-sm text-[#3B82F6]">{formatRupiah(finances.totalRevenue)}</td>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">1. Pendapatan Penjualan (Bruto)</td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">{formatRupiah(finances.totalRevenue)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Pendapatan dari Laporan Impor Rekap</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(finances.totalRevenue - 66500000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Pendapatan dari Laporan Impor Rekap</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(finances.totalRevenue - 66500000)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Pendapatan Pokok Historis (Omnichannel)</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(66500000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Pendapatan Pokok Historis (Omnichannel)</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(66500000)}</td>
               </tr>
 
-              {/* HPP */}
+              {/* 2. HPP */}
               <tr>
-                <td className="py-3 font-bold text-sm text-[#EF4444]">2. Harga Pokok Penjualan (HPP)</td>
-                <td className="py-3 text-right font-bold text-sm text-[#EF4444]">{formatRupiah(finances.totalHpp)}</td>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">2. Harga Pokok Penjualan (HPP)</td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">{formatRupiah(finances.totalHpp)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">HPP Terjual dari Rekap Terunggah</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(finances.totalHpp - 28200000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">HPP Terjual dari Rekap Terunggah</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(finances.totalHpp - 28200000)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">HPP Persediaan Terjual Historis</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(28200000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">HPP Persediaan Terjual Historis</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(28200000)}</td>
               </tr>
 
-              {/* Biaya Admin Platform */}
+              {/* 3. Biaya Admin Platform */}
               <tr>
-                <td className="py-3 font-bold text-sm text-[#EF4444]">3. Komisi & Biaya Admin Platform Marketplace</td>
-                <td className="py-3 text-right font-bold text-sm text-[#EF4444]">{formatRupiah(finances.totalAdminFee)}</td>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">3. Komisi & Biaya Admin Platform Marketplace</td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">{formatRupiah(finances.totalAdminFee)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Potongan Admin Rekap Terunggah (4%-6%)</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(finances.totalAdminFee - 2450000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Potongan Admin Rekap Terunggah (4%-6%)</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(finances.totalAdminFee - 2450000)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Potongan Admin Historis</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(2450000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Potongan Admin Historis</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(2450000)}</td>
               </tr>
 
               {/* Laba Kotor */}
-              <tr className="bg-slate-50">
-                <td className="py-3 font-bold pl-3">LABA KOTOR (Pendapatan - HPP - Admin Platform)</td>
-                <td className="py-3 text-right font-black pr-3">{formatRupiah(finances.totalRevenue - finances.totalHpp - finances.totalAdminFee)}</td>
+              <tr className="bg-[#E8D3A7]/30">
+                <td className="py-3 font-black pl-3 text-[#5F1E1E]">LABA KOTOR (Pendapatan - HPP - Admin Platform)</td>
+                <td className="py-3 text-right font-black pr-3 text-[#5F1E1E]">{formatRupiah(finances.totalRevenue - finances.totalHpp - finances.totalAdminFee)}</td>
               </tr>
 
-              {/* Beban Operasional */}
+              {/* 4. Beban Operasional */}
               <tr>
-                <td className="py-3 font-bold text-sm text-[#EF4444]">4. Beban Operasional Bulanan</td>
-                <td className="py-3 text-right font-bold text-sm text-[#EF4444]">{formatRupiah(finances.operational)}</td>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">4. Beban Operasional Bulanan</td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">{formatRupiah(finances.operational)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Beban Sewa Toko Utama & Gudang Pusat</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(1000000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Beban Sewa Toko Utama & Gudang Pusat</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(1000000)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Beban Gaji Karyawan Toko</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(1500000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Beban Gaji Karyawan Toko</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(1500000)}</td>
               </tr>
-              <tr className="text-text-secondary">
-                <td className="py-2.5 pl-6">Tagihan Utilitas Listrik & Air Gudang</td>
-                <td className="py-2.5 text-right font-mono">{formatRupiah(700000)}</td>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Tagihan Utilitas Listrik & Air Gudang</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">{formatRupiah(700000)}</td>
               </tr>
 
-              {/* Laba Bersih */}
-              <tr className="bg-[#3B82F6]/5 border-t-2 border-slate-200">
-                <td className="py-3.5 font-extrabold text-sm pl-3 text-[#3B82F6]">LABA BERSIH RIIL (Net Profit)</td>
-                <td className="py-3.5 text-right font-black text-sm pr-3 text-[#3B82F6]">{formatRupiah(finances.netProfit)}</td>
+              {/* Laba Bersih Riil (Net Profit) */}
+              <tr className="bg-[#5F1E1E] text-[#E8D3A7] border-t-2 border-[#B48328]">
+                <td className="py-3.5 font-extrabold text-sm pl-3">LABA BERSIH RIIL (Net Profit)</td>
+                <td className="py-3.5 text-right font-black text-sm pr-3 text-[#E5C88B]">{formatRupiah(finances.netProfit)}</td>
               </tr>
 
             </tbody>
           </table>
         </div>
 
-      </section>
+      </section >
 
-    </div>
+    </div >
   );
 }
