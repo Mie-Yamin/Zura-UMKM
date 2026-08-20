@@ -50,14 +50,25 @@ export default function LoginPage() {
 
     const handleForgotPassword = async () => {
         if (!email) {
-            alert('Silakan masukkan email Anda di kolom email terlebih dahulu.');
+            setErrorMsg('Silakan isi kolom email terlebih dahulu.');
             return;
         }
+
         try {
             await sendPasswordResetEmail(auth, email);
-            alert(`Link reset password telah dikirim ke ${email}`);
+            alert(`Link reset password telah dikirim ke ${email}.\n\nJika tidak ada di Kotak Masuk, silakan cek folder Spam/Junk.`);
         } catch (err: any) {
-            alert('Gagal mengirim email reset password. Pastikan email benar.');
+            console.error("Reset Password Error:", err.code, err.message);
+
+            if (err.code === 'auth/too-many-requests') {
+                alert('Terlalu banyak permintaan reset password. Tunggu beberapa menit sebelum mencoba lagi.');
+            } else if (err.code === 'auth/user-not-found') {
+                alert('Email ini belum terdaftar di aplikasi.');
+            } else if (err.code === 'auth/invalid-email') {
+                alert('Format email tidak valid.');
+            } else {
+                alert(`Gagal mengirim email: ${err.message}`);
+            }
         }
     };
 
