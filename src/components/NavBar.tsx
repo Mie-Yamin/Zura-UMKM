@@ -1,4 +1,6 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
 export interface NavItem {
   id: string;
@@ -7,38 +9,37 @@ export interface NavItem {
   image: string;
 }
 
-// ─── Nav Items List ──────────────────────────────────────────────────────────
 
 export const NAV_ITEMS: NavItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
-    path: "/dashboard",
-    image: "/sideBar/dashboard.svg",
+    id: 'dashboard',
+    label: 'Dashboard',
+    path: '/dashboard',
+    image: '/sideBar/dashboard.svg'
   },
   {
-    id: "rekap",
-    label: "Penjualan",
-    path: "/rekap",
-    image: "/sideBar/rekapPenjualan.svg",
+    id: 'rekap',
+    label: 'Penjualan',
+    path: '/rekap',
+    image: '/sideBar/rekapPenjualan.svg'
   },
   {
-    id: "inventory",
-    label: "Manajemen Stok\nPusat",
-    path: "/inventory",
-    image: "/sideBar/manajemenStok.svg",
+    id: 'inventory',
+    label: 'Manajemen Stok\nPusat',
+    path: '/inventory',
+    image: '/sideBar/manajemenStok.svg'
   },
   {
-    id: "finance",
-    label: "Laporan Keuangan &\nLaba Rugi",
-    path: "/finance",
-    image: "/sideBar/laporanKeuangan.svg",
+    id: 'finance',
+    label: 'Laporan Keuangan &\nLaba Rugi',
+    path: '/finance',
+    image: '/sideBar/laporanKeuangan.svg'
   },
   {
-    id: "ai-insights",
-    label: "AI Insight Hub",
-    path: "/ai-insights",
-    image: "/sideBar/aiInsight.svg",
+    id: 'ai-insights',
+    label: 'AI Insight Hub',
+    path: '/ai-insights',
+    image: '/sideBar/aiInsight.svg'
   },
 ];
 
@@ -47,19 +48,23 @@ export const NAV_ITEMS: NavItem[] = [
 export default function NavBar() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Gagal keluar dari sesi:', error);
+    }
   };
 
   return (
     <nav
       role="navigation"
       aria-label="Main navigation"
-      className="flex flex-col w-72 h-screen bg-[#5F1E1E] text-white flex-shrink-0 select-none justify-between"
+      className="flex flex-col w-64 h-screen bg-[#5F1E1E] text-white flex-shrink-0 select-none justify-between"
     >
-      {/* Bagian Atas: Logo & Menu List (Mengisi ruang sisa & bisa di-scroll) */}
+      {/* Bagian Atas: Logo & Menu List */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Header Logo Zura */}
         <div className="flex items-center justify-center py-5 px-4 border-b border-white/20">
           <img
             src="/logo.png"
@@ -68,20 +73,19 @@ export default function NavBar() {
           />
         </div>
 
-        {/* Navigasi Menu Sidebar */}
         <ul className="flex flex-col gap-3 px-3 py-6">
           {NAV_ITEMS.map((item) => (
             <li key={item.id}>
               <NavLink
                 to={item.path}
-                end={item.path === "/dashboard"}
+                end={item.path === '/dashboard'}
                 className={({ isActive }) =>
                   [
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 leading-snug",
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 leading-snug',
                     isActive
-                      ? "border-2 border-[#E8D3A7] text-[#E8D3A7] bg-transparent font-semibold shadow-sm"
-                      : "text-white/80 border border-transparent hover:text-[#E8D3A7]",
-                  ].join(" ")
+                      ? 'border-2 border-[#E8D3A7] text-[#E8D3A7] bg-transparent font-semibold shadow-sm'
+                      : 'text-white/80 border border-transparent hover:text-[#E8D3A7]',
+                  ].join(' ')
                 }
               >
                 <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
@@ -101,12 +105,12 @@ export default function NavBar() {
         </ul>
       </div>
 
-      {/* Bagian Bawah: Tombol Logout (Terkunci di Bawah) */}
+      {/* Bagian Bawah: Tombol Logout */}
       <div className="p-3 border-t border-white/20 bg-[#5F1E1E] flex-shrink-0">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold text-white/90 hover:text-[#E8D3A7] hover:bg-white/10 transition-all focus:outline-none"
+          className="flex w-full items-center gap-3 px-3 py-3 rounded-xl text-xs font-semibold text-white/90 hover:text-[#E8D3A7] hover:bg-white/10 transition-all focus:outline-none"
         >
           <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
             <img

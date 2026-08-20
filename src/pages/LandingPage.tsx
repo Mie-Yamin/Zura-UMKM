@@ -144,7 +144,7 @@ export default function AntiGravityLandingPage() {
         {/* Right Side: LOGIN + Hamburger */}
         <div className="flex items-center space-x-2 md:space-x-4">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/LoginPage')}
             className="border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider"
           >
             LOGIN
