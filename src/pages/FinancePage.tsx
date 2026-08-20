@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getLocalRecaps, getLocalProducts } from '../api/client';
+import { exportToExcel, exportToPdfPrint } from '../utils/exportHelpers';
 import {
   LineChart,
   Line,
@@ -124,35 +125,25 @@ export default function FinancePage() {
       setIsExporting(null);
 
       if (type === 'Excel') {
-        const headers = 'Komponen Laporan Finansial,Jumlah (Rupiah)\n';
+        const headers = ['Komponen Laporan Finansial', 'Nominal (Rupiah)'];
         const rows = [
-          `Pemasukan Kotor (Omzet),${finances.totalRevenue}`,
-          `Harga Pokok Penjualan (HPP),${finances.totalHpp}`,
-          `Biaya Admin Platform Marketplace,${finances.totalAdminFee}`,
-          `Laba Kotor,${finances.totalRevenue - finances.totalHpp - finances.totalAdminFee}`,
-          `Beban Sewa Toko,${finances.sewa}`,
-          `Beban Gaji Karyawan,${finances.gaji}`,
-          `Beban Listrik & Air,${finances.listrik}`,
-          `Total Pengeluaran Buku Kas,${finances.totalExpenses}`,
-          `Laba Bersih Riil,${finances.netProfit}`,
-        ].join('\n');
+          ['1. Pendapatan Penjualan (Bruto)', finances.totalRevenue],
+          ['   - Pendapatan Impor Rekap', finances.totalRevenue - 66500000],
+          ['   - Pendapatan Pokok Historis', 66500000],
+          ['2. Harga Pokok Penjualan (HPP)', -finances.totalHpp],
+          ['3. Biaya Admin Platform Marketplace', -finances.totalAdminFee],
+          ['LABA KOTOR', finances.totalRevenue - finances.totalHpp - finances.totalAdminFee],
+          ['4. Beban Operasional Bulanan', -finances.operational],
+          ['LABA BERSIH RIIL (NET PROFIT)', finances.netProfit],
+        ];
 
-        const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `laporan_keuangan_saas_zura.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        showToast('Laporan Keuangan Laba/Rugi berhasil diunduh dalam format Excel (CSV)!');
+        exportToExcel('Laporan_Laba_Rugi_Zura', 'Laba Rugi', headers, rows);
+        showToast('Laporan Keuangan diekspor ke Excel (.xlsx)!');
       } else {
-        showToast('Laporan Keuangan PDF berhasil dibuat dan dicetak!');
-        window.print();
+        exportToPdfPrint('Laporan Laba Rugi Omnichannel', 'table-laba-rugi');
+        showToast('Mengunduh dokumen PDF...');
       }
-    }, 1800);
+    }, 800);
   };
 
   return (
@@ -350,7 +341,7 @@ export default function FinancePage() {
 
         {/* Laba Rugi Table*/}
         <div className="max-w-xl mx-auto w-full">
-          <table className="w-full text-left text-xs border-collapse font-bold text-[#5F1E1E]" role="table">
+          <table id="table-laba-rugi" className="w-full text-left text-xs border-collapse font-bold text-[#5F1E1E]" role="table">
             <tbody className="divide-y divide-slate-100">
 
               {/* 1. Pendapatan */}

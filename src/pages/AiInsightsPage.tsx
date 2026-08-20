@@ -22,7 +22,6 @@ interface PromoRecommendation {
   id: string;
   text: string;
   impact: string;
-  status: 'pending' | 'applied' | 'ignored';
 }
 
 export default function AiInsightsPage() {
@@ -30,45 +29,25 @@ export default function AiInsightsPage() {
   const { data: restockData } = useRestockPlan();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [promos, setPromos] = useState<PromoRecommendation[]>([
+
+  // Daftar rekomendasi promosi AI
+  const promos: PromoRecommendation[] = [
     {
       id: 'promo-1',
       text: 'Terapkan Diskon 20% untuk Chitato Sapi Panggang 68g (Barang lambat laku, mendekati masa kedaluwarsa dalam 10 hari) guna mengembalikan modal.',
       impact: 'Potensi likuiditas: +Rp 850.000',
-      status: 'pending',
     },
     {
       id: 'promo-2',
       text: 'Buat Paket Bundling: Teh Botol Sosro + Indomie Goreng untuk akhir pekan depan guna mendongkrak penjualan silang.',
       impact: 'Potensi kenaikan omzet: +15%',
-      status: 'pending',
     },
     {
       id: 'promo-3',
       text: 'Naikkan harga jual Kopi Kapal Api sebesar Rp 200/unit mengikuti peningkatan indeks permintaan lokal.',
       impact: 'Potensi margin tambahan: +Rp 140.000/minggu',
-      status: 'pending',
     },
-  ]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const handleApplyPromo = (id: string, name: string) => {
-    setPromos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'applied' } : p))
-    );
-    showToast(`Diskon berhasil diterapkan ke sistem toko online!`);
-  };
-
-  const handleIgnorePromo = (id: string) => {
-    setPromos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'ignored' } : p))
-    );
-    showToast('Rekomendasi diabaikan.');
-  };
+  ];
 
   // Mock Restock Predictions
   const restockPredictions: RestockItem[] = [
@@ -278,12 +257,7 @@ export default function AiInsightsPage() {
           {promos.map((promo) => (
             <div
               key={promo.id}
-              className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 transition-all duration-300 ${promo.status === 'applied'
-                  ? 'bg-slate-50 border-slate-100 opacity-60'
-                  : promo.status === 'ignored'
-                    ? 'bg-slate-50 border-slate-100 opacity-30 line-through'
-                    : 'bg-white border-[#B48328]/30 hover:border-[#B48328] shadow-sm'
-                }`}
+              className="p-4 rounded-2xl border border-[#B48328]/30 bg-white hover:border-[#B48328] shadow-sm flex flex-col justify-between gap-3 transition-all"
             >
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-bold text-[#5F1E1E] leading-relaxed">{promo.text}</p>
@@ -291,29 +265,6 @@ export default function AiInsightsPage() {
                   {promo.impact}
                 </span>
               </div>
-
-              {promo.status === 'pending' ? (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => handleIgnorePromo(promo.id)}
-                    className="flex-1 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-[11px] font-bold text-slate-600 transition-colors"
-                  >
-                    Abaikan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPromo(promo.id, promo.text)}
-                    className="flex-1 px-3 py-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] rounded-xl text-[11px] font-bold transition-all shadow-sm active:scale-95"
-                  >
-                    Terapkan Diskon
-                  </button>
-                </div>
-              ) : (
-                <div className="text-[11px] font-extrabold text-center mt-2 pt-2 border-t border-slate-100 text-slate-500">
-                  {promo.status === 'applied' ? '✓ Telah Diterapkan' : 'Diabaikan'}
-                </div>
-              )}
             </div>
           ))}
         </div>
