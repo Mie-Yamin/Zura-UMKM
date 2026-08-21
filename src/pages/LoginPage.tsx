@@ -1,129 +1,131 @@
-// src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    signInWithPopup
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, googleProvider } from '../config/firebase';
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [isRegistering, setIsRegistering] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState('');
 
-    const handleAuth = async (e: React.FormEvent) => {
+    // 1. Handle Submit Login / Register Biasa
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setErrorMsg(null);
+        setErrorMsg('');
 
         try {
-            if (isRegistering) {
+            if (isRegister) {
                 await createUserWithEmailAndPassword(auth, email, password);
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
-            navigate('/dashboard');
+            navigate('/dashboard', { replace: true });
         } catch (err: any) {
-            console.error("Firebase Auth Error Code:", err.code);
-            console.error("Firebase Error Message:", err.message);
-
-            if (err.code === 'auth/operation-not-allowed') {
-                setErrorMsg('Metode Email/Password belum diaktifkan di Firebase Console.');
-            } else if (err.code === 'auth/invalid-credential') {
+            console.error('Auth Error:', err.code, err.message);
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
                 setErrorMsg('Email atau password salah.');
             } else if (err.code === 'auth/email-already-in-use') {
                 setErrorMsg('Email sudah terdaftar. Silakan login.');
             } else if (err.code === 'auth/weak-password') {
                 setErrorMsg('Password minimal 6 karakter.');
             } else {
-                setErrorMsg(`Gagal: ${err.message}`);
+                setErrorMsg(err.message);
             }
-        } finally {
-            setLoading(false);
         }
     };
 
+    // 2. Handle Login dengan Google
+    const handleGoogleLogin = async () => {
+        setErrorMsg('');
+        try {
+            await signInWithPopup(auth, googleProvider);
+            navigate('/dashboard', { replace: true });
+        } catch (err: any) {
+            console.error('Google Sign-In Error:', err);
+            if (err.code !== 'auth/popup-closed-by-user') {
+                setErrorMsg('Gagal masuk dengan Google: ' + err.message);
+            }
+        }
+    };
+
+    // 3. Handle Lupa Password
     const handleForgotPassword = async () => {
         if (!email) {
-            setErrorMsg('Silakan isi kolom email terlebih dahulu.');
+            alert('Silakan isi kolom email terlebih dahulu.');
             return;
         }
-
         try {
             await sendPasswordResetEmail(auth, email);
-            alert(`Link reset password telah dikirim ke ${email}.\n\nJika tidak ada di Kotak Masuk, silakan cek folder Spam/Junk.`);
+            alert(`Link reset password telah dikirim ke ${email}. Cek folder Spam jika tidak ada di Inbox.`);
         } catch (err: any) {
-            console.error("Reset Password Error:", err.code, err.message);
-
+            console.error('Reset Error:', err.code);
             if (err.code === 'auth/too-many-requests') {
-                alert('Terlalu banyak permintaan reset password. Tunggu beberapa menit sebelum mencoba lagi.');
+                alert('Terlalu banyak percobaan. Silakan tunggu beberapa menit.');
             } else if (err.code === 'auth/user-not-found') {
-                alert('Email ini belum terdaftar di aplikasi.');
-            } else if (err.code === 'auth/invalid-email') {
-                alert('Format email tidak valid.');
+                alert('Email ini belum terdaftar.');
             } else {
-                alert(`Gagal mengirim email: ${err.message}`);
+                alert(`Gagal: ${err.message}`);
             }
         }
     };
 
     return (
         <div className="min-h-screen bg-[#5F1E1E] flex items-center justify-center p-4 font-dmsans">
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-md border border-[#B48328]/30 flex flex-col gap-6">
-
-                {/* Header Logo dengan Kotak Merah Zura */}
-                <div className="flex flex-col items-center text-center gap-2">
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-[#5F1E1E] rounded-2xl flex items-center justify-center p-2.5 shadow-md border border-[#B48328]/40 hover:scale-105 transition-transform">
-                        <img
-                            src="/logo.png"
-                            alt="Zura Logo"
-                            className="w-full h-full object-contain drop-shadow"
-                        />
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+                {/* Header & Logo */}
+                <div className="flex flex-col items-center mb-6">
+                    <div className="w-16 h-16 bg-[#5F1E1E] rounded-2xl flex items-center justify-center p-2 mb-3">
+                        <img src="/logo.png" alt="Zura Logo" className="w-full h-full object-contain" />
                     </div>
-                    <h1 className="text-xl md:text-2xl font-black text-[#5F1E1E] uppercase tracking-wide">
-                        {isRegistering ? 'Daftar Akun Zura' : 'Login Zura Retail'}
+                    <h1 className="text-2xl font-bold text-[#5F1E1E] uppercase tracking-wide">
+                        {isRegister ? 'Daftar Akun Zura' : 'Login Zura Retail'}
                     </h1>
-                    <p className="text-xs text-[#B48328] font-semibold">
-                        {isRegistering
+                    <p className="text-xs text-[#B26227] text-center mt-1">
+                        {isRegister
                             ? 'Buat akun baru untuk mengelola bisnis retail Anda.'
                             : 'Masukkan email dan password untuk mengelola toko.'}
                     </p>
                 </div>
 
-                {/* Warning Error */}
                 {errorMsg && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-xl text-xs font-extrabold border border-red-200">
-                        ⚠️ {errorMsg}
+                    <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 text-xs rounded-xl">
+                        {errorMsg}
                     </div>
                 )}
 
-                {/* Form Email & Password */}
-                <form onSubmit={handleAuth} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-extrabold text-[#5F1E1E] uppercase tracking-wider">Email Toko</label>
+                {/* Form Login / Register */}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-[#5F1E1E] uppercase tracking-wider mb-1">
+                            Email Toko
+                        </label>
                         <input
                             type="email"
-                            placeholder="nama@email.com"
+                            required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="p-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#5F1E1E] focus:ring-1 focus:ring-[#5F1E1E]"
+                            placeholder="nama@email.com"
+                            className="w-full px-4 py-3 rounded-xl bg-blue-50/50 border border-transparent focus:border-[#5F1E1E] focus:bg-white text-sm outline-none transition-all"
                         />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex justify-between items-center">
-                            <label className="text-xs font-extrabold text-[#5F1E1E] uppercase tracking-wider">Password</label>
-                            {!isRegistering && (
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-xs font-bold text-[#5F1E1E] uppercase tracking-wider">
+                                Password
+                            </label>
+                            {!isRegister && (
                                 <button
                                     type="button"
                                     onClick={handleForgotPassword}
-                                    className="text-[11px] font-bold text-[#B48328] hover:underline"
+                                    className="text-xs font-semibold text-[#B26227] hover:underline"
                                 >
                                     Lupa Password?
                                 </button>
@@ -131,44 +133,58 @@ export default function LoginPage() {
                         </div>
                         <input
                             type="password"
-                            placeholder="••••••••"
+                            required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            required
-                            minLength={6}
-                            className="p-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#5F1E1E] focus:ring-1 focus:ring-[#5F1E1E]"
+                            placeholder="••••••••"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5F1E1E] text-sm outline-none transition-all"
                         />
                     </div>
 
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="bg-[#5F1E1E] text-[#E8D3A7] py-3.5 rounded-xl font-bold text-sm hover:bg-[#4a1717] transition-all shadow-md active:scale-95 mt-2"
+                        className="w-full py-3 bg-[#5F1E1E] hover:bg-[#4A1717] text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 mt-2"
                     >
-                        {loading
-                            ? 'Memproses...'
-                            : isRegistering
-                                ? 'Daftar Sekarang'
-                                : 'Masuk ke Dashboard'}
+                        {isRegister ? 'Daftar Sekarang' : 'Masuk ke Dashboard'}
                     </button>
                 </form>
 
-                {/* Toggle Mode */}
-                <div className="text-center pt-3 border-t border-slate-100">
+                {/* Pembatas / Divider */}
+                <div className="my-5 flex items-center justify-between">
+                    <span className="w-1/4 border-b border-gray-200"></span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">atau</span>
+                    <span className="w-1/4 border-b border-gray-200"></span>
+                </div>
+
+                {/* Tombol Masuk dengan Google */}
+                <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 font-semibold py-2.5 px-4 rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-all text-xs"
+                >
+                    <img
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        alt="Google Logo"
+                        className="w-4 h-4"
+                    />
+                    <span>Masuk dengan Google</span>
+                </button>
+
+                {/* Toggle Login / Register */}
+                <div className="mt-6 text-center">
                     <button
                         type="button"
                         onClick={() => {
-                            setIsRegistering(!isRegistering);
-                            setErrorMsg(null);
+                            setIsRegister(!isRegister);
+                            setErrorMsg('');
                         }}
-                        className="text-xs font-extrabold text-[#5F1E1E] hover:underline"
+                        className="text-xs font-semibold text-[#5F1E1E] hover:underline"
                     >
-                        {isRegistering
+                        {isRegister
                             ? 'Sudah punya akun? Login di sini'
                             : 'Belum punya akun? Daftar akun baru'}
                     </button>
                 </div>
-
             </div>
         </div>
     );
