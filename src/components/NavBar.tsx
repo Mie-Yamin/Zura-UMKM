@@ -1,6 +1,6 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { NavLink, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "../config/firebase";
 
 export interface NavItem {
   id: string;
@@ -9,37 +9,43 @@ export interface NavItem {
   image: string;
 }
 
-
 export const NAV_ITEMS: NavItem[] = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    path: '/dashboard',
-    image: '/sideBar/dashboard.svg'
+    id: "dashboard",
+    label: "Dashboard",
+    path: "/dashboard",
+    image: "/sideBar/dashboard.svg",
   },
   {
-    id: 'rekap',
-    label: 'Penjualan',
-    path: '/rekap',
-    image: '/sideBar/rekapPenjualan.svg'
+    id: "rekap",
+    label: "Penjualan",
+    path: "/rekap",
+    image: "/sideBar/rekapPenjualan.svg",
   },
   {
-    id: 'inventory',
-    label: 'Manajemen Stok\nPusat',
-    path: '/inventory',
-    image: '/sideBar/manajemenStok.svg'
+    id: "inventory",
+    label: "Manajemen Stok\nPusat",
+    path: "/inventory",
+    image: "/sideBar/manajemenStok.svg",
   },
   {
-    id: 'finance',
-    label: 'Laporan Keuangan &\nLaba Rugi',
-    path: '/finance',
-    image: '/sideBar/laporanKeuangan.svg'
+    id: "finance",
+    label: "Laporan Keuangan &\nLaba Rugi",
+    path: "/finance",
+    image: "/sideBar/laporanKeuangan.svg",
   },
   {
-    id: 'ai-insights',
-    label: 'AI Insight Hub',
-    path: '/ai-insights',
-    image: '/sideBar/aiInsight.svg'
+    id: "ai-insights",
+    label: "AI Insight Hub",
+    path: "/ai-insights",
+    image: "/sideBar/aiInsight.svg",
+  },
+
+  {
+    id: "profile",
+    label: "Profil Pengguna",
+    path: "/profile",
+    image: "/sideBar/profile.svg",
   },
 ];
 
@@ -51,9 +57,9 @@ export default function NavBar() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
     } catch (error) {
-      console.error('Gagal keluar dari sesi:', error);
+      console.error("Gagal keluar dari sesi:", error);
     }
   };
 
@@ -78,14 +84,14 @@ export default function NavBar() {
             <li key={item.id}>
               <NavLink
                 to={item.path}
-                end={item.path === '/dashboard'}
+                end={item.path === "/dashboard"}
                 className={({ isActive }) =>
                   [
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 leading-snug',
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 leading-snug",
                     isActive
-                      ? 'border-2 border-[#E8D3A7] text-[#E8D3A7] bg-transparent font-semibold shadow-sm'
-                      : 'text-white/80 border border-transparent hover:text-[#E8D3A7]',
-                  ].join(' ')
+                      ? "border-2 border-[#E8D3A7] text-[#E8D3A7] bg-transparent font-semibold shadow-sm"
+                      : "text-white/80 border border-transparent hover:text-[#E8D3A7]",
+                  ].join(" ")
                 }
               >
                 <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
