@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, TrendingDown, Users, Menu, X } from 'lucide-react';
+import { TrendingDown, Users, Menu, X } from 'lucide-react';
+import { auth } from '../config/firebase';
 
 export default function AntiGravityLandingPage() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function AntiGravityLandingPage() {
     setCurrentSlideIndex(index);
   };
 
-  // Scroll smoothly to a slide index (0 - 5)
+  // Scroll smoothly to a slide index (0 - 4)
   const scrollToSlide = (index: number) => {
     const container = scrollContainerRef.current;
     if (container) {
@@ -63,6 +64,15 @@ export default function AntiGravityLandingPage() {
     }
     setActiveSection('home');
     setMobileMenuOpen(false);
+  };
+
+  // Handler Tombol Login (Pindah ke /login atau /dashboard jika sudah auth)
+  const handleLoginClick = () => {
+    if (auth.currentUser) {
+      navigate('/dashboard');
+    } else {
+      navigate('/login');
+    }
   };
 
   return (
@@ -79,7 +89,7 @@ export default function AntiGravityLandingPage() {
         }
       `}</style>
 
-      {/* Background Ornament - FIXED */}
+      {/* Background Ornament */}
       <div
         className="absolute top-0 left-0 w-40 h-40 md:w-72 md:h-72 bg-contain bg-no-repeat opacity-60 md:opacity-80 pointer-events-none -translate-x-6 -translate-y-6 md:-translate-x-10 md:-translate-y-10 z-0"
         style={{ backgroundImage: `url('/ukiran.png')` }}
@@ -93,14 +103,14 @@ export default function AntiGravityLandingPage() {
         style={{ backgroundImage: `url('/ukiran.png')` }}
       />
 
-      {/* Floating Dust - STATIC */}
+      {/* Floating Dust */}
       <div className="absolute inset-0 pointer-events-none z-0">
         <div className="absolute top-1/4 left-1/5 w-2 h-2 bg-yellow-300 rounded-full blur-[1px] opacity-70" />
         <div className="absolute top-2/3 left-1/2 w-3 h-3 bg-purple-300 rounded-full blur-[1px] opacity-50" />
         <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-white rounded-full blur-[1px] opacity-60" />
       </div>
 
-      {/* Navbar - FIXED OVERLAY */}
+      {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:py-4 md:px-12 bg-gradient-to-b from-[#5F1E1E]/90 to-transparent backdrop-blur-[2px] transition-colors duration-500">
 
         {/* Logo */}
@@ -113,28 +123,30 @@ export default function AntiGravityLandingPage() {
           />
         </div>
 
-        {/* Desktop Nav Links (Home & Menu) */}
+        {/* Desktop Nav Links */}
         <div className="hidden md:flex space-x-6 lg:space-x-8 text-sm font-medium font-dmsans items-center">
           <button
+            type="button"
             onClick={() => scrollToSlide(0)}
             className={
               activeSection === 'home'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer"
             }
           >
             Home
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveSection('menu');
               navigate('/menu');
             }}
             className={
               activeSection === 'menu'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium"
+                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer"
+                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer"
             }
           >
             Menu
@@ -144,15 +156,17 @@ export default function AntiGravityLandingPage() {
         {/* Right Side: LOGIN + Hamburger */}
         <div className="flex items-center space-x-2 md:space-x-4">
           <button
-            onClick={() => navigate('/LoginPage')}
-            className="border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider"
+            type="button"
+            onClick={handleLoginClick}
+            className="relative z-50 border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider cursor-pointer active:scale-95"
           >
-            LOGIN
+            {auth.currentUser ? 'DASHBOARD' : 'LOGIN'}
           </button>
 
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition"
+            className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -165,19 +179,21 @@ export default function AntiGravityLandingPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           <div className="absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 bg-[#5F1E1E] border border-[#E8D3A7]/30">
             <button
+              type="button"
               onClick={() => scrollToSlide(0)}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans ${activeSection === 'home' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'home' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
                 }`}
             >
               Home
             </button>
             <button
+              type="button"
               onClick={() => {
                 setActiveSection('menu');
                 navigate('/menu');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans ${activeSection === 'menu' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'menu' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
                 }`}
             >
               Menu
@@ -186,13 +202,13 @@ export default function AntiGravityLandingPage() {
         </div>
       )}
 
-      {/* Horizontal Scroll Container (6 SECTIONS) */}
+      {/* Horizontal Scroll Container (5 SECTIONS TOTAL) */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
         className="w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth no-scrollbar z-10"
       >
-        {/* SECTION 1: HOME (UTUH TIDAK DIUBAH) */}
+        {/* SLIDE 1: HOME */}
         <section
           id="home"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
@@ -207,19 +223,20 @@ export default function AntiGravityLandingPage() {
                 </span>
               </h1>
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
-                Pantau transaksi, stok barang, dan keuntungan usaha kamu
-                dalam satu dashboard terpadu.
+                Pantau transaksi, stok barang, dan keuntungan usaha kamu dalam satu dashboard terpadu.
               </p>
               <div className="flex items-center space-x-3 md:space-x-4 pt-2 md:pt-4">
                 <button
-                  onClick={() => navigate('/dashboard')}
-                  className="bg-[#E8D3A7] hover:bg-[#dec391] text-[#705244] font-bold text-xs md:text-sm px-4 py-2.5 md:px-6 md:py-3 rounded-full transition-all shadow-xl"
+                  type="button"
+                  onClick={handleLoginClick}
+                  className="bg-[#E8D3A7] hover:bg-[#dec391] text-[#705244] font-bold text-xs md:text-sm px-4 py-2.5 md:px-6 md:py-3 rounded-full transition-all shadow-xl cursor-pointer active:scale-95"
                 >
                   Cek Selengkapnya
                 </button>
                 <button
-                  onClick={() => navigate('/dashboard')}
-                  className="w-9 h-9 md:w-11 md:h-11 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center p-0"
+                  type="button"
+                  onClick={handleLoginClick}
+                  className="w-9 h-9 md:w-11 md:h-11 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center p-0 cursor-pointer"
                 >
                   <img src="/playButton.png" alt="Play" className="w-full h-full object-contain" />
                 </button>
@@ -283,8 +300,9 @@ export default function AntiGravityLandingPage() {
                       </div>
                       <span className="text-[8px] md:text-[10px] font-bold text-center leading-tight mb-0.5 md:mb-1">{item.name}</span>
                       <button
-                        onClick={() => navigate('/inventory')}
-                        className="bg-black text-white text-[7px] md:text-[8px] px-1.5 md:px-2 py-0.5 rounded-full hover:bg-gray-800 transition"
+                        type="button"
+                        onClick={handleLoginClick}
+                        className="bg-black text-white text-[7px] md:text-[8px] px-1.5 md:px-2 py-0.5 rounded-full hover:bg-gray-800 transition cursor-pointer"
                       >
                         Cek Rincian →
                       </button>
@@ -296,7 +314,7 @@ export default function AntiGravityLandingPage() {
           </div>
         </section>
 
-        {/* SECTION 2: SALES (UTUH TIDAK DIUBAH) */}
+        {/* SLIDE 2: SALES */}
         <section
           id="sales"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
@@ -372,7 +390,7 @@ export default function AntiGravityLandingPage() {
           </div>
         </section>
 
-        {/* SECTION 3: INVENTORY (UTUH TIDAK DIUBAH) */}
+        {/* SLIDE 3: INVENTORY */}
         <section
           id="inventory"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
@@ -454,7 +472,7 @@ export default function AntiGravityLandingPage() {
                     <span className="bg-amber-100 text-amber-800 text-[7px] md:text-[8px] px-1 md:px-1.5 py-0.5 rounded font-black">PENTING</span>
                   </div>
                   <p className="text-[8px] md:text-[9px] leading-relaxed text-neutral-600">
-                    Lakukan pemesanan <strong>Mie Goreng (200 pcs)</strong> sebelum 14 Agustus untuk menghindari kekosongan stok berdasarkan tren akhir pekan.
+                    Lakukan pemesanan <strong>Mie Goreng (200 pcs)</strong> sebelum akhir pekan untuk menghindari kekosongan stok.
                   </p>
                 </div>
               </div>
@@ -462,96 +480,78 @@ export default function AntiGravityLandingPage() {
           </div>
         </section>
 
-        {/* SECTION 4 (TAMBAHAN SLIDE 4) */}
+        {/* SLIDE 4: LAPORAN KEUANGAN */}
         <section
-          id="section-4"
+          id="finance"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
             <div className="space-y-3 md:space-y-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
-                Fitur Unggulan Ke-4
+                Laporan Keuangan
                 <br />
-                <span className="text-yellow-300">Lorem Ipsum Dolor</span>
+                <span className="text-yellow-300">Otomatis & Akurat</span>
               </h1>
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                Pantau laba rugi, arus kas, dan margin keuntungan harian secara otomatis tanpa perhitungan manual.
               </p>
             </div>
             <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
-              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 4</h3>
+              <h3 className="font-bold text-xl mb-2 text-neutral-800">Ringkasan Keuangan Toko</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                Setiap transaksi terhubung langsung dengan catatan arus kas untuk memastikan keuangan ritel kamu selalu transparan.
               </p>
             </div>
           </div>
         </section>
 
-        {/* SECTION 5 (TAMBAHAN SLIDE 5) */}
+        {/* SLIDE 5: AI INSIGHT & CTA */}
         <section
-          id="section-5"
+          id="ai-insight"
           className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
             <div className="space-y-3 md:space-y-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
-                Fitur Unggulan Ke-5
+                AI Insight & Prediksi
                 <br />
-                <span className="text-yellow-300">Consectetur Adipiscing</span>
+                <span className="text-yellow-300">Mulai Bersama Zura</span>
               </h1>
               <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                Gunakan rekomendasi bertenaga AI untuk memprediksi tren penjualan dan kelola toko kamu dengan lebih efisien.
               </p>
             </div>
-            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
-              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 5</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl flex flex-col items-center text-center">
+              <h3 className="font-bold text-xl mb-2 text-neutral-800">Siap Mengembangkan Usaha?</h3>
+              <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                Akses dashboard manajemen Zura Retail langsung dari browser kamu.
               </p>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 6 (TAMBAHAN SLIDE 6) */}
-        <section
-          id="section-6"
-          className="w-screen min-w-[100vw] h-screen flex-shrink-0 snap-start flex items-center overflow-hidden px-4 md:px-6 lg:px-12 pt-16 pb-14 md:pt-20 md:pb-16"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center max-w-7xl mx-auto w-full">
-            <div className="space-y-3 md:space-y-6">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.15] tracking-tight drop-shadow-md">
-                Fitur Unggulan Ke-6
-                <br />
-                <span className="text-yellow-300">Sunt In Culpa Officiis</span>
-              </h1>
-              <p className="text-sm md:text-base lg:text-lg text-white/80 leading-relaxed max-w-xs sm:max-w-sm md:max-w-lg">
-                Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.
-              </p>
-            </div>
-            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
-              <h3 className="font-bold text-xl mb-2 text-neutral-800">Informasi Tambahan 6</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores.
-              </p>
+              <button
+                type="button"
+                onClick={handleLoginClick}
+                className="bg-[#5F1E1E] text-white font-bold px-6 py-3 rounded-xl hover:bg-[#4A1717] transition-all cursor-pointer"
+              >
+                Masuk Sekarang
+              </button>
             </div>
           </div>
         </section>
 
       </div>
 
-      {/* Carousel Dots - 6 SECTIONS DI KANAN BAWAH */}
+      {/* Carousel Dots - DIBUAT 5 TITIK */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-end items-center space-x-2 md:space-x-3 py-4 md:py-6 px-8 md:px-16 lg:px-24 max-w-7xl mx-auto bg-gradient-to-t from-[#5F1E1E]/80 to-transparent transition-colors duration-500">
-        {[0, 1, 2, 3, 4, 5].map((index) => (
+        {[0, 1, 2, 3, 4].map((index) => (
           <button
             key={index}
             type="button"
             onClick={() => scrollToSlide(index)}
-            className="p-1.5 focus:outline-none"
+            className="p-1.5 focus:outline-none cursor-pointer"
           >
             <div
               className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${currentSlideIndex === index
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+                  ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                  : 'bg-[#E5C88B] hover:opacity-80'
                 }`}
             />
             <span className="sr-only">Slide {index + 1}</span>
