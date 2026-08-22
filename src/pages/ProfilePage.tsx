@@ -1,11 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   signOut,
   onAuthStateChanged,
   sendEmailVerification,
+  updateEmail,
+  updatePassword,
+  deleteUser,
 } from "firebase/auth";
 import { auth } from "../config/firebase";
+import L from "leaflet";
+
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 
 interface UserProfile {
   name: string;
@@ -13,9 +28,10 @@ interface UserProfile {
   phone: string;
   category: string;
   location: string;
+  lat: number;
+  lng: number;
   isPhoneVerified: boolean;
   isEmailVerified: boolean;
-  avatarUrl: string;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -27,6 +43,9 @@ const BUSINESS_CATEGORIES = [
   "Lainnya",
 ];
 
+const DEFAULT_LAT = -6.2428;
+const DEFAULT_LNG = 106.8005;
+
 export default function ProfilePage() {
   const navigate = useNavigate();
 
@@ -37,21 +56,41 @@ export default function ProfilePage() {
     phone: "",
     category: "Makanan & Minuman (F&B)",
     location: "Taman Literasi, Jakarta",
+    lat: DEFAULT_LAT,
+    lng: DEFAULT_LNG,
     isPhoneVerified: false,
     isEmailVerified: false,
-    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=ZuraUser",
   });
 
-  // Control Modal Edit (Tampil di atas latar blur)
+  // State Modal Edit Profil
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // State Pengaturan Keamanan Akun (Toggle Accordion & Tab)
+  const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+  const [activeSecurityTab, setActiveSecurityTab] = useState<
+    "email" | "password" | "danger"
+  >("email");
+
+  // State Form Security
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // State Modal OTP
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpInput, setOtpInput] = useState("");
 
-  // Sinkronisasi Firebase Auth
+  // Leaflet Map Refs
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const mainMapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mainMapInstanceRef = useRef<L.Map | null>(null);
+
+  // Sync Firebase Auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -64,7 +103,6 @@ export default function ProfilePage() {
           email: userEmail,
           name: userName,
           isEmailVerified: emailIsVerified,
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${userName}`,
         };
 
         setProfile((prev) => ({ ...prev, ...updatedData }));
@@ -75,6 +113,122 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, []);
 
+  // Inisialisasi Peta Utama
+  useEffect(() => {
+    if (!isEditOpen && mainMapContainerRef.current) {
+      if (mainMapInstanceRef.current) {
+        mainMapInstanceRef.current.remove();
+      }
+
+      const map = L.map(mainMapContainerRef.current).setView(
+        [profile.lat, profile.lng],
+        15,
+      );
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      L.marker([profile.lat, profile.lng])
+        .addTo(map)
+        .bindPopup(`<b>${profile.name}</b><br/>${profile.location}`);
+
+      mainMapInstanceRef.current = map;
+    }
+
+    return () => {
+      if (mainMapInstanceRef.current) {
+        mainMapInstanceRef.current.remove();
+        mainMapInstanceRef.current = null;
+      }
+    };
+  }, [isEditOpen, profile.lat, profile.lng, profile.location, profile.name]);
+
+  // Inisialisasi Peta Interaktif Modal Edit
+  useEffect(() => {
+    if (isEditOpen && mapContainerRef.current) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+      }
+
+      const map = L.map(mapContainerRef.current).setView(
+        [formData.lat, formData.lng],
+        15,
+      );
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      const marker = L.marker([formData.lat, formData.lng], {
+        draggable: true,
+      }).addTo(map);
+
+      marker.on("dragend", () => {
+        const position = marker.getLatLng();
+        setFormData((prev) => ({
+          ...prev,
+          lat: position.lat,
+          lng: position.lng,
+        }));
+      });
+
+      map.on("click", (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        setFormData((prev) => ({
+          ...prev,
+          lat,
+          lng,
+        }));
+      });
+
+      mapInstanceRef.current = map;
+      markerRef.current = marker;
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [isEditOpen]);
+
+  // Cari Lokasi di Peta
+  const handleSearchLocation = async () => {
+    if (!formData.location.trim()) return;
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          formData.location,
+        )}`,
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const newLat = parseFloat(data[0].lat);
+        const newLng = parseFloat(data[0].lon);
+
+        setFormData((prev) => ({
+          ...prev,
+          lat: newLat,
+          lng: newLng,
+        }));
+
+        if (mapInstanceRef.current && markerRef.current) {
+          mapInstanceRef.current.setView([newLat, newLng], 15);
+          markerRef.current.setLatLng([newLat, newLng]);
+        }
+      } else {
+        alert("Lokasi tidak ditemukan, coba nama area lain!");
+      }
+    } catch (error) {
+      console.error("Gagal mencari lokasi:", error);
+    }
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -84,10 +238,72 @@ export default function ProfilePage() {
     if (auth.currentUser) {
       try {
         await sendEmailVerification(auth.currentUser);
-        alert(`Link verifikasi telah dikirim ke ${auth.currentUser.email}`);
+        showToast("Link verifikasi telah dikirim ke email Anda!");
       } catch (error) {
         console.error("Gagal mengirim email verifikasi:", error);
-        alert("Gagal mengirim email. Coba lagi nanti.");
+        alert("Gagal mengirim email. Coba login ulang terlebih dahulu.");
+      }
+    }
+  };
+
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail) return;
+
+    if (auth.currentUser) {
+      try {
+        await updateEmail(auth.currentUser, newEmail);
+        setProfile((prev) => ({
+          ...prev,
+          email: newEmail,
+          isEmailVerified: false,
+        }));
+        setNewEmail("");
+        showToast(
+          "Email berhasil diperbarui! Silakan lakukan verifikasi ulang.",
+        );
+      } catch (error) {
+        console.error("Gagal perbarui email:", error);
+        alert("Gagal memperbarui email. Harap re-login demi keamanan.");
+      }
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword !== confirmPassword) {
+      alert("Kata sandi baru dan konfirmasi tidak cocok!");
+      return;
+    }
+
+    if (auth.currentUser) {
+      try {
+        await updatePassword(auth.currentUser, newPassword);
+        setNewPassword("");
+        setConfirmPassword("");
+        showToast("Kata sandi berhasil diubah!");
+      } catch (error) {
+        console.error("Gagal ubah password:", error);
+        alert("Gagal mengubah kata sandi. Harap re-login terlebih dahulu.");
+      }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm(
+      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Tindakan ini tidak dapat dibatalkan!",
+    );
+
+    if (confirmDelete && auth.currentUser) {
+      try {
+        await deleteUser(auth.currentUser);
+        alert("Akun Anda telah berhasil dihapus.");
+        navigate("/", { replace: true });
+      } catch (error) {
+        console.error("Gagal menghapus akun:", error);
+        alert(
+          "Gagal menghapus akun. Harap login ulang sebelum melakukan tindakan ini.",
+        );
       }
     }
   };
@@ -132,17 +348,12 @@ export default function ProfilePage() {
     }
   };
 
-  // Safe Google Maps Search URL
-  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(
-    (isEditOpen ? formData.location : profile.location) || "Jakarta",
-  )}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
-
   return (
     <div className="relative min-h-screen bg-[#E8D3A7] text-[#0F172A] p-6 flex flex-col gap-6 font-dmsans">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#0F172A] text-white px-4 py-3 rounded-xl shadow-lg text-sm gap-2 animate-bounce">
-          <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
           {toastMessage}
         </div>
       )}
@@ -175,99 +386,100 @@ export default function ProfilePage() {
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2"
           >
-            <img
-              src="/sideBar/logOut.png"
-              alt="Logout"
-              className="w-4 h-4 object-contain brightness-0 invert"
-            />
             <span>LOGOUT</span>
           </button>
         </div>
       </header>
 
-      {/* HALAMAN UTAMA PROFIL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Card Kiri: Identitas Pengguna */}
-        <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center gap-5">
-          <div className="relative">
-            <img
-              src={profile.avatarUrl}
-              alt={profile.name}
-              className="w-28 h-28 rounded-full bg-[#E8D3A7]/40 border-4 border-[#B48328] p-1 object-cover shadow-sm"
-            />
-            <span className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
-          </div>
-
+      {/* SECTION ATAS: INFORMASI PENGGUNA & LOKASI */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Card Kiri: Detail Akun (Tanpa Foto) */}
+        <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm flex flex-col justify-between gap-5 border border-slate-100">
           <div>
-            <h2 className="text-lg font-extrabold text-[#5F1E1E]">
-              {profile.name}
-            </h2>
-            <span className="inline-block mt-2 bg-[#5F1E1E] text-[#E8D3A7] text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              {profile.category}
-            </span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-[#5F1E1E]">
+                  {profile.name}
+                </h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Pemilik Toko / Usaha
+                </p>
+              </div>
+              <span className="bg-[#5F1E1E]/10 text-[#5F1E1E] text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                {profile.category}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3.5 text-xs">
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                <span className="text-slate-500 font-medium">Email Akun</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#5F1E1E]">
+                    {profile.email || "Belum Diatur"}
+                  </span>
+                  {profile.email &&
+                    (profile.isEmailVerified ? (
+                      <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                        ✓ Verified
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleSendEmailVerification}
+                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all"
+                      >
+                        Verifikasi
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                <span className="text-slate-500 font-medium">Telepon Toko</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#5F1E1E]">
+                    {profile.phone || "Belum Diisi"}
+                  </span>
+                  {profile.phone &&
+                    (profile.isPhoneVerified ? (
+                      <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                        ✓ Verified
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowOtpModal(true)}
+                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all"
+                      >
+                        Verifikasi
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                <span className="text-slate-500 font-medium">Status Akun</span>
+                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Aktif
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="w-full border-t border-slate-100 pt-4 flex flex-col gap-3 text-left text-xs font-medium text-slate-600">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Email</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#5F1E1E]">
-                  {profile.email || "Belum Diatur"}
-                </span>
-                {profile.email &&
-                  (profile.isEmailVerified ? (
-                    <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-md font-bold">
-                      ✓ Verified
-                    </span>
-                  ) : (
-                    <button
-                      onClick={handleSendEmailVerification}
-                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-md font-bold transition-all"
-                    >
-                      Verifikasi
-                    </button>
-                  ))}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Telepon Toko</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#5F1E1E]">
-                  {profile.phone || "Belum Diisi"}
-                </span>
-                {profile.phone &&
-                  (profile.isPhoneVerified ? (
-                    <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-md font-bold">
-                      ✓ Verified
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => setShowOtpModal(true)}
-                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-md font-bold transition-all"
-                    >
-                      Verifikasi
-                    </button>
-                  ))}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Status Akun</span>
-              <span className="font-bold text-green-600">Aktif</span>
-            </div>
+          <div className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            💡 Untuk mengubah nama pemilik, telepon, dan kategori usaha klik
+            tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
           </div>
         </div>
 
-        {/* Card Kanan: Informasi Usaha & Lokasi Map */}
-        <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-5">
-          <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3">
+        {/* Card Kanan: Informasi Usaha & Peta Lokasi */}
+        <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-4 border border-slate-100">
+          <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3">
             Informasi Usaha & Lokasi
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-              <span className="text-slate-400 font-medium block mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="bg-slate-50 p-3 rounded-xl">
+              <span className="text-slate-400 font-medium block mb-0.5">
                 Nama Pemilik
               </span>
               <span className="font-extrabold text-[#5F1E1E] text-sm">
@@ -275,8 +487,8 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-              <span className="text-slate-400 font-medium block mb-1">
+            <div className="bg-slate-50 p-3 rounded-xl">
+              <span className="text-slate-400 font-medium block mb-0.5">
                 Kategori Usaha
               </span>
               <span className="font-extrabold text-[#5F1E1E] text-sm">
@@ -285,31 +497,208 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs">
-            <span className="text-slate-400 font-medium block mb-1">
-              Lokasi Usaha
-            </span>
-            <span className="font-extrabold text-[#5F1E1E] text-sm block mb-3">
-              {profile.location}
-            </span>
-
-            <div className="w-full h-56 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
-              <iframe
-                title="Google Maps Location View"
-                width="100%"
-                height="100%"
-                src={mapEmbedUrl}
-                style={{ border: 0 }}
-                loading="lazy"
-              ></iframe>
+          <div className="bg-slate-50 p-3 rounded-xl text-xs flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400 font-medium">Lokasi Usaha</span>
+              <span className="font-extrabold text-[#5F1E1E] text-xs">
+                {profile.location}
+              </span>
             </div>
+
+            <div
+              ref={mainMapContainerRef}
+              className="w-full h-44 rounded-xl border border-slate-200 z-0 shadow-inner"
+            ></div>
           </div>
         </div>
       </div>
 
+      {/* SECTION BAWAH: PENGATURAN KEAMANAN AKUN (ACCORDION INTERAKTIF) */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-4 transition-all">
+        <div
+          onClick={() => setIsSecurityOpen(!isSecurityOpen)}
+          className="flex items-center justify-between cursor-pointer select-none"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-bold text-base">
+              ⚙️
+            </div>
+            <div>
+              <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+                Pengaturan Keamanan Akun
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kelola kata sandi, ganti email terdaftar, atau hapus akun Anda.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+          >
+            <span>
+              {isSecurityOpen ? "Tutup Pengaturan" : "Kelola Keamanan"}
+            </span>
+            <span className="text-xs">{isSecurityOpen ? "▲" : "▼"}</span>
+          </button>
+        </div>
+
+        {/* ISI PENGATURAN (MUNCUL KETIKA DIKLIK) */}
+        {isSecurityOpen && (
+          <div className="border-t border-slate-100 pt-5 flex flex-col gap-5 animate-fadeIn">
+            {/* Pilihan Tab Menu */}
+            <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-3">
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("email")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeSecurityTab === "email"
+                    ? "bg-[#5F1E1E] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Ganti Email
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("password")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeSecurityTab === "password"
+                    ? "bg-[#5F1E1E] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Ubah Kata Sandi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("danger")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeSecurityTab === "danger"
+                    ? "bg-red-600 text-white shadow-sm"
+                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                }`}
+              >
+                Zona Bahaya (Hapus Akun)
+              </button>
+            </div>
+
+            {/* Konten Tab 1: Ganti Email */}
+            {activeSecurityTab === "email" && (
+              <form
+                onSubmit={handleUpdateEmail}
+                className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
+              >
+                <div>
+                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
+                    Ganti Email Terdaftar
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Email aktif saat ini:{" "}
+                    <b className="text-slate-700">{profile.email}</b>
+                  </p>
+
+                  <input
+                    type="email"
+                    placeholder="Masukkan Email Baru"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    required
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    Simpan Email Baru
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Konten Tab 2: Ganti Password */}
+            {activeSecurityTab === "password" && (
+              <form
+                onSubmit={handleUpdatePassword}
+                className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
+              >
+                <div>
+                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
+                    Perbarui Kata Sandi Akun
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Pastikan kata sandi baru minimal 6 karakter.
+                  </p>
+
+                  <div className="flex flex-col gap-2.5">
+                    <input
+                      type="password"
+                      placeholder="Kata Sandi Baru"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Konfirmasi Kata Sandi Baru"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    Ubah Kata Sandi
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Konten Tab 3: Hapus Akun */}
+            {activeSecurityTab === "danger" && (
+              <div className="bg-red-50 p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-lg">
+                <div>
+                  <h3 className="text-xs font-extrabold text-red-700 uppercase mb-1">
+                    Tindakan Permanen: Hapus Akun
+                  </h3>
+                  <p className="text-[11px] text-red-600/80 leading-relaxed">
+                    Menghapus akun akan memusnahkan seluruh akses dashboard dan
+                    data usaha Anda secara otomatis. Tindakan ini tidak dapat
+                    dibatalkan!
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDeleteAccount}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    Hapus Akun Permanen
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* OVERLAY MODAL EDIT PROFIL (BACKGROUND BLUR) */}
       {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-all animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-all">
           <div className="bg-white w-full max-w-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto flex flex-col gap-6">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
@@ -407,35 +796,41 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Edit Lokasi Ala E-Commerce (Ketik + Sync Map) */}
+              {/* EDIT LOKASI INTERAKTIF */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Alamat / Lokasi Usaha
+                  Cari / Pilih Lokasi Usaha di Peta
                 </label>
+
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
                     name="location"
-                    placeholder="Contoh: Taman Literasi, Jakarta"
+                    placeholder="Ketik alamat/kota lalu klik Cari"
                     value={formData.location}
                     onChange={handleInputChange}
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
                   />
+                  <button
+                    type="button"
+                    onClick={handleSearchLocation}
+                    className="bg-[#B48328] hover:bg-[#966b1e] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Cari Peta
+                  </button>
                 </div>
 
-                <div className="w-full h-44 rounded-xl overflow-hidden border border-slate-200 relative">
-                  <iframe
-                    title="Edit Location Map Preview"
-                    width="100%"
-                    height="100%"
-                    src={mapEmbedUrl}
-                    style={{ border: 0 }}
-                    loading="lazy"
-                  ></iframe>
-                </div>
+                <p className="text-[11px] text-slate-500 mb-2">
+                  💡 *Klik di peta atau geser pin penanda untuk lokasi presisi.*
+                </p>
+
+                <div
+                  ref={mapContainerRef}
+                  className="w-full h-52 rounded-xl border border-slate-200 z-0"
+                ></div>
               </div>
 
-              {/* Buttons */}
+              {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
