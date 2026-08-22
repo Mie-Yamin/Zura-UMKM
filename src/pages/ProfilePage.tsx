@@ -4,9 +4,11 @@ import {
   signOut,
   onAuthStateChanged,
   sendEmailVerification,
-  updateEmail,
   updatePassword,
   deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import { auth } from "../config/firebase";
 import L from "leaflet";
@@ -30,7 +32,6 @@ interface UserProfile {
   location: string;
   lat: number;
   lng: number;
-  isPhoneVerified: boolean;
   isEmailVerified: boolean;
 }
 
@@ -46,20 +47,30 @@ const BUSINESS_CATEGORIES = [
 const DEFAULT_LAT = -6.2428;
 const DEFAULT_LNG = 106.8005;
 
+const INITIAL_PROFILE: UserProfile = {
+  name: "ckhyy23",
+  email: "",
+  phone: "",
+  category: "Makanan & Minuman (F&B)",
+  location: "Taman Literasi, Jakarta",
+  lat: DEFAULT_LAT,
+  lng: DEFAULT_LNG,
+  isEmailVerified: false,
+};
+
 export default function ProfilePage() {
   const navigate = useNavigate();
 
   // State Profil Utama
-  const [profile, setProfile] = useState<UserProfile>({
-    name: "ckhyy23",
-    email: "",
-    phone: "",
-    category: "Makanan & Minuman (F&B)",
-    location: "Taman Literasi, Jakarta",
-    lat: DEFAULT_LAT,
-    lng: DEFAULT_LNG,
-    isPhoneVerified: false,
-    isEmailVerified: false,
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem("user_profile_data");
+      return saved
+        ? { ...INITIAL_PROFILE, ...JSON.parse(saved) }
+        : INITIAL_PROFILE;
+    } catch {
+      return INITIAL_PROFILE;
+    }
   });
 
   // State Modal Edit Profil
@@ -67,7 +78,7 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // State Pengaturan Keamanan Akun (Toggle Accordion & Tab)
+  // State Pengaturan Keamanan Akun
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [activeSecurityTab, setActiveSecurityTab] = useState<
     "email" | "password" | "danger"
@@ -78,9 +89,12 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // State Modal OTP
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpInput, setOtpInput] = useState("");
+  // State Re-Authentication Modal
+  const [showReauthModal, setShowReauthModal] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [pendingAction, setPendingAction] = useState<
+    "email" | "password" | "delete" | null
+  >(null);
 
   // Leaflet Map Refs
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -95,18 +109,21 @@ export default function ProfilePage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const userEmail = user.email || "";
-        const userName =
-          user.displayName || userEmail.split("@")[0] || "ckhyy23";
         const emailIsVerified = user.emailVerified;
 
-        const updatedData = {
-          email: userEmail,
-          name: userName,
-          isEmailVerified: emailIsVerified,
-        };
-
-        setProfile((prev) => ({ ...prev, ...updatedData }));
-        setFormData((prev) => ({ ...prev, ...updatedData }));
+        setProfile((prev) => {
+          const updated = {
+            ...prev,
+            email: userEmail,
+            isEmailVerified: emailIsVerified,
+          };
+          try {
+            localStorage.setItem("user_profile_data", JSON.stringify(updated));
+          } catch (e) {
+            console.error("Gagal simpan local", e);
+          }
+          return updated;
+        });
       }
     });
 
@@ -121,7 +138,7 @@ export default function ProfilePage() {
       }
 
       const map = L.map(mainMapContainerRef.current).setView(
-        [profile.lat, profile.lng],
+        [profile.lat || DEFAULT_LAT, profile.lng || DEFAULT_LNG],
         15,
       );
 
@@ -129,7 +146,7 @@ export default function ProfilePage() {
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      L.marker([profile.lat, profile.lng])
+      L.marker([profile.lat || DEFAULT_LAT, profile.lng || DEFAULT_LNG])
         .addTo(map)
         .bindPopup(`<b>${profile.name}</b><br/>${profile.location}`);
 
@@ -152,7 +169,7 @@ export default function ProfilePage() {
       }
 
       const map = L.map(mapContainerRef.current).setView(
-        [formData.lat, formData.lng],
+        [formData.lat || DEFAULT_LAT, formData.lng || DEFAULT_LNG],
         15,
       );
 
@@ -160,9 +177,12 @@ export default function ProfilePage() {
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      const marker = L.marker([formData.lat, formData.lng], {
-        draggable: true,
-      }).addTo(map);
+      const marker = L.marker(
+        [formData.lat || DEFAULT_LAT, formData.lng || DEFAULT_LNG],
+        {
+          draggable: true,
+        },
+      ).addTo(map);
 
       marker.on("dragend", () => {
         const position = marker.getLatLng();
@@ -231,40 +251,75 @@ export default function ProfilePage() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleSendEmailVerification = async () => {
     if (auth.currentUser) {
       try {
-        await sendEmailVerification(auth.currentUser);
+        const actionCodeSettings = {
+          url: window.location.origin + "/profile",
+          handleCodeInApp: true,
+        };
+        await sendEmailVerification(auth.currentUser, actionCodeSettings);
         showToast("Link verifikasi telah dikirim ke email Anda!");
       } catch (error) {
         console.error("Gagal mengirim email verifikasi:", error);
-        alert("Gagal mengirim email. Coba login ulang terlebih dahulu.");
+        alert(
+          "Gagal mengirim email. Harap periksa folder Spam/Junk Anda atau coba lagi nanti.",
+        );
       }
     }
   };
 
-  const handleUpdateEmail = async (e: React.FormEvent) => {
+  // Pemicu Modal Re-Auth untuk Ganti Email
+  const handleUpdateEmail = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail) return;
 
-    if (auth.currentUser) {
-      try {
-        await updateEmail(auth.currentUser, newEmail);
-        setProfile((prev) => ({
-          ...prev,
-          email: newEmail,
-          isEmailVerified: false,
-        }));
-        setNewEmail("");
-        showToast(
-          "Email berhasil diperbarui! Silakan lakukan verifikasi ulang.",
-        );
-      } catch (error) {
-        console.error("Gagal perbarui email:", error);
-        alert("Gagal memperbarui email. Harap re-login demi keamanan.");
+    setPendingAction("email");
+    setShowReauthModal(true);
+  };
+
+  // Eksekusi Update Email dengan ActionCodeSettings
+  const executeEmailUpdate = async () => {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+
+    try {
+      // 1. Re-authenticate Password Lama
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPasswordInput,
+      );
+      await reauthenticateWithCredential(user, credential);
+
+      // 2. Konfigurasi URL Redirect balik ke aplikasi lokal
+      const actionCodeSettings = {
+        url: window.location.origin + "/profile",
+        handleCodeInApp: true,
+      };
+
+      // 3. Kirim email konfirmasi perubahan ke email baru
+      await verifyBeforeUpdateEmail(user, newEmail, actionCodeSettings);
+
+      setShowReauthModal(false);
+      setCurrentPasswordInput("");
+      const targetEmail = newEmail;
+      setNewEmail("");
+
+      showToast(`Link verifikasi terkirim ke ${targetEmail}`);
+      alert(
+        `Link konfirmasi perbaikan email telah dikirim ke: ${targetEmail}\n\nSilakan cek Inbox atau folder SPAM di Gmail tersebut, lalu klik linknya untuk menyelesaikan perubahan email.`,
+      );
+    } catch (error: any) {
+      console.error("Gagal update email:", error);
+      if (error.code === "auth/wrong-password") {
+        alert("Kata sandi saat ini yang Anda masukkan salah!");
+      } else if (error.code === "auth/requires-recent-login") {
+        alert("Sesi Anda telah berakhir, silakan logout dan login kembali.");
+      } else {
+        alert("Gagal memperbarui email: " + error.message);
       }
     }
   };
@@ -297,6 +352,7 @@ export default function ProfilePage() {
     if (confirmDelete && auth.currentUser) {
       try {
         await deleteUser(auth.currentUser);
+        localStorage.removeItem("user_profile_data");
         alert("Akun Anda telah berhasil dihapus.");
         navigate("/", { replace: true });
       } catch (error) {
@@ -322,30 +378,19 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Simpan Edit Profil ke LocalStorage
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    const isNumberChanged = formData.phone !== profile.phone;
-    const updatedProfile = {
-      ...formData,
-      isPhoneVerified: isNumberChanged ? false : formData.isPhoneVerified,
-    };
 
-    setProfile(updatedProfile);
+    setProfile(formData);
+    try {
+      localStorage.setItem("user_profile_data", JSON.stringify(formData));
+    } catch (err) {
+      console.error("Gagal menyimpan ke LocalStorage", err);
+    }
+
     setIsEditOpen(false);
     showToast("Profil berhasil diperbarui!");
-  };
-
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpInput === "123456" || otpInput.length === 6) {
-      setProfile((prev) => ({ ...prev, isPhoneVerified: true }));
-      setFormData((prev) => ({ ...prev, isPhoneVerified: true }));
-      setShowOtpModal(false);
-      setOtpInput("");
-      showToast("Nomor Telepon Toko Berhasil Diverifikasi!");
-    } else {
-      alert("Kode OTP Salah! Masukkan 6 digit angka.");
-    }
   };
 
   return (
@@ -393,7 +438,7 @@ export default function ProfilePage() {
 
       {/* SECTION ATAS: INFORMASI PENGGUNA & LOKASI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Card Kiri: Detail Akun (Tanpa Foto) */}
+        {/* Card Kiri: Detail Akun */}
         <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm flex flex-col justify-between gap-5 border border-slate-100">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
@@ -435,24 +480,9 @@ export default function ProfilePage() {
 
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
                 <span className="text-slate-500 font-medium">Telepon Toko</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#5F1E1E]">
-                    {profile.phone || "Belum Diisi"}
-                  </span>
-                  {profile.phone &&
-                    (profile.isPhoneVerified ? (
-                      <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-md font-bold">
-                        ✓ Verified
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => setShowOtpModal(true)}
-                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all"
-                      >
-                        Verifikasi
-                      </button>
-                    ))}
-                </div>
+                <span className="font-bold text-[#5F1E1E]">
+                  {profile.phone || "Belum Diisi"}
+                </span>
               </div>
 
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
@@ -513,7 +543,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* SECTION BAWAH: PENGATURAN KEAMANAN AKUN (ACCORDION INTERAKTIF) */}
+      {/* SECTION BAWAH: PENGATURAN KEAMANAN AKUN */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-4 transition-all">
         <div
           onClick={() => setIsSecurityOpen(!isSecurityOpen)}
@@ -544,9 +574,9 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* ISI PENGATURAN (MUNCUL KETIKA DIKLIK) */}
+        {/* ISI PENGATURAN */}
         {isSecurityOpen && (
-          <div className="border-t border-slate-100 pt-5 flex flex-col gap-5 animate-fadeIn">
+          <div className="border-t border-slate-100 pt-5 flex flex-col gap-5">
             {/* Pilihan Tab Menu */}
             <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-3">
               <button
@@ -696,7 +726,61 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* OVERLAY MODAL EDIT PROFIL (BACKGROUND BLUR) */}
+      {/* MODAL RE-AUTHENTICATION */}
+      {showReauthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-slate-100">
+            <div>
+              <h3 className="text-base font-extrabold text-[#5F1E1E] uppercase">
+                Konfirmasi Kata Sandi
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Demi keamanan akun, masukkan kata sandi Anda saat ini untuk
+                melanjutkan perubahan email.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (pendingAction === "email") executeEmailUpdate();
+              }}
+              className="flex flex-col gap-4"
+            >
+              <input
+                type="password"
+                placeholder="Masukkan Kata Sandi Saat Ini"
+                value={currentPasswordInput}
+                onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                required
+                autoFocus
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+              />
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReauthModal(false);
+                    setCurrentPasswordInput("");
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                >
+                  Konfirmasi & Lanjutkan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT PROFIL */}
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-all">
           <div className="bg-white w-full max-w-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto flex flex-col gap-6">
@@ -719,7 +803,6 @@ export default function ProfilePage() {
             </div>
 
             <form onSubmit={handleSaveProfile} className="flex flex-col gap-5">
-              {/* Nama Pemilik */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
                   Nama Pemilik / Lengkap
@@ -734,7 +817,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Email (Read-Only) */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
                   Email Akun
@@ -747,7 +829,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Telepon */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
                   Nomor Telepon Toko
@@ -762,7 +843,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Kategori Usaha */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-2">
                   Kategori Usaha
@@ -796,7 +876,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* EDIT LOKASI INTERAKTIF */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
                   Cari / Pilih Lokasi Usaha di Peta
@@ -830,7 +909,6 @@ export default function ProfilePage() {
                 ></div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -844,49 +922,6 @@ export default function ProfilePage() {
                   className="px-6 py-2.5 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl shadow-sm transition-all"
                 >
                   Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal OTP */}
-      {showOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-            <h3 className="text-lg font-extrabold text-[#5F1E1E]">
-              Verifikasi Nomor Telepon
-            </h3>
-            <p className="text-xs text-slate-600">
-              Kode OTP dikirim ke{" "}
-              <span className="font-bold text-[#5F1E1E]">{profile.phone}</span>.
-              (Masukkan 6 digit angka/123456 untuk tes).
-            </p>
-
-            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="123456"
-                value={otpInput}
-                onChange={(e) => setOtpInput(e.target.value)}
-                className="w-full text-center tracking-[0.5em] text-lg font-bold border border-slate-300 rounded-xl py-2.5 focus:outline-none focus:border-[#B48328]"
-              />
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowOtpModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl"
-                >
-                  Verifikasi
                 </button>
               </div>
             </form>
