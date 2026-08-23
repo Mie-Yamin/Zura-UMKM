@@ -179,9 +179,7 @@ export default function ProfilePage() {
 
       const marker = L.marker(
         [formData.lat || DEFAULT_LAT, formData.lng || DEFAULT_LNG],
-        {
-          draggable: true,
-        },
+        { draggable: true },
       ).addTo(map);
 
       marker.on("dragend", () => {
@@ -196,11 +194,7 @@ export default function ProfilePage() {
       map.on("click", (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
         marker.setLatLng([lat, lng]);
-        setFormData((prev) => ({
-          ...prev,
-          lat,
-          lng,
-        }));
+        setFormData((prev) => ({ ...prev, lat, lng }));
       });
 
       mapInstanceRef.current = map;
@@ -272,94 +266,90 @@ export default function ProfilePage() {
     }
   };
 
-  // Pemicu Modal Re-Auth untuk Ganti Email
-  const handleUpdateEmail = (e: React.FormEvent) => {
+  // ─── HANDLER PEMICU RE-AUTHENTICATION ───
+  const triggerEmailUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail) return;
-
     setPendingAction("email");
     setShowReauthModal(true);
   };
 
-  // Eksekusi Update Email dengan ActionCodeSettings
-  const executeEmailUpdate = async () => {
+  const triggerPasswordUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword !== confirmPassword) {
+      alert("Kata sandi baru dan konfirmasi tidak cocok!");
+      return;
+    }
+    if (newPassword.length < 6) {
+      alert("Kata sandi minimal 6 karakter!");
+      return;
+    }
+    setPendingAction("password");
+    setShowReauthModal(true);
+  };
+
+  const triggerAccountDelete = () => {
+    const confirmDelete = window.confirm(
+      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Tindakan ini tidak dapat dibatalkan!",
+    );
+    if (confirmDelete) {
+      setPendingAction("delete");
+      setShowReauthModal(true);
+    }
+  };
+
+  // ─── EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI ───
+  const handleReauthenticateAndExecute = async (e: React.FormEvent) => {
+    e.preventDefault();
     const user = auth.currentUser;
-    if (!user || !user.email) return;
+
+    if (!user || !user.email) {
+      alert("Sesi user tidak ditemukan. Silakan login kembali.");
+      return;
+    }
 
     try {
-      // 1. Re-authenticate Password Lama
       const credential = EmailAuthProvider.credential(
         user.email,
         currentPasswordInput,
       );
       await reauthenticateWithCredential(user, credential);
 
-      // 2. Konfigurasi URL Redirect balik ke aplikasi lokal
-      const actionCodeSettings = {
-        url: window.location.origin + "/profile",
-        handleCodeInApp: true,
-      };
-
-      // 3. Kirim email konfirmasi perubahan ke email baru
-      await verifyBeforeUpdateEmail(user, newEmail, actionCodeSettings);
-
-      setShowReauthModal(false);
-      setCurrentPasswordInput("");
-      const targetEmail = newEmail;
-      setNewEmail("");
-
-      showToast(`Link verifikasi terkirim ke ${targetEmail}`);
-      alert(
-        `Link konfirmasi perbaikan email telah dikirim ke: ${targetEmail}\n\nSilakan cek Inbox atau folder SPAM di Gmail tersebut, lalu klik linknya untuk menyelesaikan perubahan email.`,
-      );
-    } catch (error: any) {
-      console.error("Gagal update email:", error);
-      if (error.code === "auth/wrong-password") {
-        alert("Kata sandi saat ini yang Anda masukkan salah!");
-      } else if (error.code === "auth/requires-recent-login") {
-        alert("Sesi Anda telah berakhir, silakan logout dan login kembali.");
-      } else {
-        alert("Gagal memperbarui email: " + error.message);
-      }
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPassword || newPassword !== confirmPassword) {
-      alert("Kata sandi baru dan konfirmasi tidak cocok!");
-      return;
-    }
-
-    if (auth.currentUser) {
-      try {
-        await updatePassword(auth.currentUser, newPassword);
+      if (pendingAction === "email") {
+        const actionCodeSettings = {
+          url: window.location.origin + "/profile",
+          handleCodeInApp: true,
+        };
+        await verifyBeforeUpdateEmail(user, newEmail, actionCodeSettings);
+        showToast(`Link verifikasi terkirim ke ${newEmail}`);
+        alert(
+          `Link konfirmasi telah dikirim ke ${newEmail}.\nSilakan buka email tersebut untuk menyetujui perubahan.`,
+        );
+        setNewEmail("");
+      } else if (pendingAction === "password") {
+        await updatePassword(user, newPassword);
+        showToast("Kata sandi berhasil diubah!");
         setNewPassword("");
         setConfirmPassword("");
-        showToast("Kata sandi berhasil diubah!");
-      } catch (error) {
-        console.error("Gagal ubah password:", error);
-        alert("Gagal mengubah kata sandi. Harap re-login terlebih dahulu.");
-      }
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmDelete = window.confirm(
-      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Tindakan ini tidak dapat dibatalkan!",
-    );
-
-    if (confirmDelete && auth.currentUser) {
-      try {
-        await deleteUser(auth.currentUser);
+      } else if (pendingAction === "delete") {
+        await deleteUser(user);
         localStorage.removeItem("user_profile_data");
         alert("Akun Anda telah berhasil dihapus.");
         navigate("/", { replace: true });
-      } catch (error) {
-        console.error("Gagal menghapus akun:", error);
-        alert(
-          "Gagal menghapus akun. Harap login ulang sebelum melakukan tindakan ini.",
-        );
+        return;
+      }
+
+      setShowReauthModal(false);
+      setCurrentPasswordInput("");
+      setPendingAction(null);
+    } catch (error: any) {
+      console.error("Gagal melakukan aksi keamanan:", error);
+      if (error.code === "auth/wrong-password") {
+        alert("Kata sandi saat ini yang Anda masukkan salah!");
+      } else if (error.code === "auth/requires-recent-login") {
+        alert("Sesi Anda telah berakhir. Silakan logout lalu login kembali.");
+      } else {
+        alert("Gagal memproses permintaan: " + error.message);
       }
     }
   };
@@ -378,17 +368,14 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Simpan Edit Profil ke LocalStorage
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-
     setProfile(formData);
     try {
       localStorage.setItem("user_profile_data", JSON.stringify(formData));
     } catch (err) {
       console.error("Gagal menyimpan ke LocalStorage", err);
     }
-
     setIsEditOpen(false);
     showToast("Profil berhasil diperbarui!");
   };
@@ -550,9 +537,11 @@ export default function ProfilePage() {
           className="flex items-center justify-between cursor-pointer select-none"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-bold text-base">
-              ⚙️
-            </div>
+            <img
+              src="/settings.svg"
+              alt="Pengaturan"
+              className="w-6 h-6 object-contain"
+            />
             <div>
               <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
                 Pengaturan Keamanan Akun
@@ -619,7 +608,7 @@ export default function ProfilePage() {
             {/* Konten Tab 1: Ganti Email */}
             {activeSecurityTab === "email" && (
               <form
-                onSubmit={handleUpdateEmail}
+                onSubmit={triggerEmailUpdate}
                 className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
               >
                 <div>
@@ -655,7 +644,7 @@ export default function ProfilePage() {
             {/* Konten Tab 2: Ganti Password */}
             {activeSecurityTab === "password" && (
               <form
-                onSubmit={handleUpdatePassword}
+                onSubmit={triggerPasswordUpdate}
                 className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
               >
                 <div>
@@ -714,7 +703,7 @@ export default function ProfilePage() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={handleDeleteAccount}
+                    onClick={triggerAccountDelete}
                     className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
                   >
                     Hapus Akun Permanen
@@ -736,15 +725,12 @@ export default function ProfilePage() {
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 Demi keamanan akun, masukkan kata sandi Anda saat ini untuk
-                melanjutkan perubahan email.
+                melanjutkan aksi ini.
               </p>
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (pendingAction === "email") executeEmailUpdate();
-              }}
+              onSubmit={handleReauthenticateAndExecute}
               className="flex flex-col gap-4"
             >
               <input
@@ -763,6 +749,7 @@ export default function ProfilePage() {
                   onClick={() => {
                     setShowReauthModal(false);
                     setCurrentPasswordInput("");
+                    setPendingAction(null);
                   }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
                 >
