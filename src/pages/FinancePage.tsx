@@ -251,14 +251,52 @@ export default function FinancePage() {
           {/* Line Chart */}
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={chartData} margin={{ top: 15, right: 15, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis dataKey="bulan" tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <YAxis tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#5F1E1E', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '11px' }}
-                  formatter={(value: any) => [formatRupiah(value), '']}
+
+                {/* Format Sumbu Y Singkat (5 Jt, 10 Jt, dst.) */}
+                <YAxis
+                  stroke="#5F1E1E"
+                  fontSize={10}
+                  fontWeight={600}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value: number) => {
+                    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)} Jt`;
+                    if (value >= 1_000) return `${(value / 1_000).toFixed(0)}rb`;
+                    return `${value}`;
+                  }}
                 />
+
+                {/* Tooltip Teks Terang Kontras Putih & Emas Krem */}
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-2xl border border-[#B48328]/40 text-xs">
+                          <p className="font-extrabold text-[#E8D3A7] mb-1.5 pb-1 border-b border-white/10">
+                            {label}
+                          </p>
+                          <div className="flex flex-col gap-1">
+                            {payload.map((entry: any, index: number) => (
+                              <div key={`item-${index}`} className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-white/90">
+                                  {entry.name}:
+                                </span>
+                                <span className="font-extrabold text-[#E8D3A7]">
+                                  {formatRupiah(entry.value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                 <Line
                   type="monotone"
@@ -420,8 +458,8 @@ export default function FinancePage() {
           </table>
         </div>
 
-      </section >
+      </section>
 
-    </div >
+    </div>
   );
 }

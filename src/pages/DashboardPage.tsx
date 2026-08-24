@@ -26,7 +26,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   'Shopee': '#EE4D2D',      // Oranye Shopee
   'Tokopedia': '#00AA5B',   // Hijau Tokopedia
   'TikTok Shop': '#000000', // Hitam TikTok
-  'Lainnya': '#5F1E1E', // Maroon Zura
+  'Lainnya': '#5F1E1E',     // Maroon Zura
 };
 
 export default function DashboardPage() {
@@ -135,17 +135,17 @@ export default function DashboardPage() {
     const manualSum = recaps.filter(r => r.source === 'Manual').reduce((sum, r) => sum + r.totalAmount, 0);
 
     if (selectedBranch === 'Cabang Shopee') {
-      return [{ name: 'Shopee', 'Omzet (Rp)': shopeeSum + 22500000 }];
+      return [{ name: 'Shopee', 'Omzet': shopeeSum + 22500000 }];
     }
     if (selectedBranch === 'Cabang Tokopedia') {
-      return [{ name: 'Tokopedia', 'Omzet (Rp)': tokoSum + 18000000 }];
+      return [{ name: 'Tokopedia', 'Omzet': tokoSum + 18000000 }];
     }
 
     return [
-      { name: 'Shopee', 'Omzet (Rp)': shopeeSum + 22500000 },
-      { name: 'Tokopedia', 'Omzet (Rp)': tokoSum + 18000000 },
-      { name: 'TikTok Shop', 'Omzet (Rp)': tiktokSum + 16000000 },
-      { name: 'Lainnya', 'Omzet (Rp)': manualSum + 10000000 },
+      { name: 'Shopee', 'Omzet': shopeeSum + 22500000 },
+      { name: 'Tokopedia', 'Omzet': tokoSum + 18000000 },
+      { name: 'TikTok Shop', 'Omzet': tiktokSum + 16000000 },
+      { name: 'Lainnya', 'Omzet': manualSum + 10000000 },
     ];
   }, [recaps, selectedBranch]);
 
@@ -213,7 +213,7 @@ export default function DashboardPage() {
         {/* Global Selectors */}
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto justify-start md:justify-end">
 
-          {/* Custom Branch Selector dengan Tombol Plus (+ Tambah Cabang) */}
+          {/* Custom Branch Selector */}
           <div className="relative w-full sm:w-auto">
             <button
               type="button"
@@ -248,7 +248,6 @@ export default function DashboardPage() {
                   </button>
                 ))}
 
-                {/* Tombol Plus + Tambah Cabang Baru */}
                 <button
                   type="button"
                   onClick={() => setIsAddBranchOpen(true)}
@@ -414,13 +413,35 @@ export default function DashboardPage() {
 
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis dataKey="jam" tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <YAxis tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#5F1E1E', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '11px' }}
+
+                {/* Formatter Sumbu Y Line Chart */}
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }}
+                  tickFormatter={(val: number) => `${val} Jt`}
                 />
+
+                {/* Tooltip Terang Kontras */}
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10 text-white text-xs">
+                          <p className="font-bold text-[#E8D3A7] mb-1">Jam {label}</p>
+                          {payload.map((entry: any, index: number) => (
+                            <p key={`item-${index}`} className="font-semibold" style={{ color: entry.color }}>
+                              {entry.name}: Rp {(entry.value * 1_000_000).toLocaleString('id-ID')}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                 <Line
                   type="monotone"
@@ -444,25 +465,68 @@ export default function DashboardPage() {
         {/* Kanan: Bar chart Distribusi Saluran Penjualan */}
         <div className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
           <div>
-            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Kontribusi Saluran Marketplace</h2>
-            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">Distribusi nominal omzet berdasarkan asal saluran transaksi.</p>
+            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+              KONTRIBUSI SALURAN MARKETPLACE
+            </h2>
+            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
+              Distribusi nominal omzet berdasarkan asal saluran transaksi.
+            </p>
           </div>
 
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={channelData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <YAxis tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#5F1E1E', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '11px' }}
-                  formatter={(value: any) => [formatRupiah(value), 'Omzet']}
+              <BarChart data={channelData} margin={{ top: 15, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#5F1E1E"
+                  fontSize={11}
+                  fontWeight={700}
+                  tickLine={false}
                 />
-                <Bar dataKey="Omzet (Rp)" radius={[6, 6, 0, 0]} maxBarSize={32}>
+
+                {/* Formatter Sumbu Y (0000 -> 5 Jt, 10 Jt, 20 Jt) */}
+                <YAxis
+                  stroke="#5F1E1E"
+                  fontSize={10}
+                  fontWeight={600}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value: number) => {
+                    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)} Jt`;
+                    if (value >= 1_000) return `${(value / 1_000).toFixed(0)}rb`;
+                    return `${value}`;
+                  }}
+                />
+
+                {/* Tooltip Teks Terang Kontras */}
+                <Tooltip
+                  cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      const val = payload[0].value as number;
+                      return (
+                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10">
+                          <p className="font-bold text-xs text-[#E8D3A7] mb-1">
+                            {data.name}
+                          </p>
+                          <p className="text-xs font-semibold text-white">
+                            Omzet : {formatRupiah(val)}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+
+                <Bar dataKey="Omzet" radius={[8, 8, 0, 0]} maxBarSize={36}>
                   {channelData.map((entry) => (
                     <Cell
                       key={`cell-${entry.name}`}
-                      fill={CHANNEL_COLORS[entry.name] || '#B48328'}
+                      fill={CHANNEL_COLORS[entry.name] || '#5F1E1E'}
                     />
                   ))}
                 </Bar>
@@ -497,7 +561,6 @@ export default function DashboardPage() {
                     <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium mt-0.5">Tersisa: {p.stockCount} unit | Sisa ~{p.aiForecasterDays} hari</p>
                   </div>
 
-                  {/* Tombol Restock Warna Merah Zura (#5F1E1E) */}
                   <button
                     type="button"
                     onClick={() => setRestockItem(p)}

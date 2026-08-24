@@ -284,7 +284,7 @@ export default function SalesRecapPage() {
                     {r.status}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <p className="text-[9px] text-slate-400 font-bold uppercase">Tanggal</p>
@@ -292,12 +292,11 @@ export default function SalesRecapPage() {
                   </div>
                   <div>
                     <p className="text-[9px] text-slate-400 font-bold uppercase">Saluran</p>
-                    <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-xl text-[9px] font-bold ${
-                      r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' : 
-                      r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' : 
-                      r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' : 
-                      'bg-[#5F1E1E] text-[#E8D3A7]'
-                    }`}>
+                    <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-xl text-[9px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
+                        r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
+                          r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                            'bg-[#5F1E1E] text-[#E8D3A7]'
+                      }`}>
                       {r.source}
                     </span>
                   </div>
@@ -314,7 +313,7 @@ export default function SalesRecapPage() {
                     <p className="font-mono text-red-600 font-bold">-{formatRupiah(r.adminFee)}</p>
                   </div>
                 </div>
-                
+
                 <div className="border-t border-slate-50 pt-2 flex justify-end">
                   <button
                     type="button"
