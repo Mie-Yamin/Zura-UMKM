@@ -147,7 +147,7 @@ export default function FinancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-6 flex flex-col gap-6 font-dmsans" aria-label="Laporan Keuangan Laba Rugi">
+    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-3 sm:p-5 md:p-6 flex flex-col gap-3 md:gap-6 font-dmsans w-full max-w-full overflow-x-hidden min-w-0" aria-label="Laporan Keuangan Laba Rugi">
 
       {/* Toast Alert */}
       {toastMessage && (
@@ -171,15 +171,15 @@ export default function FinancePage() {
       )}
 
       {/* ─── HEADER FINANSIAL ─── */}
-      <header className="bg-white p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="bg-white p-4 sm:p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">Laporan Keuangan & Laba Rugi</h1>
-          <p className="text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">Analisis margin operasional laba rugi riil, komisi admin platform marketplace, dan visualisasi arus kas.</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">Laporan Keuangan & Laba Rugi</h1>
+          <p className="text-[10px] sm:text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">Analisis margin operasional laba rugi riil, komisi admin platform marketplace, dan visualisasi arus kas.</p>
         </div>
       </header>
 
       {/* ─── KARTU METRIK UTAMA ─── */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Ringkasan Finansial">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6" aria-label="Ringkasan Finansial">
 
         {/* Pemasukan Kotor */}
         <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
@@ -220,18 +220,18 @@ export default function FinancePage() {
       </section>
 
       {/* ─── TENGAH: GRAFIK TREN ARUS KAS & RANGKUMAN AI ─── */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
 
         {/* Kiri: Grafik Tren Arus Kas */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3 w-full">
             <div>
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Tren Arus Kas Bulanan (Cashflow)</h2>
-              <p className="text-xs font-medium text-[#B48328]">Komparasi Pemasukan kotor vs Pengeluaran total bulanan.</p>
+              <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Tren Arus Kas Bulanan (Cashflow)</h2>
+              <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">Komparasi Pemasukan kotor vs Pengeluaran total bulanan.</p>
             </div>
 
             {/* Period Selector */}
-            <div className="flex bg-[#E8D3A7]/30 border-2 border-[#B48328] rounded-xl p-0.5">
+            <div className="flex bg-[#E8D3A7]/30 border-2 border-[#B48328] rounded-xl p-0.5 w-full sm:w-auto justify-center">
               {(['3_bulan', '6_bulan', '1_tahun'] as const).map((period) => (
                 <button
                   key={period}
@@ -282,13 +282,13 @@ export default function FinancePage() {
         </div>
 
         {/* Kanan: AI Summary Narrative */}
-        <div className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
           <div>
-            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
+            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
               Rangkuman Finansial AI
             </h2>
-            <p className="text-xs font-medium text-[#B48328]">Analisis kesehatan operasional dari asisten kecerdasan buatan.</p>
+            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">Analisis kesehatan operasional dari asisten kecerdasan buatan.</p>
           </div>
 
           <div className="bg-[#E8D3A7]/30 border border-[#B48328]/30 rounded-2xl p-5 flex flex-col gap-3">
@@ -305,21 +305,21 @@ export default function FinancePage() {
       </section>
 
       {/* ─── BAWAH: RINCIAN LABA RUGI & EKSPOR ─── */}
-      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
+      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4 w-full">
 
         {/* Table Header with Active Exports */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-3 w-full">
           <div>
-            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Laporan Rincian Laba / Rugi Omnichannel</h2>
-            <p className="text-xs font-medium text-[#B48328]">Komponen rincian pendapatan kotor, pengeluaran, HPP, komisi platform, dan keuntungan bersih.</p>
+            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">Laporan Rincian Laba / Rugi Omnichannel</h2>
+            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">Komponen rincian pendapatan kotor, pengeluaran, HPP, komisi platform, dan keuntungan bersih.</p>
           </div>
 
           {/* Export buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
             <button
               type="button"
               onClick={() => handleExport('Excel')}
-              className="bg-white border-2 border-[#B48328] hover:bg-[#E8D3A7]/20 text-[#5F1E1E] font-bold px-3.5 py-2 rounded-xl text-xs transition-colors flex items-center gap-1.5"
+              className="w-full sm:w-auto bg-white border-2 border-[#B48328] hover:bg-[#E8D3A7]/20 text-[#5F1E1E] font-bold px-3.5 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               <svg className="w-3.5 h-3.5 stroke-[#5F1E1E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -329,7 +329,7 @@ export default function FinancePage() {
             <button
               type="button"
               onClick={() => handleExport('PDF')}
-              className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
+              className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -340,7 +340,7 @@ export default function FinancePage() {
         </div>
 
         {/* Laba Rugi Table*/}
-        <div className="max-w-xl mx-auto w-full">
+        <div className="max-w-xl mx-auto w-full overflow-x-auto -mx-3 px-3">
           <table id="table-laba-rugi" className="w-full text-left text-xs border-collapse font-bold text-[#5F1E1E]" role="table">
             <tbody className="divide-y divide-slate-100">
 
