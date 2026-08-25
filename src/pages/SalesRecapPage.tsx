@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts } from '../api/client';
 import type { SalesRecap } from '../types';
 
@@ -11,18 +11,24 @@ const formatRupiah = (val?: number) => {
 export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
-  // 1. Fetch data dari Firestore menggunakan useQuery secara asynchronous
+  // ─── FETCH DATA ASYNC VIA USEQUERY (FIRESTORE) ───
   const { data: rawRecaps = [], isLoading: isLoadingRecaps } = useQuery({
     queryKey: ['recaps'],
-    queryFn: getLocalRecaps,
+    queryFn: async () => {
+      const res = await getLocalRecaps();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
   const { data: rawProducts = [] } = useQuery({
     queryKey: ['inventory'],
-    queryFn: getLocalProducts,
+    queryFn: async () => {
+      const res = await getLocalProducts();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
-  // Pastikan selalu bertipe Array
+  // Jaminan bertipe Array murni (Mencegah crash .reduce / .filter)
   const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 
@@ -40,6 +46,7 @@ export default function SalesRecapPage() {
   const [importSource, setImportSource] = useState<'Shopee' | 'Tokopedia' | 'TikTok Shop'>('Shopee');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   // Manual Form states
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
@@ -53,34 +60,17 @@ export default function SalesRecapPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Mutation untuk tambah rekap manual
-  const addRecapMutation = useMutation({
-    mutationFn: addRecap,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
-      setShowManualModal(false);
-      setManualProductId('');
-      showToast('Rekap Penjualan Manual berhasil dimasukkan!');
-    },
-    onError: () => {
-      showToast('Gagal menyimpan transaksi ke Firestore!');
-    },
-  });
-
   // Filtered recaps list
   const filteredRecaps = useMemo(() => {
     return recaps.filter((r) => {
-      const idMatch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase());
-      const sourceMatch = (r.source || '').toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSearch = idMatch || sourceMatch;
+      const matchesSearch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.source || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSource = selectedSourceFilter === 'Semua' || r.source === selectedSourceFilter;
       return matchesSearch && matchesSource;
     });
   }, [recaps, searchQuery, selectedSourceFilter]);
 
-  // Handle manual sales entry
+  // ─── HANDLE MANUAL / OPNAME SUBMIT DIRECT TO FIRESTORE ───
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -92,9 +82,12 @@ export default function SalesRecapPage() {
       return;
     }
 
+    setIsSubmittingManual(true);
+
     const recapId = `RCP-MAN-${Math.floor(100 + Math.random() * 900)}`;
     const selectedProd = products.find((p) => p.id === manualProductId);
 
+    // Objek dasar tanpa field bertipe undefined agar Firestore addDoc tidak menolak payload
     const manualRecap: SalesRecap = {
       id: recapId,
       date: manualDate,
@@ -103,22 +96,41 @@ export default function SalesRecapPage() {
       totalAmount: amount,
       adminFee: 0,
       status: 'Tersinkronisasi',
-      items: selectedProd
-        ? [
-          {
-            id: selectedProd.id,
-            name: selectedProd.name,
-            qty: parseInt(manualProductQty) || units,
-            price: selectedProd.sellPrice || (amount / units),
-          },
-        ]
-        : undefined,
     };
 
-    addRecapMutation.mutate(manualRecap);
+    // Hanya masukkan properti items jika produk memang dipilih
+    if (selectedProd) {
+      manualRecap.items = [
+        {
+          id: selectedProd.id,
+          name: selectedProd.name,
+          qty: parseInt(manualProductQty) || units,
+          price: selectedProd.sellPrice || (amount / units),
+        },
+      ];
+    }
+
+    try {
+      // Post langsung ke Cloud Firestore
+      await addRecap(manualRecap);
+
+      // Invalidate queries agar TanStack Query memperbarui UI secara otomatis
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+
+      setShowManualModal(false);
+      setManualProductId('');
+      showToast('Data Opname/Manual berhasil disimpan ke Cloud Firestore!');
+    } catch (error) {
+      console.error('Error saving recap to Firestore:', error);
+      showToast('Gagal menyimpan transaksi ke Firestore!');
+    } finally {
+      setIsSubmittingManual(false);
+    }
   };
 
-  // Handle marketplace file import simulation
+  // Handle marketplace file import
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) {
@@ -128,27 +140,31 @@ export default function SalesRecapPage() {
 
     setIsImporting(true);
     setTimeout(async () => {
-      // Simulasi 1 record impor
-      const dummyImportRecap: SalesRecap = {
-        id: `RCP-${importSource.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-        date: new Date().toISOString().split('T')[0],
-        source: importSource,
-        unitsSold: 10,
-        totalAmount: 150000,
-        adminFee: 7500,
-        status: 'Tersinkronisasi',
-      };
+      try {
+        await importRecapsFromFile([
+          {
+            date: new Date().toISOString().split('T')[0],
+            source: importSource,
+            unitsSold: 10,
+            totalAmount: 150000,
+            adminFee: 7500,
+            status: 'Tersinkronisasi',
+          },
+        ]);
+        queryClient.invalidateQueries({ queryKey: ['recaps'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['kpi'] });
 
-      await addRecap(dummyImportRecap);
-      queryClient.invalidateQueries({ queryKey: ['recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
-
-      setIsImporting(false);
-      setShowImportModal(false);
-      setImportFile(null);
-      showToast(`Laporan rekap ${importSource} berhasil diimpor & stok pusat diperbarui!`);
-    }, 1500);
+        setShowImportModal(false);
+        setImportFile(null);
+        showToast(`Laporan rekap ${importSource} berhasil diimpor & tersimpan ke Firestore!`);
+      } catch (err) {
+        console.error('Error importing file:', err);
+        showToast('Gagal mengimpor file rekap!');
+      } finally {
+        setIsImporting(false);
+      }
+    }, 1200);
   };
 
   return (
@@ -256,13 +272,6 @@ export default function SalesRecapPage() {
           </div>
         </div>
 
-        {/* Loading Indicator */}
-        {isLoadingRecaps && (
-          <div className="text-center py-6 text-xs font-bold text-[#5F1E1E] animate-pulse">
-            Memuat data transaksi dari Cloud Firestore...
-          </div>
-        )}
-
         {/* Desktop View Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -279,10 +288,16 @@ export default function SalesRecapPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRecaps.length === 0 && !isLoadingRecaps ? (
+              {isLoadingRecaps ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-[#5F1E1E] font-bold animate-pulse">
+                    Memuat data rekap dari Cloud Firestore...
+                  </td>
+                </tr>
+              ) : filteredRecaps.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400 font-bold">
-                    Belum ada data rekap. Silakan impor laporan atau lakukan input manual.
+                    Tidak ada data rekap yang cocok.
                   </td>
                 </tr>
               ) : (
@@ -326,9 +341,13 @@ export default function SalesRecapPage() {
 
         {/* Mobile View Card Stack */}
         <div className="block md:hidden flex flex-col gap-3">
-          {filteredRecaps.length === 0 && !isLoadingRecaps ? (
+          {isLoadingRecaps ? (
+            <div className="text-center py-8 text-[#5F1E1E] font-bold text-xs animate-pulse">
+              Memuat data rekap...
+            </div>
+          ) : filteredRecaps.length === 0 ? (
             <div className="text-center py-8 text-slate-400 font-bold text-xs">
-              Belum ada data rekap yang ditemukan.
+              Tidak ada data rekap yang cocok.
             </div>
           ) : (
             filteredRecaps.map((r) => (
@@ -555,10 +574,14 @@ export default function SalesRecapPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={addRecapMutation.isPending}
-                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow min-h-[44px]"
+                  disabled={isSubmittingManual}
+                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow min-h-[44px] flex items-center justify-center"
                 >
-                  {addRecapMutation.isPending ? 'Menyimpan...' : 'Simpan Transaksi'}
+                  {isSubmittingManual ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    'Simpan Transaksi'
+                  )}
                 </button>
               </div>
             </form>
