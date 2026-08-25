@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts } from '../api/client';
 import type { SalesRecap } from '../types';
 
@@ -11,9 +11,20 @@ const formatRupiah = (val?: number) => {
 export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
-  // Load local recaps & products
-  const recaps = useMemo(() => getLocalRecaps(), [queryClient]);
-  const products = useMemo(() => getLocalProducts(), [queryClient]);
+  // 1. Fetch data dari Firestore menggunakan useQuery secara asynchronous
+  const { data: rawRecaps = [], isLoading: isLoadingRecaps } = useQuery({
+    queryKey: ['recaps'],
+    queryFn: getLocalRecaps,
+  });
+
+  const { data: rawProducts = [] } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: getLocalProducts,
+  });
+
+  // Pastikan selalu bertipe Array
+  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
+  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 
   // States
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,17 +53,35 @@ export default function SalesRecapPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Mutation untuk tambah rekap manual
+  const addRecapMutation = useMutation({
+    mutationFn: addRecap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      setShowManualModal(false);
+      setManualProductId('');
+      showToast('Rekap Penjualan Manual berhasil dimasukkan!');
+    },
+    onError: () => {
+      showToast('Gagal menyimpan transaksi ke Firestore!');
+    },
+  });
+
   // Filtered recaps list
   const filteredRecaps = useMemo(() => {
     return recaps.filter((r) => {
-      const matchesSearch = r.id.toLowerCase().includes(searchQuery.toLowerCase()) || r.source.toLowerCase().includes(searchQuery.toLowerCase());
+      const idMatch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const sourceMatch = (r.source || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = idMatch || sourceMatch;
       const matchesSource = selectedSourceFilter === 'Semua' || r.source === selectedSourceFilter;
       return matchesSearch && matchesSource;
     });
   }, [recaps, searchQuery, selectedSourceFilter]);
 
   // Handle manual sales entry
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const units = parseInt(manualUnits) || 0;
@@ -86,13 +115,7 @@ export default function SalesRecapPage() {
         : undefined,
     };
 
-    addRecap(manualRecap);
-    queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    queryClient.invalidateQueries({ queryKey: ['kpi'] });
-
-    setShowManualModal(false);
-    setManualProductId('');
-    showToast('Rekap Penjualan Manual berhasil dimasukkan!');
+    addRecapMutation.mutate(manualRecap);
   };
 
   // Handle marketplace file import simulation
@@ -105,7 +128,19 @@ export default function SalesRecapPage() {
 
     setIsImporting(true);
     setTimeout(async () => {
-      await importRecapsFromFile(importSource);
+      // Simulasi 1 record impor
+      const dummyImportRecap: SalesRecap = {
+        id: `RCP-${importSource.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+        date: new Date().toISOString().split('T')[0],
+        source: importSource,
+        unitsSold: 10,
+        totalAmount: 150000,
+        adminFee: 7500,
+        status: 'Tersinkronisasi',
+      };
+
+      await addRecap(dummyImportRecap);
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['kpi'] });
 
@@ -164,14 +199,17 @@ export default function SalesRecapPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6" aria-label="Saluran Penjualan Ringkasan">
         {['Shopee', 'Tokopedia', 'TikTok Shop', 'Manual'].map((src) => {
           const matchingRecaps = recaps.filter((r) => r.source === src);
-          const totalUnits = matchingRecaps.reduce((sum, r) => sum + r.unitsSold, 0);
-          const totalNominal = matchingRecaps.reduce((sum, r) => sum + r.totalAmount, 0);
+          const totalUnits = matchingRecaps.reduce((sum, r) => sum + (r.unitsSold || 0), 0);
+          const totalNominal = matchingRecaps.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
           const counts = matchingRecaps.length;
 
           return (
             <article key={src} className="bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
               <div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase ${src === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' : src === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' : src === 'TikTok Shop' ? 'bg-neutral-900 text-white' : 'bg-[#5F1E1E] text-[#E8D3A7]'
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase ${src === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
+                    src === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
+                      src === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                        'bg-[#5F1E1E] text-[#E8D3A7]'
                   }`}>
                   {src}
                 </span>
@@ -218,6 +256,13 @@ export default function SalesRecapPage() {
           </div>
         </div>
 
+        {/* Loading Indicator */}
+        {isLoadingRecaps && (
+          <div className="text-center py-6 text-xs font-bold text-[#5F1E1E] animate-pulse">
+            Memuat data transaksi dari Cloud Firestore...
+          </div>
+        )}
+
         {/* Desktop View Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -234,45 +279,56 @@ export default function SalesRecapPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRecaps.map((r) => (
-                <tr key={r.id} className="hover:bg-[#E8D3A7]/20 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-slate-500">{r.id}</td>
-                  <td className="py-3 px-4 font-bold text-[#5F1E1E]">{r.date}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-0.5 rounded-xl text-[10px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' : r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' : r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' : 'bg-[#5F1E1E] text-[#E8D3A7]'
-                      }`}>
-                      {r.source}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right font-bold text-[#5F1E1E]">{r.unitsSold} Unit</td>
-                  <td className="py-3 px-4 text-right font-black text-[#B48328]">{formatRupiah(r.totalAmount)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-red-600 font-bold">-{formatRupiah(r.adminFee)}</td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-xl text-[10px]">
-                      <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></span>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setActiveDetailRecap(r)}
-                      className="text-[#5F1E1E] hover:underline font-extrabold"
-                    >
-                      Lihat Rincian
-                    </button>
+              {filteredRecaps.length === 0 && !isLoadingRecaps ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400 font-bold">
+                    Belum ada data rekap. Silakan impor laporan atau lakukan input manual.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRecaps.map((r) => (
+                  <tr key={r.id} className="hover:bg-[#E8D3A7]/20 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-slate-500">{r.id}</td>
+                    <td className="py-3 px-4 font-bold text-[#5F1E1E]">{r.date}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2.5 py-0.5 rounded-xl text-[10px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
+                          r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
+                            r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                              'bg-[#5F1E1E] text-[#E8D3A7]'
+                        }`}>
+                        {r.source}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-[#5F1E1E]">{r.unitsSold} Unit</td>
+                    <td className="py-3 px-4 text-right font-black text-[#B48328]">{formatRupiah(r.totalAmount)}</td>
+                    <td className="py-3 px-4 text-right font-mono text-red-600 font-bold">-{formatRupiah(r.adminFee)}</td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-xl text-[10px]">
+                        <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></span>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setActiveDetailRecap(r)}
+                        className="text-[#5F1E1E] hover:underline font-extrabold"
+                      >
+                        Lihat Rincian
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile View Card Stack */}
         <div className="block md:hidden flex flex-col gap-3">
-          {filteredRecaps.length === 0 ? (
+          {filteredRecaps.length === 0 && !isLoadingRecaps ? (
             <div className="text-center py-8 text-slate-400 font-bold text-xs">
-              Tidak ada data rekap yang cocok.
+              Belum ada data rekap yang ditemukan.
             </div>
           ) : (
             filteredRecaps.map((r) => (
@@ -499,9 +555,10 @@ export default function SalesRecapPage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={addRecapMutation.isPending}
                   className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow min-h-[44px]"
                 >
-                  Simpan Transaksi
+                  {addRecapMutation.isPending ? 'Menyimpan...' : 'Simpan Transaksi'}
                 </button>
               </div>
             </form>
@@ -532,7 +589,10 @@ export default function SalesRecapPage() {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[9px] text-slate-500 font-bold uppercase">Sumber Laporan</span>
-                  <span className={`font-bold self-start mt-0.5 px-2 py-0.5 rounded-xl text-[10px] ${activeDetailRecap.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' : activeDetailRecap.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' : activeDetailRecap.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' : 'bg-[#5F1E1E] text-[#E8D3A7]'
+                  <span className={`font-bold self-start mt-0.5 px-2 py-0.5 rounded-xl text-[10px] ${activeDetailRecap.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
+                      activeDetailRecap.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
+                        activeDetailRecap.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                          'bg-[#5F1E1E] text-[#E8D3A7]'
                     }`}>
                     {activeDetailRecap.source}
                   </span>
