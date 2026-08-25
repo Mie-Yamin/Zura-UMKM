@@ -49,9 +49,34 @@ export default function DashboardPage() {
     queryFn: fetchInventory,
   });
 
-  const products = inventoryData?.products ?? [];
-  const recaps = useMemo(() => getLocalRecaps() ?? [], [inventoryData]);
-  const customers = useMemo(() => getLocalCustomers() ?? [], [inventoryData]);
+  // ─── FIX ASYNC FETCHING VIA USEQUERY (SOLUSI LAYAR PUTIH) ───
+  const { data: rawRecaps = [] } = useQuery({
+    queryKey: ["recaps"],
+    queryFn: async () => {
+      const res = await getLocalRecaps();
+      return Array.isArray(res) ? res : [];
+    },
+  });
+
+  const { data: rawCustomers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await getLocalCustomers();
+      return Array.isArray(res) ? res : [];
+    },
+  });
+
+  // Pengaman bertipe Array murni
+  const products = useMemo(() => {
+    if (Array.isArray(inventoryData)) return inventoryData;
+    if (inventoryData && Array.isArray((inventoryData as any).products)) {
+      return (inventoryData as any).products;
+    }
+    return [];
+  }, [inventoryData]);
+
+  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
+  const customers = useMemo(() => (Array.isArray(rawCustomers) ? rawCustomers : []), [rawCustomers]);
 
   // ─── STATE CABANG DINAMIS ──────────────────────────────────────────────────
   const [branches, setBranches] = useState([
@@ -107,12 +132,12 @@ export default function DashboardPage() {
       selectedBranch === "Semua Cabang"
         ? recaps
         : recaps.filter(
-            (r) =>
-              r.source?.toLowerCase().includes(selectedBranch.toLowerCase()) ||
-              selectedBranch
-                .toLowerCase()
-                .includes(r.source?.toLowerCase() || ""),
-          );
+          (r) =>
+            r?.source?.toLowerCase().includes(selectedBranch.toLowerCase()) ||
+            selectedBranch
+              .toLowerCase()
+              .includes(r?.source?.toLowerCase() || ""),
+        );
 
     const posRevenue = filteredRecaps.reduce(
       (sum, r) => sum + (r.totalAmount || 0),
@@ -123,7 +148,7 @@ export default function DashboardPage() {
 
     const totalProducts = products.length;
     const kritisCount = products.filter(
-      (p) => p.stockCount <= (p.minStock || 10),
+      (p) => (p.stockCount || 0) <= (p.minStock || 10),
     ).length;
     const amanCount = totalProducts - kritisCount;
     const totalCustomersCount = customers.length;
@@ -140,7 +165,7 @@ export default function DashboardPage() {
   // Understock & Deadstock alerts
   const criticalAlerts = useMemo(() => {
     const understock = products.filter(
-      (p) => p.stockCount <= (p.minStock || 10),
+      (p) => (p.stockCount || 0) <= (p.minStock || 10),
     );
     const deadstock = products.filter((p) => p.isDeadstock === true);
     return { understock, deadstock };
@@ -176,7 +201,7 @@ export default function DashboardPage() {
     ];
   }, [recaps, selectedBranch]);
 
-  // Line chart daily peak hours data (Diolah murni atau 0 jika data kosong)
+  // Line chart daily peak hours data
   const trendData = useMemo(() => {
     const timeSlots = [
       "08:00",
@@ -205,7 +230,7 @@ export default function DashboardPage() {
   }, [recaps]);
 
   // Quick restock submit handler
-  const handleQuickRestockSubmit = (e: React.FormEvent) => {
+  const handleQuickRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockItem) return;
 
@@ -224,7 +249,7 @@ export default function DashboardPage() {
           : "healthy",
     };
 
-    updateProduct(updated);
+    await updateProduct(updated.id, updated);
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
     queryClient.invalidateQueries({ queryKey: ["kpi"] });
     setRestockItem(null);
@@ -293,11 +318,10 @@ export default function DashboardPage() {
                       setSelectedBranch(option.value);
                       setIsBranchOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2.5 text-[10px] font-bold whitespace-pre-line border-b border-slate-100 last:border-none leading-tight transition-colors ${
-                      selectedBranch === option.value
+                    className={`w-full text-left px-3 py-2.5 text-[10px] font-bold whitespace-pre-line border-b border-slate-100 last:border-none leading-tight transition-colors ${selectedBranch === option.value
                         ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
                         : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>
