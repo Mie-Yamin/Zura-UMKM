@@ -1,14 +1,5 @@
 {
-  "historical": [
-    { "date": "2025-01-01", "revenue": 52000000 },
-    { "date": "2025-02-01", "revenue": 47500000 },
-    { "date": "2025-03-01", "revenue": 61000000 },
-    { "date": "2025-04-01", "revenue": 58750000 },
-    { "date": "2025-05-01", "revenue": 67200000 },
-    { "date": "2025-06-01", "revenue": 71500000 }
-  ],
-  "prediction": [
-    { "date": "2025-07-01", "revenue": 78300000 }
-  ],
+  "historical": [],
+  "prediction": [],
   "currency": "IDR"
 }

@@ -44,15 +44,16 @@ const BUSINESS_CATEGORIES = [
   "Lainnya",
 ];
 
-const DEFAULT_LAT = -6.2428;
-const DEFAULT_LNG = 106.8005;
+const DEFAULT_LAT = -6.2088;
+const DEFAULT_LNG = 106.8456;
 
+// Profile Default Dinamis (Tidak ada lagi hardcoded 'ckhyy23' / 'Taman Literasi')
 const INITIAL_PROFILE: UserProfile = {
-  name: "ckhyy23",
+  name: "Pengguna Zura",
   email: "",
   phone: "",
-  category: "Makanan & Minuman (F&B)",
-  location: "Taman Literasi, Jakarta",
+  category: "Lainnya",
+  location: "Belum Diatur",
   lat: DEFAULT_LAT,
   lng: DEFAULT_LNG,
   isEmailVerified: false,
@@ -104,16 +105,24 @@ export default function ProfilePage() {
   const mainMapContainerRef = useRef<HTMLDivElement | null>(null);
   const mainMapInstanceRef = useRef<L.Map | null>(null);
 
-  // Sync Firebase Auth
+  // Sync Firebase Auth & Auto Fallback Name
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const userEmail = user.email || "";
         const emailIsVerified = user.emailVerified;
+        const autoName =
+          user.displayName || userEmail.split("@")[0] || "Pengguna Zura";
 
         setProfile((prev) => {
+          const isDefaultName =
+            !prev.name ||
+            prev.name === "ckhyy23" ||
+            prev.name === "Pengguna Zura";
+
           const updated = {
             ...prev,
+            name: isDefaultName ? autoName : prev.name,
             email: userEmail,
             isEmailVerified: emailIsVerified,
           };
@@ -266,7 +275,7 @@ export default function ProfilePage() {
     }
   };
 
-  // ─── HANDLER PEMICU RE-AUTHENTICATION ───
+  // HANDLER PEMICU RE-AUTHENTICATION
   const triggerEmailUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail) return;
@@ -298,7 +307,7 @@ export default function ProfilePage() {
     }
   };
 
-  // ─── EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI ───
+  // EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI
   const handleReauthenticateAndExecute = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -865,48 +874,47 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Cari / Pilih Lokasi Usaha di Peta
+                  Lokasi Usaha
                 </label>
-
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
                     name="location"
-                    placeholder="Ketik alamat/kota lalu klik Cari"
+                    placeholder="Nama Kota / Wilayah Toko"
                     value={formData.location}
                     onChange={handleInputChange}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
                   />
                   <button
                     type="button"
                     onClick={handleSearchLocation}
-                    className="bg-[#B48328] hover:bg-[#966b1e] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
+                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
                   >
                     Cari Peta
                   </button>
                 </div>
 
-                <p className="text-[11px] text-slate-500 mb-2">
-                  💡 *Klik di peta atau geser pin penanda untuk lokasi presisi.*
-                </p>
-
                 <div
                   ref={mapContainerRef}
-                  className="w-full h-52 rounded-xl border border-slate-200 z-0"
+                  className="w-full h-48 rounded-xl border border-slate-200 z-0 shadow-inner"
                 ></div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  * Geser pin merah di peta untuk menyesuaikan titik koordinat
+                  presisi.
+                </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  className="px-5 py-2.5 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
                 >
                   Simpan Perubahan
                 </button>

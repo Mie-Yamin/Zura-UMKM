@@ -1,109 +1,179 @@
-import React, { useState } from 'react';
-import { useSalesChart } from '../hooks/useSalesChart';
-import { useRestockPlan } from '../hooks/useRestockPlan';
+import React, { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getLocalRecaps, getLocalProducts } from "../api/client";
+import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from 'recharts';
+} from "recharts";
 
-interface RestockItem {
-  name: string;
-  qty: number;
-  urgency: 'Tinggi' | 'Sedang' | 'Rendah';
-}
+const formatRupiah = (val?: number) => {
+  if (val === undefined) return "Rp 0";
+  return `Rp ${val.toLocaleString("id-ID")}`;
+};
 
-interface PromoRecommendation {
-  id: string;
-  text: string;
-  impact: string;
-}
+export default function FinancePage() {
+  const queryClient = useQueryClient();
 
-export default function AiInsightsPage() {
-  const { data: salesData, isLoading: salesLoading } = useSalesChart();
-  const { data: restockData } = useRestockPlan();
+  // Read recaps & products for real-time calculations
+  const recaps = useMemo(() => getLocalRecaps() ?? [], [queryClient]);
+  const products = useMemo(() => getLocalProducts() ?? [], [queryClient]);
 
+  // States
+  const [selectedPeriod, setSelectedPeriod] = useState<
+    "3_bulan" | "6_bulan" | "1_tahun"
+  >("6_bulan");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<string | null>(null);
 
-  // Daftar rekomendasi promosi AI
-  const promos: PromoRecommendation[] = [
-    {
-      id: 'promo-1',
-      text: 'Terapkan Diskon 20% untuk Chitato Sapi Panggang 68g (Barang lambat laku, mendekati masa kedaluwarsa dalam 10 hari) guna mengembalikan modal.',
-      impact: 'Potensi likuiditas: +Rp 850.000',
-    },
-    {
-      id: 'promo-2',
-      text: 'Buat Paket Bundling: Teh Botol Sosro + Indomie Goreng untuk akhir pekan depan guna mendongkrak penjualan silang.',
-      impact: 'Potensi kenaikan omzet: +15%',
-    },
-    {
-      id: 'promo-3',
-      text: 'Naikkan harga jual Kopi Kapal Api sebesar Rp 200/unit mengikuti peningkatan indeks permintaan lokal.',
-      impact: 'Potensi margin tambahan: +Rp 140.000/minggu',
-    },
-  ];
-
-  // Mock Restock Predictions
-  const restockPredictions: RestockItem[] = [
-    { name: 'Chitato Sapi Panggang 68g', qty: 150, urgency: 'Tinggi' },
-    { name: 'Indomie Goreng Spesial', qty: 240, urgency: 'Sedang' },
-    { name: 'Teh Botol Sosro 350ml', qty: 180, urgency: 'Rendah' },
-    { name: 'Aqua Galon 19L', qty: 20, urgency: 'Tinggi' },
-  ];
-
-  // Combine Sales projections for Recharts using Zura palette
-  const combineSalesProjections = () => {
-    if (!salesData) return [];
-    const points = [];
-
-    // Historical
-    for (const p of salesData.historical) {
-      points.push({
-        bulan: new Date(p.date).toLocaleDateString('id-ID', { month: 'short' }),
-        'Omzet Riil': p.revenue,
-        'Proyeksi AI': null,
-      });
-    }
-
-    // Connect lines
-    const lastHist = salesData.historical[salesData.historical.length - 1];
-
-    // Predictions
-    for (const p of salesData.prediction) {
-      if (lastHist) {
-        points.push({
-          bulan: new Date(lastHist.date).toLocaleDateString('id-ID', { month: 'short' }),
-          'Omzet Riil': lastHist.revenue,
-          'Proyeksi AI': lastHist.revenue,
-        });
-      }
-      points.push({
-        bulan: new Date(p.date).toLocaleDateString('id-ID', { month: 'short' }),
-        'Omzet Riil': null,
-        'Proyeksi AI': p.revenue,
-      });
-    }
-
-    return points;
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const projectionChartData = combineSalesProjections();
+  // 1. Calculate SaaS financial metrics (Purely from real recaps & products)
+  const finances = useMemo(() => {
+    const recapRevenue = recaps.reduce(
+      (sum, r) => sum + (r.totalAmount || 0),
+      0,
+    );
+    const recapAdminFee = recaps.reduce((sum, r) => sum + (r.adminFee || 0), 0);
 
-  // Currency helper
-  const formatRupiah = (val?: number) => {
-    if (val === undefined) return 'Rp 0';
-    return `Rp ${val.toLocaleString('id-ID')}`;
+    // HPP calculations
+    let recapHpp = 0;
+    recaps.forEach((r) => {
+      if (r.items && r.items.length > 0) {
+        r.items.forEach((item) => {
+          const product = products.find((p) => p.id === item.id);
+          const buyPrice = product?.buyPrice ?? item.price * 0.75; // fallback to 75% of sell price
+          recapHpp += buyPrice * item.qty;
+        });
+      } else {
+        recapHpp += (r.totalAmount || 0) * 0.7; // assume 70% HPP for recaps without item breakdown
+      }
+    });
+
+    // Beban operasional bulanan default 0 (diisi sesuai input pengguna nanti)
+    const sewa = 0;
+    const gaji = 0;
+    const listrik = 0;
+    const baseOperational = sewa + gaji + listrik;
+
+    const totalRevenue = recapRevenue;
+    const totalHpp = recapHpp;
+    const totalAdminFee = recapAdminFee;
+    const totalExpenses = totalHpp + totalAdminFee + baseOperational;
+    const netProfit = totalRevenue - totalExpenses;
+    const cashflow = totalRevenue - totalExpenses;
+
+    return {
+      totalRevenue,
+      totalHpp,
+      totalAdminFee,
+      totalExpenses,
+      netProfit,
+      cashflow,
+      sewa,
+      gaji,
+      listrik,
+      operational: baseOperational,
+    };
+  }, [recaps, products]);
+
+  // 2. Generate monthly cashflow comparison chart data (Dinamis sesuai data riil)
+  const chartData = useMemo(() => {
+    // Jika tidak ada data rekap, tampilkan tren 0
+    const hasData = recaps.length > 0;
+    const currentRevenue = finances.totalRevenue;
+    const currentExpense = finances.totalExpenses;
+
+    const data12Months = [
+      { bulan: "Sep 25", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Okt 25", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Nov 25", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Des 25", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Jan 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Feb 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Mar 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Apr 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Mei 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Jun 26", Pemasukan: 0, Pengeluaran: 0 },
+      { bulan: "Jul 26", Pemasukan: 0, Pengeluaran: 0 },
+      {
+        bulan: "Agu 26 (Kini)",
+        Pemasukan: hasData ? currentRevenue : 0,
+        Pengeluaran: hasData ? currentExpense : 0,
+      },
+    ];
+
+    if (selectedPeriod === "3_bulan") {
+      return data12Months.slice(-3);
+    } else if (selectedPeriod === "6_bulan") {
+      return data12Months.slice(-6);
+    }
+    return data12Months;
+  }, [selectedPeriod, finances, recaps]);
+
+  // 3. AI Financial Narrative Summary Generator
+  const aiNarrativeText = useMemo(() => {
+    if (finances.totalRevenue === 0) {
+      return "Belum ada data transaksi yang tercatat. AI akan memberikan analisis kesehatan finansial setelah Anda mengunggah atau memasukkan laporan rekap penjualan.";
+    }
+
+    const profitMargin = (
+      (finances.netProfit / finances.totalRevenue) *
+      100
+    ).toFixed(1);
+    const adminPercent = (
+      (finances.totalAdminFee / finances.totalRevenue) *
+      100
+    ).toFixed(1);
+
+    return `Kesehatan Keuangan bisnis dinilai ${finances.netProfit >= 0 ? "Sehat" : "Perlu Perhatian"} dengan Laba Bersih aktual ${formatRupiah(finances.netProfit)} dan Margin Laba Bersih ${profitMargin}%. Biaya admin platform berkontribusi sebesar ${adminPercent}% dari omzet kotor. AI menyarankan optimasi pengunggahan laporan rekap secara berkala untuk menjaga keakuratan pembukuan.`;
+  }, [finances]);
+
+  // 4. Excel/PDF Export Trigger
+  const handleExport = (type: "Excel" | "PDF") => {
+    setIsExporting(type);
+
+    setTimeout(() => {
+      setIsExporting(null);
+
+      if (type === "Excel") {
+        const headers = ["Komponen Laporan Finansial", "Nominal (Rupiah)"];
+        const rows = [
+          ["1. Pendapatan Penjualan (Bruto)", finances.totalRevenue],
+          ["   - Pendapatan Impor Rekap", finances.totalRevenue],
+          ["2. Harga Pokok Penjualan (HPP)", -finances.totalHpp],
+          ["3. Biaya Admin Platform Marketplace", -finances.totalAdminFee],
+          [
+            "LABA KOTOR",
+            finances.totalRevenue - finances.totalHpp - finances.totalAdminFee,
+          ],
+          ["4. Beban Operasional Bulanan", -finances.operational],
+          ["LABA BERSIH RIIL (NET PROFIT)", finances.netProfit],
+        ];
+
+        exportToExcel("Laporan_Laba_Rugi_Zura", "Laba Rugi", headers, rows);
+        showToast("Laporan Keuangan diekspor ke Excel (.xlsx)!");
+      } else {
+        exportToPdfPrint("Laporan Laba Rugi Omnichannel", "table-laba-rugi");
+        showToast("Mengunduh dokumen PDF...");
+      }
+    }, 800);
   };
 
   return (
-    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-6 flex flex-col gap-6 font-dmsans" aria-label="AI Insights Hub">
-
+    <div
+      className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-3 sm:p-5 md:p-6 flex flex-col gap-3 md:gap-6 font-dmsans w-full max-w-full overflow-x-hidden min-w-0"
+      aria-label="Laporan Keuangan Laba Rugi"
+    >
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#5F1E1E] text-[#E8D3A7] px-4 py-3 rounded-xl shadow-xl border border-[#B48328] text-sm gap-2 animate-bounce font-bold">
@@ -112,231 +182,429 @@ export default function AiInsightsPage() {
         </div>
       )}
 
-      {/* ─── HEADER AI BANNER (Tema Zura) ─── */}
-      <header className="bg-gradient-to-r from-[#5F1E1E] via-[#4a1717] to-[#B48328] rounded-2xl p-6 text-[#E8D3A7] shadow-md relative overflow-hidden">
-        <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 pointer-events-none flex items-center justify-center">
-          <svg className="w-48 h-48 fill-current" viewBox="0 0 24 24">
-            <path d="M9.813 15.904L9 21m0 0l-.813-5.096L3.6 15.3M9 21l5.4-5.7m-2.868-6.104l1.906-17.15a1.204 1.204 0 0 1 2.384 0l1.906 17.15a1.204 1.204 0 0 1-2.384 0Z" />
-          </svg>
+      {/* Export Loader Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 text-center">
+            <span className="w-10 h-10 border-4 border-[#5F1E1E] border-t-transparent rounded-full animate-spin"></span>
+            <div className="flex flex-col gap-1">
+              <p className="font-extrabold text-[#5F1E1E] text-sm">
+                Menyiapkan Berkas Laporan
+              </p>
+              <p className="text-xs text-[#B48328] font-bold">
+                Sedang memproses pengeksporan berkas {isExporting}...
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="relative z-10 flex flex-col gap-2">
-          <span className="bg-[#E5C88B] text-[#5F1E1E] text-[10px] font-black px-3 py-1 rounded-xl uppercase tracking-wider self-start border border-[#5F1E1E]/20">
-            Analisis AI Zura Retail
-          </span>
-          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight mt-1 text-white">Kesehatan Finansial Bisnis: Sangat Sehat (A+)</h1>
-          <p className="text-xs md:text-sm text-[#E8D3A7] font-medium leading-relaxed max-w-3xl">
-            Proyeksi omzet Anda untuk bulan depan diperkirakan meningkat sebesar <strong className="text-white font-extrabold">9,4%</strong> didorong oleh kenaikan penjualan kategori Indomie dan minuman dingin. Terdapat <strong className="text-white font-extrabold">3 item lambat (slow-moving)</strong> yang dianjurkan untuk diberikan diskon promosi guna meningkatkan perputaran kas operasional.
+      )}
+
+      {/* ─── HEADER FINANSIAL ─── */}
+      <header className="bg-white p-4 sm:p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
+        <div>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">
+            Laporan Keuangan & Laba Rugi
+          </h1>
+          <p className="text-[10px] sm:text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">
+            Analisis margin operasional laba rugi riil, komisi admin platform
+            marketplace, dan visualisasi arus kas.
           </p>
         </div>
       </header>
 
-      {/* ─── BARIS ATAS (Prediksi Berjalan) ─── */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Kartu 1: Prediksi Restock Minggu Depan */}
-        <article className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
-              Prediksi Restock Minggu Depan
-            </h2>
-            <p className="text-xs font-medium text-[#B48328]">Rekomendasi jumlah pengadaan stok berdasarkan pola penjualan bulanan.</p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse" role="table">
-              <thead>
-                <tr className="bg-[#5F1E1E] text-[#E8D3A7] uppercase text-[10px] font-black tracking-wider">
-                  <th className="py-3 px-4">Nama Barang</th>
-                  <th className="py-3 px-4">Estimasi Order</th>
-                  <th className="py-3 px-4 text-right">Urgensi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {restockPredictions.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-[#E8D3A7]/20 transition-colors">
-                    <td className="py-3 px-4 font-extrabold text-[#5F1E1E]">{item.name}</td>
-                    <td className="py-3 px-4 text-[#B48328] font-black">{item.qty} Unit</td>
-                    <td className="py-3 px-4 text-right">
-                      {item.urgency === 'Tinggi' ? (
-                        <span className="bg-red-100 text-red-700 font-extrabold px-2.5 py-0.5 rounded-xl text-[9px] uppercase tracking-wider">
-                          Tinggi
-                        </span>
-                      ) : item.urgency === 'Sedang' ? (
-                        <span className="bg-amber-100 text-[#B48328] font-extrabold px-2.5 py-0.5 rounded-xl text-[9px] uppercase tracking-wider">
-                          Sedang
-                        </span>
-                      ) : (
-                        <span className="bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-xl text-[9px] uppercase tracking-wider">
-                          Rendah
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        {/* Kartu 2: Prediksi Omzet & Kas Bulan Depan */}
-        <article className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
-                Prediksi Omzet & Kas Bulan Depan
-              </h2>
-              <p className="text-xs font-medium text-[#B48328]">Estimasi tren pendapatan bisnis jangka pendek.</p>
-            </div>
-            <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase">
-              Akurasi: 94.2%
+      {/* ─── KARTU METRIK UTAMA ─── */}
+      <section
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6"
+        aria-label="Ringkasan Finansial"
+      >
+        {/* Pemasukan Kotor */}
+        <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">
+            Pemasukan Kotor (Bruto)
+          </p>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-2xl font-bold text-[#B48328] tracking-tight">
+              {formatRupiah(finances.totalRevenue)}
+            </h3>
+            <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[10px] font-bold px-2 py-0.5 rounded">
+              Omzet
             </span>
           </div>
+        </article>
 
-          <div className="h-60 w-full relative">
-            {salesLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[#5F1E1E]">
-                Memuat proyeksi...
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={projectionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="aiColorProjections" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#B48328" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#B48328" stopOpacity={0.01} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                  <XAxis dataKey="bulan" tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#5F1E1E', fontWeight: 600 }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#5F1E1E', color: '#FFF', borderRadius: '12px', border: 'none', fontSize: '11px' }}
-                    formatter={(value: any) => [formatRupiah(value), 'Pendapatan']}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  <Area
-                    type="monotone"
-                    dataKey="Omzet Riil"
-                    stroke="#5F1E1E"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="none"
-                    connectNulls
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Proyeksi AI"
-                    stroke="#B48328"
-                    strokeWidth={2.5}
-                    strokeDasharray="4 4"
-                    fillOpacity={1}
-                    fill="url(#aiColorProjections)"
-                    connectNulls
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+        {/* Biaya Admin Platform */}
+        <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">
+            Biaya Admin Platform
+          </p>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-2xl font-bold text-[#EF4444] tracking-tight">
+              -{formatRupiah(finances.totalAdminFee)}
+            </h3>
+            <span className="bg-red-50 text-[#EF4444] text-[10px] font-bold px-2 py-0.5 rounded">
+              Fee Cuts
+            </span>
           </div>
         </article>
 
+        {/* Beban Operasional */}
+        <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">
+            Beban Operasional
+          </p>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-2xl font-bold text-[#5F1E1E] tracking-tight">
+              {formatRupiah(finances.operational)}
+            </h3>
+            <span className="bg-[#E8D3A7]/50 text-[#5F1E1E] text-[10px] font-semibold px-2 py-0.5 rounded">
+              Sewa + Gaji
+            </span>
+          </div>
+        </article>
+
+        {/* Laba Bersih Riil */}
+        <article className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-[#5F1E1E] uppercase tracking-wider">
+            Laba Bersih Riil
+          </p>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-2xl font-bold text-[#B48328] tracking-tight">
+              {formatRupiah(finances.netProfit)}
+            </h3>
+            <span className="bg-[#E5C88B] text-[#5F1E1E] text-[10px] font-bold px-2 py-0.5 rounded border border-[#5F1E1E]/20">
+              Estimasi Net
+            </span>
+          </div>
+        </article>
       </section>
 
-      {/* ─── BARIS TENGAH (Rekomendasi Harga & Promosi) ─── */}
-      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
-            Rekomendasi Penyesuaian Harga & Promosi AI
-          </h2>
-          <p className="text-xs font-medium text-[#B48328]">Saran promosi dinamis untuk mempercepat perputaran inventaris dan optimasi margin kotor.</p>
+      {/* ─── TENGAH: GRAFIK TREN ARUS KAS & RANGKUMAN AI ─── */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
+        {/* Kiri: Grafik Tren Arus Kas */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3 w-full">
+            <div>
+              <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+                Tren Arus Kas Bulanan (Cashflow)
+              </h2>
+              <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
+                Komparasi Pemasukan kotor vs Pengeluaran total bulanan.
+              </p>
+            </div>
+
+            {/* Period Selector */}
+            <div className="flex bg-[#E8D3A7]/30 border-2 border-[#B48328] rounded-xl p-0.5 w-full sm:w-auto justify-center">
+              {(["3_bulan", "6_bulan", "1_tahun"] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                    selectedPeriod === period
+                      ? "bg-[#5F1E1E] text-[#E8D3A7] shadow-sm"
+                      : "text-[#5F1E1E] hover:bg-[#E8D3A7]/50"
+                  }`}
+                >
+                  {period === "3_bulan"
+                    ? "3 Bulan"
+                    : period === "6_bulan"
+                      ? "6 Bulan"
+                      : "1 Tahun"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Line Chart */}
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ top: 15, right: 15, left: -10, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F5F9"
+                />
+                <XAxis
+                  dataKey="bulan"
+                  tick={{ fontSize: 10, fill: "#5F1E1E", fontWeight: 600 }}
+                />
+
+                <YAxis
+                  stroke="#5F1E1E"
+                  fontSize={10}
+                  fontWeight={600}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value: number) => {
+                    if (value >= 1_000_000)
+                      return `${(value / 1_000_000).toFixed(0)} Jt`;
+                    if (value >= 1_000)
+                      return `${(value / 1_000).toFixed(0)}rb`;
+                    return `${value}`;
+                  }}
+                />
+
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-2xl border border-[#B48328]/40 text-xs">
+                          <p className="font-extrabold text-[#E8D3A7] mb-1.5 pb-1 border-b border-white/10">
+                            {label}
+                          </p>
+                          <div className="flex flex-col gap-1">
+                            {payload.map((entry: any, index: number) => (
+                              <div
+                                key={`item-${index}`}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <span className="font-medium text-white/90">
+                                  {entry.name}:
+                                </span>
+                                <span className="font-extrabold text-[#E8D3A7]">
+                                  {formatRupiah(entry.value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+
+                <Legend
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Pemasukan"
+                  name="Pemasukan Kotor (Bruto)"
+                  stroke="#B48328"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#B48328" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Pengeluaran"
+                  name="Pengeluaran Total (HPP + Ops + Fee)"
+                  stroke="#5F1E1E"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#5F1E1E" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {promos.map((promo) => (
-            <div
-              key={promo.id}
-              className="p-4 rounded-2xl border border-[#B48328]/30 bg-white hover:border-[#B48328] shadow-sm flex flex-col justify-between gap-3 transition-all"
+        {/* Kanan: AI Summary Narrative */}
+        <div className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+          <div>
+            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
+              Rangkuman Finansial AI
+            </h2>
+            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
+              Analisis kesehatan operasional dari asisten kecerdasan buatan.
+            </p>
+          </div>
+
+          <div className="bg-[#E8D3A7]/30 border border-[#B48328]/30 rounded-2xl p-5 flex flex-col gap-3">
+            <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
+              {aiNarrativeText}
+            </p>
+            <div className="border-t border-[#B48328]/30 pt-3 flex justify-between text-xs font-extrabold text-[#5F1E1E]">
+              <span>Rasio Net Profit Margin:</span>
+              <span className="text-[#B48328]">
+                {finances.totalRevenue > 0
+                  ? `${((finances.netProfit / finances.totalRevenue) * 100).toFixed(1)}%`
+                  : "0%"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── BAWAH: RINCIAN LABA RUGI & EKSPOR ─── */}
+      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4 w-full">
+        {/* Table Header with Active Exports */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-3 w-full">
+          <div>
+            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+              Laporan Rincian Laba / Rugi Omnichannel
+            </h2>
+            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
+              Komponen rincian pendapatan kotor, pengeluaran, HPP, komisi
+              platform, dan keuntungan bersih.
+            </p>
+          </div>
+
+          {/* Export buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+            <button
+              type="button"
+              onClick={() => handleExport("Excel")}
+              className="w-full sm:w-auto bg-white border-2 border-[#B48328] hover:bg-[#E8D3A7]/20 text-[#5F1E1E] font-bold px-3.5 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
             >
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-bold text-[#5F1E1E] leading-relaxed">{promo.text}</p>
-                <span className="text-[10px] text-[#5F1E1E] font-extrabold bg-[#E5C88B] border border-[#5F1E1E]/20 px-2.5 py-1 rounded-xl self-start uppercase">
-                  {promo.impact}
-                </span>
-              </div>
-            </div>
-          ))}
+              <svg
+                className="w-3.5 h-3.5 stroke-[#5F1E1E]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              Ekspor Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport("PDF")}
+              className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px]"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Ekspor PDF / Cetak
+            </button>
+          </div>
+        </div>
+
+        {/* Laba Rugi Table*/}
+        <div className="max-w-xl mx-auto w-full overflow-x-auto -mx-3 px-3">
+          <table
+            id="table-laba-rugi"
+            className="w-full text-left text-xs border-collapse font-bold text-[#5F1E1E]"
+            role="table"
+          >
+            <tbody className="divide-y divide-slate-100">
+              {/* 1. Pendapatan */}
+              <tr>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">
+                  1. Pendapatan Penjualan (Bruto)
+                </td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">
+                  {formatRupiah(finances.totalRevenue)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">
+                  Pendapatan dari Laporan Rekap Terunggah
+                </td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.totalRevenue)}
+                </td>
+              </tr>
+
+              {/* 2. HPP */}
+              <tr>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">
+                  2. Harga Pokok Penjualan (HPP)
+                </td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">
+                  {formatRupiah(finances.totalHpp)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">HPP Terjual dari Rekap Terunggah</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.totalHpp)}
+                </td>
+              </tr>
+
+              {/* 3. Biaya Admin Platform */}
+              <tr>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">
+                  3. Komisi & Biaya Admin Platform Marketplace
+                </td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">
+                  {formatRupiah(finances.totalAdminFee)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Potongan Admin Rekap Terunggah</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.totalAdminFee)}
+                </td>
+              </tr>
+
+              {/* Laba Kotor */}
+              <tr className="bg-[#E8D3A7]/30">
+                <td className="py-3 font-black pl-3 text-[#5F1E1E]">
+                  LABA KOTOR (Pendapatan - HPP - Admin Platform)
+                </td>
+                <td className="py-3 text-right font-black pr-3 text-[#5F1E1E]">
+                  {formatRupiah(
+                    finances.totalRevenue -
+                      finances.totalHpp -
+                      finances.totalAdminFee,
+                  )}
+                </td>
+              </tr>
+
+              {/* 4. Beban Operasional */}
+              <tr>
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">
+                  4. Beban Operasional Bulanan
+                </td>
+                <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">
+                  {formatRupiah(finances.operational)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">
+                  Beban Sewa Toko Utama & Gudang Pusat
+                </td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.sewa)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">Beban Gaji Karyawan Toko</td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.gaji)}
+                </td>
+              </tr>
+              <tr className="text-[#5F1E1E] font-medium">
+                <td className="py-2 pl-6">
+                  Tagihan Utilitas Listrik & Air Gudang
+                </td>
+                <td className="py-2 text-right font-bold text-xs text-[#5F1E1E]">
+                  {formatRupiah(finances.listrik)}
+                </td>
+              </tr>
+
+              {/* Laba Bersih Riil (Net Profit) */}
+              <tr className="bg-[#5F1E1E] text-[#E8D3A7] border-t-2 border-[#B48328]">
+                <td className="py-3.5 font-extrabold text-sm pl-3">
+                  LABA BERSIH RIIL (Net Profit)
+                </td>
+                <td className="py-3.5 text-right font-black text-sm pr-3 text-[#E5C88B]">
+                  {formatRupiah(finances.netProfit)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
-
-      {/* ─── BARIS BAWAH (Analisis Produk & Laporan Keuangan AI) ─── */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Kiri: Analisis Produk Terlaris & Kombinasi Belanja */}
-        <article className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
-              Analisis Pola Belanja Pelanggan
-            </h2>
-            <p className="text-xs font-medium text-[#B48328]">Pola kombinasi item terpopuler dan analisis Best-Seller.</p>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="p-3.5 border border-[#B48328]/30 rounded-2xl bg-[#E8D3A7]/20 flex flex-col gap-1">
-              <h4 className="font-extrabold text-xs text-[#5F1E1E]">Kombinasi Terpopuler: Teh Botol Sosro & Indomie Goreng</h4>
-              <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
-                Data transaksi mendeteksi <strong className="text-[#B48328] font-black">72%</strong> pelanggan membeli Teh Botol Sosro 350ml bersamaan dengan Indomie Goreng Spesial. Disarankan membuat promo bundel di kasir POS.
-              </p>
-            </div>
-
-            <div className="p-3.5 border border-[#B48328]/30 rounded-2xl bg-[#E8D3A7]/20 flex flex-col gap-1">
-              <h4 className="font-extrabold text-xs text-[#5F1E1E]">Produk Terlaris Minggu Ini: Kopi Kapal Api</h4>
-              <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
-                Mengalami pertumbuhan unit terjual sebesar <strong className="text-[#B48328] font-black">+22%</strong> dibandingkan rata-rata mingguan. Disarankan menaikkan tingkat persediaan pengadaan minimum sebesar 15%.
-              </p>
-            </div>
-          </div>
-        </article>
-
-        {/* Kanan: Laporan Keuangan AI & Saran Efisiensi */}
-        <article className="bg-white rounded-2xl border border-transparent shadow-sm p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
-              Laporan Ringkasan Finansial AI
-            </h2>
-            <p className="text-xs font-medium text-[#B48328]">Laporan laba rugi dan rekomendasi efisiensi operasional.</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 border-b border-slate-100 pb-3">
-            <div className="bg-[#E8D3A7]/20 p-2.5 rounded-xl text-center border border-[#B48328]/20">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Laba Kotor</p>
-              <p className="text-xs font-extrabold text-[#5F1E1E] mt-0.5">{formatRupiah(35800000)}</p>
-            </div>
-            <div className="bg-[#E8D3A7]/20 p-2.5 rounded-xl text-center border border-[#B48328]/20">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Laba Bersih</p>
-              <p className="text-xs font-extrabold text-[#5F1E1E] mt-0.5">{formatRupiah(28500000)}</p>
-            </div>
-            <div className="bg-[#5F1E1E] p-2.5 rounded-xl text-center">
-              <p className="text-[10px] text-[#E8D3A7] font-bold uppercase tracking-wider">Margin Ops</p>
-              <p className="text-xs font-black text-[#E5C88B] mt-0.5">42.5%</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h4 className="font-extrabold text-xs text-[#5F1E1E]">Saran Efisiensi Operasional:</h4>
-            <ul className="list-disc pl-4 text-xs font-medium text-[#5F1E1E] space-y-1.5">
-              <li>Kurangi frekuensi order untuk item deadstock seperti <strong className="text-[#B48328]">Aqua Galon</strong> guna mencegah dana kas mandek.</li>
-              <li>Lakukan negosiasi ulang kontrak pengadaan Indomie dengan distributor untuk meningkatkan margin kotor kategori sebesar <strong className="text-[#B48328]">3.5%</strong>.</li>
-              <li>Alokasikan kas berlebih ke kategori minuman dingin menjelang periode kenaikan suhu harian berdasarkan ramalan musim.</li>
-            </ul>
-          </div>
-        </article>
-
-      </section>
-
     </div>
   );
 }
