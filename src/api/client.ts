@@ -20,10 +20,13 @@ const recapsRef = collection(db, 'recaps');
 export async function fetchInventory(): Promise<Product[]> {
   try {
     const snapshot = await getDocs(productsRef);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Product[];
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id, // SANGAT PENTING: Menimpa ID dummy agar memakai ID asli Firestore
+      };
+    }) as Product[];
   } catch (error) {
     console.error("Error fetching inventory:", error);
     return [];
@@ -31,18 +34,25 @@ export async function fetchInventory(): Promise<Product[]> {
 }
 
 export async function addProduct(product: Omit<Product, 'id'>) {
-  const docRef = await addDoc(productsRef, product);
-  return { id: docRef.id, ...product };
+  // Memastikan field 'id' tidak ikut tersimpan ke dalam dokumen Firestore
+  const { id, ...cleanProduct } = product as any;
+  const docRef = await addDoc(productsRef, cleanProduct);
+  return { id: docRef.id, ...cleanProduct };
 }
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
+  if (!id) throw new Error("ID Produk tidak valid untuk pembaruan");
   const productDoc = doc(db, 'products', id);
   await updateDoc(productDoc, updatedData);
 }
 
 export async function deleteProduct(id: string) {
+  console.log("Memproses hapus Firestore untuk ID:", id);
+  if (!id) throw new Error("ID Produk tidak valid untuk penghapusan");
+
   const productDoc = doc(db, 'products', id);
   await deleteDoc(productDoc);
+  console.log("Berhasil dihapus dari Firestore:", id);
 }
 
 // Aliases
@@ -57,8 +67,8 @@ export async function fetchRecaps(): Promise<SalesRecap[]> {
   try {
     const snapshot = await getDocs(recapsRef);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as SalesRecap[];
   } catch (error) {
     console.error("Error fetching recaps:", error);
@@ -87,8 +97,8 @@ export async function fetchCustomers(): Promise<Customer[]> {
   try {
     const snapshot = await getDocs(customersRef);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as Customer[];
   } catch (error) {
     console.error("Error fetching customers:", error);
@@ -104,8 +114,8 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   try {
     const snapshot = await getDocs(transactionsRef);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as Transaction[];
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -151,6 +161,4 @@ export async function fetchKpiSummary() {
 
 export const getKpiSummary = fetchKpiSummary;
 
-
-export function initializeDatabase() {
-}
+export function initializeDatabase() { }
