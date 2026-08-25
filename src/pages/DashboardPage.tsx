@@ -49,7 +49,7 @@ export default function DashboardPage() {
     queryFn: fetchInventory,
   });
 
-  // ─── FIX ASYNC FETCHING VIA USEQUERY (SOLUSI LAYAR PUTIH) ───
+  // ─── FETCH ASYNC VIA USEQUERY (FIRESTORE) ───
   const { data: rawRecaps = [] } = useQuery({
     queryKey: ["recaps"],
     queryFn: async () => {
@@ -143,7 +143,7 @@ export default function DashboardPage() {
       (sum, r) => sum + (r.totalAmount || 0),
       0,
     );
-    const totalOmzet = posRevenue; // Murni dari transaksi tanpa baseOffset hardcoded
+    const totalOmzet = posRevenue;
     const totalProfit = Math.round(totalOmzet * 0.428);
 
     const totalProducts = products.length;
@@ -446,7 +446,7 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        {/* Kartu 2: Laba Bersih Estimasi */}
+        {/* Kartu 2: Laba Bersih Estimasi (KINI PERHITUNGAN MARGIN DINAMIS) */}
         <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
           <div className="flex justify-between items-start gap-2">
             <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
@@ -455,7 +455,9 @@ export default function DashboardPage() {
               ESTIMASI
             </h3>
             <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[9px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider leading-tight text-center flex-shrink-0">
-              ~26%
+              {metrics.totalOmzet > 0
+                ? `~${((metrics.totalProfit / metrics.totalOmzet) * 100).toFixed(0)}%`
+                : "0%"}
               <br />
               MARGIN
             </span>
