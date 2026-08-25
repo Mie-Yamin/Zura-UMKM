@@ -129,8 +129,8 @@ export async function fetchKpiSummary() {
     const safeProducts = Array.isArray(products) ? products : [];
     const safeCustomers = Array.isArray(customers) ? customers : [];
 
-    const totalRevenue = safeRecaps.reduce((acc, item) => acc + (item.revenue || 0), 0);
-    const totalOrders = safeRecaps.reduce((acc, item) => acc + (item.totalTransactions || 0), 0);
+    const totalRevenue = safeRecaps.reduce((acc, item) => acc + (item.totalAmount || item.revenue || 0), 0);
+    const totalOrders = safeRecaps.reduce((acc, item) => acc + (item.unitsSold || item.totalTransactions || 0), 0);
 
     return {
       totalRevenue,
@@ -151,7 +151,6 @@ export async function fetchKpiSummary() {
 
 export const getKpiSummary = fetchKpiSummary;
 
-// ─── INITIALIZATION ───────────────────────────────────────────────────────────
 
 export function initializeDatabase() {
 }
