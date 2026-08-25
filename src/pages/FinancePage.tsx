@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getLocalRecaps, getLocalProducts } from "../api/client";
 import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";
 import {
@@ -19,11 +19,26 @@ const formatRupiah = (val?: number) => {
 };
 
 export default function FinancePage() {
-  const queryClient = useQueryClient();
+  // ─── AMBIL DATA FIRESTORE SECARA ASYNC VIA USEQUERY (SOLUSI LAYAR PUTIH) ───
+  const { data: rawRecaps = [] } = useQuery({
+    queryKey: ["recaps"],
+    queryFn: async () => {
+      const res = await getLocalRecaps();
+      return Array.isArray(res) ? res : [];
+    },
+  });
 
-  // Read recaps & products for real-time calculations
-  const recaps = useMemo(() => getLocalRecaps() ?? [], [queryClient]);
-  const products = useMemo(() => getLocalProducts() ?? [], [queryClient]);
+  const { data: rawProducts = [] } = useQuery({
+    queryKey: ["inventory"],
+    queryFn: async () => {
+      const res = await getLocalProducts();
+      return Array.isArray(res) ? res : [];
+    },
+  });
+
+  // Jaminan bertipe Array murni
+  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
+  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 
   // States
   const [selectedPeriod, setSelectedPeriod] = useState<
@@ -299,11 +314,10 @@ export default function FinancePage() {
                   key={period}
                   type="button"
                   onClick={() => setSelectedPeriod(period)}
-                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                    selectedPeriod === period
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${selectedPeriod === period
                       ? "bg-[#5F1E1E] text-[#E8D3A7] shadow-sm"
                       : "text-[#5F1E1E] hover:bg-[#E8D3A7]/50"
-                  }`}
+                    }`}
                 >
                   {period === "3_bulan"
                     ? "3 Bulan"
@@ -554,8 +568,8 @@ export default function FinancePage() {
                 <td className="py-3 text-right font-black pr-3 text-[#5F1E1E]">
                   {formatRupiah(
                     finances.totalRevenue -
-                      finances.totalHpp -
-                      finances.totalAdminFee,
+                    finances.totalHpp -
+                    finances.totalAdminFee,
                   )}
                 </td>
               </tr>
