@@ -6,15 +6,11 @@ export default function MenuPage() {
     const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    // 3 item di baris pertama
-    const topRowItems = [
+    // Gabungkan seluruh menu menjadi 1 array yang konsisten
+    const menuItems = [
         { title: "DASHBOARD", image: "/landingPage/dashboard.svg", path: "/dashboard" },
         { title: "REKAP PENJUALAN", image: "/landingPage/rekapPenjualan.svg", path: "/rekap" },
         { title: "MANAJEMEN STOK", image: "/landingPage/manajemenStok.svg", path: "/inventory" },
-    ];
-
-    // 2 item di baris kedua (ditengah)
-    const bottomRowItems = [
         { title: "LAPORAN KEUANGAN", image: "/landingPage/laporanKeuangan.svg", path: "/finance" },
         { title: "AI Insight Hub", image: "/landingPage/aiInsight.svg", path: "/ai-insights" },
     ];
@@ -92,7 +88,7 @@ export default function MenuPage() {
                         <button
                             type="button"
                             onClick={() => { navigate("/"); setMobileMenuOpen(false); }}
-                            className="w-full text-left text-sm px-3 py-2 rounded-lg text-white hover:bg-white/10 transition-all cursor-pointer"
+                            className="w-full text-left text-sm px-3 py-2 rounded-lg text-[#E8D3A7] hover:bg-white/10 transition-all cursor-pointer font-medium"
                         >
                             Home
                         </button>
@@ -103,50 +99,29 @@ export default function MenuPage() {
                 </div>
             )}
 
-            {/* Main Content Layout Simetris (3 di Atas, 2 di Bawah) */}
-            <main className="relative z-10 w-full h-full flex flex-col items-center justify-center px-6 md:px-12 pt-20 pb-10">
-                <div className="max-w-3xl w-full flex flex-col gap-6 sm:gap-8 md:gap-10">
-
-                    {/* Baris Pertama: 3 Kartu (Desktop) / 2 Kartu (Mobile) */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 md:gap-10">
-                        {topRowItems.map((item, index) => (
+            {/* Main Content Layout Rapih */}
+            <main className="relative z-10 w-full h-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-20 pb-8 overflow-y-auto">
+                <div className="max-w-3xl w-full grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 justify-items-center">
+                    {menuItems.map((item, index) => {
+                        const isLastItem = index === menuItems.length - 1;
+                        return (
                             <button
                                 key={index}
                                 type="button"
                                 onClick={() => navigate(item.path)}
-                                className="group relative w-full aspect-square bg-white hover:bg-[#F5E8CE] rounded-3xl shadow-[0_10px_25px_rgba(0,0,0,0.3)] p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer"
+                                className={`group relative w-full max-w-[170px] sm:max-w-none aspect-square bg-white hover:bg-[#F5E8CE] rounded-2xl sm:rounded-3xl shadow-[0_8px_20px_rgba(0,0,0,0.25)] p-3 sm:p-5 md:p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer ${isLastItem ? "col-span-2 md:col-span-1 justify-self-center w-1/2 sm:w-full" : ""
+                                    }`}
                             >
-                                <div className="w-full h-full flex items-center justify-center p-2">
+                                <div className="w-full h-full flex items-center justify-center p-1">
                                     <img
                                         src={item.image}
                                         alt={item.title}
-                                        className="max-w-full max-h-full object-contain pointer-events-none scale-90 -translate-y-1"
+                                        className="max-w-full max-h-full object-contain pointer-events-none scale-95"
                                     />
                                 </div>
                             </button>
-                        ))}
-                    </div>
-
-                    {/* Baris Kedua: 2 Kartu Berada Tepat Di Tengah */}
-                    <div className="flex justify-center gap-6 sm:gap-8 md:gap-10">
-                        {bottomRowItems.map((item, index) => (
-                            <button
-                                key={index}
-                                type="button"
-                                onClick={() => navigate(item.path)}
-                                className="group relative w-[calc(50%-12px)] md:w-[calc(33.333%-18px)] aspect-square bg-white hover:bg-[#F5E8CE] rounded-3xl shadow-[0_10px_25px_rgba(0,0,0,0.3)] p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer"
-                            >
-                                <div className="w-full h-full flex items-center justify-center p-2">
-                                    <img
-                                        src={item.image}
-                                        alt={item.title}
-                                        className="max-w-full max-h-full object-contain pointer-events-none scale-90 -translate-y-1"
-                                    />
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-
+                        );
+                    })}
                 </div>
             </main>
         </div>
