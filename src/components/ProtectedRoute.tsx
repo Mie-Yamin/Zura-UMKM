@@ -18,7 +18,7 @@ export default function ProtectedRoute() {
     if (loading) {
         return (
             <div className="min-h-screen bg-[#E8D3A7] flex items-center justify-center font-bold text-[#5F1E1E]">
-                Memeriksa Sesi Login...
+                Loading...
             </div>
         );
     }
