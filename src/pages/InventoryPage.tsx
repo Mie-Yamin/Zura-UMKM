@@ -360,23 +360,24 @@ export default function InventoryPage() {
                         </span>
                       </td>
 
-                      <td className="py-4 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      {/* 💥 TOMBOL AKSI VERTIKAL PADA MOBILE, HORIZONTAL PADA DESKTOP 💥 */}
+                      <td className="py-4 px-3 sm:px-4 text-center">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1.5 sm:gap-2 min-w-[100px] sm:min-w-max">
                           <button
                             type="button"
                             onClick={() => {
                               setRestockProduct(p);
                               setRestockQty('10');
                             }}
-                            className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-3 py-1.5 rounded-xl text-[10px] transition-all shadow-sm active:scale-95"
+                            className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold px-3 py-1.5 rounded-xl text-[10px] sm:text-xs transition-all shadow-sm active:scale-95 whitespace-nowrap flex items-center justify-center gap-1 w-full sm:w-auto h-7 sm:h-8"
                           >
-                            + Restock
+                            <span>+</span> Restock
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(p)}
-                            className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2.5 py-1.5 rounded-xl text-[10px] transition-all"
+                            className="bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-extrabold px-3 py-1.5 rounded-xl text-[10px] sm:text-xs transition-all whitespace-nowrap flex items-center justify-center w-full sm:w-auto h-7 sm:h-8"
                           >
                             Edit
                           </button>
@@ -384,7 +385,7 @@ export default function InventoryPage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(p.id)}
-                            className="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-2.5 py-1.5 rounded-xl text-[10px] transition-all"
+                            className="bg-[#FEE2E2] hover:bg-[#FCA5A5] text-[#991B1B] font-extrabold px-3 py-1.5 rounded-xl text-[10px] sm:text-xs transition-all whitespace-nowrap flex items-center justify-center w-full sm:w-auto h-7 sm:h-8"
                           >
                             Hapus
                           </button>
