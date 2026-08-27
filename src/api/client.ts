@@ -1,4 +1,4 @@
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 import {
   collection,
   getDocs,
@@ -6,6 +6,8 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 import type { Product, Customer, SalesRecap, Transaction } from '../types';
 
@@ -15,11 +17,20 @@ const customersRef = collection(db, 'customers');
 const transactionsRef = collection(db, 'transactions');
 const recapsRef = collection(db, 'recaps');
 
+// Helper untuk mendapatkan User ID aktif
+const getCurrentUserId = () => {
+  return auth.currentUser?.uid || null;
+};
+
 // ─── PRODUK / INVENTARIS ──────────────────────────────────────────────────────
 
 export async function fetchInventory(): Promise<Product[]> {
   try {
-    const snapshot = await getDocs(productsRef);
+    const uid = getCurrentUserId();
+    if (!uid) return [];
+
+    const q = query(productsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -31,8 +42,12 @@ export async function fetchInventory(): Promise<Product[]> {
 }
 
 export async function addProduct(product: Omit<Product, 'id'>) {
-  const docRef = await addDoc(productsRef, product);
-  return { id: docRef.id, ...product };
+  const uid = getCurrentUserId();
+  if (!uid) throw new Error("User belum login");
+
+  const payload = { ...product, userId: uid };
+  const docRef = await addDoc(productsRef, payload);
+  return { id: docRef.id, ...payload };
 }
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
@@ -55,7 +70,11 @@ export const updateFirestoreProduct = updateProduct;
 
 export async function fetchRecaps(): Promise<SalesRecap[]> {
   try {
-    const snapshot = await getDocs(recapsRef);
+    const uid = getCurrentUserId();
+    if (!uid) return [];
+
+    const q = query(recapsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -67,8 +86,12 @@ export async function fetchRecaps(): Promise<SalesRecap[]> {
 }
 
 export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
-  const docRef = await addDoc(recapsRef, recap);
-  return { id: docRef.id, ...recap };
+  const uid = getCurrentUserId();
+  if (!uid) throw new Error("User belum login");
+
+  const payload = { ...recap, userId: uid };
+  const docRef = await addDoc(recapsRef, payload);
+  return { id: docRef.id, ...payload };
 }
 
 export async function importRecapsFromFile(recaps: Omit<SalesRecap, 'id'>[]) {
@@ -85,7 +108,11 @@ export const addFirestoreRecap = addRecap;
 
 export async function fetchCustomers(): Promise<Customer[]> {
   try {
-    const snapshot = await getDocs(customersRef);
+    const uid = getCurrentUserId();
+    if (!uid) return [];
+
+    const q = query(customersRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -102,7 +129,11 @@ export const getLocalCustomers = fetchCustomers;
 
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
-    const snapshot = await getDocs(transactionsRef);
+    const uid = getCurrentUserId();
+    if (!uid) return [];
+
+    const q = query(transactionsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -151,6 +182,7 @@ export async function fetchKpiSummary() {
 
 export const getKpiSummary = fetchKpiSummary;
 
+// ─── INITIALIZATION ───────────────────────────────────────────────────────────
 
 export function initializeDatabase() {
 }

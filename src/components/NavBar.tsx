@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../config/firebase";
 
 export interface NavItem {
@@ -54,11 +55,16 @@ export const NAV_ITEMS: NavItem[] = [
 
 export default function NavBar() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient(); // Insialisasi TanStack Query Client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
+
+      queryClient.clear();
+      localStorage.clear();
+
       navigate("/", { replace: true });
     } catch (error) {
       console.error("Gagal keluar dari sesi:", error);

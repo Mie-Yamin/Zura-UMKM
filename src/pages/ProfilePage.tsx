@@ -7,9 +7,12 @@ import {
   updatePassword,
   deleteUser,
   EmailAuthProvider,
+  GoogleAuthProvider,
   reauthenticateWithCredential,
+  reauthenticateWithPopup,
   verifyBeforeUpdateEmail,
 } from "firebase/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../config/firebase";
 import L from "leaflet";
 
@@ -47,7 +50,6 @@ const BUSINESS_CATEGORIES = [
 const DEFAULT_LAT = -6.2088;
 const DEFAULT_LNG = 106.8456;
 
-// Profile Default Dinamis (Tidak ada lagi hardcoded 'ckhyy23' / 'Taman Literasi')
 const INITIAL_PROFILE: UserProfile = {
   name: "Pengguna Zura",
   email: "",
@@ -61,6 +63,7 @@ const INITIAL_PROFILE: UserProfile = {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // State Profil Utama
   const [profile, setProfile] = useState<UserProfile>(() => {
@@ -90,9 +93,10 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // State Re-Authentication Modal
+  // State Re-Authentication Modal & Lock State
   const [showReauthModal, setShowReauthModal] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [pendingAction, setPendingAction] = useState<
     "email" | "password" | "delete" | null
   >(null);
@@ -275,7 +279,7 @@ export default function ProfilePage() {
     }
   };
 
-  // HANDLER PEMICU RE-AUTHENTICATION
+  // HANDLER PEMICU UPDATE EMAIL / PASSWORD
   const triggerEmailUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail) return;
@@ -297,17 +301,57 @@ export default function ProfilePage() {
     setShowReauthModal(true);
   };
 
-  const triggerAccountDelete = () => {
+  // HANDLER HAPUS AKUN (FLEKSIBEL GOOGLE VS EMAIL/PASSWORD)
+  const triggerAccountDelete = async () => {
+    const user = auth.currentUser;
+    if (!user || isDeleting) return;
+
     const confirmDelete = window.confirm(
-      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Tindakan ini tidak dapat dibatalkan!",
+      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Semua data bisnis Anda akan dihapus total dan tindakan ini tidak dapat dibatalkan!",
     );
-    if (confirmDelete) {
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+
+    const isGoogleUser = user.providerData.some(
+      (provider) => provider.providerId === "google.com",
+    );
+
+    if (isGoogleUser) {
+      try {
+        const googleProvider = new GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: "select_account" });
+
+        await reauthenticateWithPopup(user, googleProvider);
+
+        await deleteUser(user);
+
+        queryClient.clear();
+        localStorage.clear();
+        sessionStorage.clear();
+
+        alert("Akun Google Anda dan seluruh datanya telah berhasil dihapus.");
+        navigate("/", { replace: true });
+      } catch (error: any) {
+        console.error("Gagal menghapus akun Google:", error);
+        if (error.code === "auth/popup-closed-by-user") {
+          alert("Proses verifikasi Google dibatalkan oleh pengguna.");
+        } else if (error.code === "auth/cancelled-popup-request") {
+          console.warn("Permintaan popup sebelumnya dibatalkan.");
+        } else {
+          alert("Gagal menghapus akun: " + error.message);
+        }
+      } finally {
+        setIsDeleting(false);
+      }
+    } else {
+      setIsDeleting(false);
       setPendingAction("delete");
       setShowReauthModal(true);
     }
   };
 
-  // EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI
+  // EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI (KHUSUS EMAIL/PASSWORD)
   const handleReauthenticateAndExecute = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -342,7 +386,11 @@ export default function ProfilePage() {
         setConfirmPassword("");
       } else if (pendingAction === "delete") {
         await deleteUser(user);
-        localStorage.removeItem("user_profile_data");
+
+        queryClient.clear();
+        localStorage.clear();
+        sessionStorage.clear();
+
         alert("Akun Anda telah berhasil dihapus.");
         navigate("/", { replace: true });
         return;
@@ -366,6 +414,9 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      queryClient.clear();
+      localStorage.clear();
+      sessionStorage.clear();
       navigate("/", { replace: true });
     } catch (error) {
       console.error("Gagal keluar dari sesi:", error);
@@ -580,11 +631,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("email")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeSecurityTab === "email"
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "email"
                     ? "bg-[#5F1E1E] text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                  }`}
               >
                 Ganti Email
               </button>
@@ -592,11 +642,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("password")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeSecurityTab === "password"
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "password"
                     ? "bg-[#5F1E1E] text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                  }`}
               >
                 Ubah Kata Sandi
               </button>
@@ -604,11 +653,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("danger")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeSecurityTab === "danger"
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "danger"
                     ? "bg-red-600 text-white shadow-sm"
                     : "bg-red-50 text-red-600 hover:bg-red-100"
-                }`}
+                  }`}
               >
                 Zona Bahaya (Hapus Akun)
               </button>
@@ -652,47 +700,70 @@ export default function ProfilePage() {
 
             {/* Konten Tab 2: Ganti Password */}
             {activeSecurityTab === "password" && (
-              <form
-                onSubmit={triggerPasswordUpdate}
-                className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
-              >
-                <div>
-                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
-                    Perbarui Kata Sandi Akun
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mb-3">
-                    Pastikan kata sandi baru minimal 6 karakter.
-                  </p>
-
-                  <div className="flex flex-col gap-2.5">
-                    <input
-                      type="password"
-                      placeholder="Kata Sandi Baru"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-                    />
-                    <input
-                      type="password"
-                      placeholder="Konfirmasi Kata Sandi Baru"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-                    />
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg">
+                {auth.currentUser?.providerData.some(
+                  (p) => p.providerId === "google.com",
+                ) ? (
+                  /* Tampilan Khusus Pengguna Google Sign-In */
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase">
+                      Kata Sandi Dikelola oleh Google
+                    </h3>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Akun Anda terhubung dan terverifikasi menggunakan{" "}
+                      <b>Google Sign-In</b>. Anda tidak memerlukan kata sandi
+                      lokal untuk masuk ke aplikasi Zura Retail.
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Jika ingin memperbarui kata sandi akun Google Anda, silakan
+                      ubah langsung di menu keamanan Akun Google Anda.
+                    </p>
                   </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                ) : (
+                  /* Tampilan Form Pengguna Email & Password Biasa */
+                  <form
+                    onSubmit={triggerPasswordUpdate}
+                    className="flex flex-col gap-4"
                   >
-                    Ubah Kata Sandi
-                  </button>
-                </div>
-              </form>
+                    <div>
+                      <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
+                        Perbarui Kata Sandi Akun
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mb-3">
+                        Pastikan kata sandi baru minimal 6 karakter.
+                      </p>
+
+                      <div className="flex flex-col gap-2.5">
+                        <input
+                          type="password"
+                          placeholder="Kata Sandi Baru"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Konfirmasi Kata Sandi Baru"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                      >
+                        Ubah Kata Sandi
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
 
             {/* Konten Tab 3: Hapus Akun */}
@@ -713,9 +784,17 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={triggerAccountDelete}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    disabled={isDeleting}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2"
                   >
-                    Hapus Akun Permanen
+                    {isDeleting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Memproses Hapus...</span>
+                      </>
+                    ) : (
+                      "Hapus Akun Permanen"
+                    )}
                   </button>
                 </div>
               </div>
@@ -724,7 +803,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* MODAL RE-AUTHENTICATION */}
+      {/* MODAL RE-AUTHENTICATION (KHUSUS AKUN EMAIL/PASSWORD) */}
       {showReauthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-slate-100">
@@ -847,11 +926,10 @@ export default function ProfilePage() {
                   {BUSINESS_CATEGORIES.map((cat) => (
                     <label
                       key={cat}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                        formData.category === cat
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${formData.category === cat
                           ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
                           : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"

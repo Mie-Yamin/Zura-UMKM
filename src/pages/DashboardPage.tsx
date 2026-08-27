@@ -319,8 +319,8 @@ export default function DashboardPage() {
                       setIsBranchOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2.5 text-[10px] font-bold whitespace-pre-line border-b border-slate-100 last:border-none leading-tight transition-colors ${selectedBranch === option.value
-                        ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
-                        : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
+                      ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
+                      : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
                       }`}
                   >
                     {option.label}
@@ -332,7 +332,7 @@ export default function DashboardPage() {
                   onClick={() => setIsAddBranchOpen(true)}
                   className="w-full text-left px-3 py-3 text-[10px] font-black text-white bg-[#5F1E1E] hover:bg-[#4a1717] transition-colors flex items-center justify-between gap-1"
                 >
-                  <span>+ TAMBAH CABANG</span>
+                  <span>TAMBAH CABANG</span>
                   <span className="text-[12px] leading-none">+</span>
                 </button>
               </div>
