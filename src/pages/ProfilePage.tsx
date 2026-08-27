@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   signOut,
@@ -14,18 +14,6 @@ import {
 } from "firebase/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../config/firebase";
-import L from "leaflet";
-
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
 
 interface UserProfile {
   name: string;
@@ -50,6 +38,9 @@ const BUSINESS_CATEGORIES = [
 const DEFAULT_LAT = -6.2088;
 const DEFAULT_LNG = 106.8456;
 
+// GANTI DENGAN API KEY GEOAPIFY MILIKMU (atau simpan di .env)
+const GEOAPIFY_API_KEY = import.meta.env.VITE_GEOAPIFY_API_KEY || "YOUR_GEOAPIFY_API_KEY";
+
 const INITIAL_PROFILE: UserProfile = {
   name: "Pengguna Zura",
   email: "",
@@ -65,7 +56,6 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // State Profil Utama
   const [profile, setProfile] = useState<UserProfile>(() => {
     try {
       const saved = localStorage.getItem("user_profile_data");
@@ -77,23 +67,19 @@ export default function ProfilePage() {
     }
   });
 
-  // State Modal Edit Profil
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // State Pengaturan Keamanan Akun
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [activeSecurityTab, setActiveSecurityTab] = useState<
     "email" | "password" | "danger"
   >("email");
 
-  // State Form Security
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // State Re-Authentication Modal & Lock State
   const [showReauthModal, setShowReauthModal] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -101,15 +87,6 @@ export default function ProfilePage() {
     "email" | "password" | "delete" | null
   >(null);
 
-  // Leaflet Map Refs
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-
-  const mainMapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mainMapInstanceRef = useRef<L.Map | null>(null);
-
-  // Sync Firebase Auth & Auto Fallback Name
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -143,94 +120,18 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, []);
 
-  // Inisialisasi Peta Utama
-  useEffect(() => {
-    if (!isEditOpen && mainMapContainerRef.current) {
-      if (mainMapInstanceRef.current) {
-        mainMapInstanceRef.current.remove();
-      }
-
-      const map = L.map(mainMapContainerRef.current).setView(
-        [profile.lat || DEFAULT_LAT, profile.lng || DEFAULT_LNG],
-        15,
-      );
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
-
-      L.marker([profile.lat || DEFAULT_LAT, profile.lng || DEFAULT_LNG])
-        .addTo(map)
-        .bindPopup(`<b>${profile.name}</b><br/>${profile.location}`);
-
-      mainMapInstanceRef.current = map;
-    }
-
-    return () => {
-      if (mainMapInstanceRef.current) {
-        mainMapInstanceRef.current.remove();
-        mainMapInstanceRef.current = null;
-      }
-    };
-  }, [isEditOpen, profile.lat, profile.lng, profile.location, profile.name]);
-
-  // Inisialisasi Peta Interaktif Modal Edit
-  useEffect(() => {
-    if (isEditOpen && mapContainerRef.current) {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-      }
-
-      const map = L.map(mapContainerRef.current).setView(
-        [formData.lat || DEFAULT_LAT, formData.lng || DEFAULT_LNG],
-        15,
-      );
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
-
-      const marker = L.marker(
-        [formData.lat || DEFAULT_LAT, formData.lng || DEFAULT_LNG],
-        { draggable: true },
-      ).addTo(map);
-
-      marker.on("dragend", () => {
-        const position = marker.getLatLng();
-        setFormData((prev) => ({
-          ...prev,
-          lat: position.lat,
-          lng: position.lng,
-        }));
-      });
-
-      map.on("click", (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        setFormData((prev) => ({ ...prev, lat, lng }));
-      });
-
-      mapInstanceRef.current = map;
-      markerRef.current = marker;
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [isEditOpen]);
-
-  // Cari Lokasi di Peta
   const handleSearchLocation = async () => {
     if (!formData.location.trim()) return;
 
     try {
+      const searchQuery = formData.location.toLowerCase().includes("indonesia")
+        ? formData.location
+        : `${formData.location}, Indonesia`;
+
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          formData.location,
-        )}`,
+          searchQuery
+        )}&countrycodes=id&limit=1`
       );
       const data = await response.json();
 
@@ -243,17 +144,45 @@ export default function ProfilePage() {
           lat: newLat,
           lng: newLng,
         }));
-
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.setView([newLat, newLng], 15);
-          markerRef.current.setLatLng([newLat, newLng]);
-        }
+        showToast("Koordinat peta berhasil ditemukan!");
       } else {
-        alert("Lokasi tidak ditemukan, coba nama area lain!");
+        alert(
+          "Lokasi tidak ditemukan. Coba gunakan format: Nama Jalan/Area, Kota (Contoh: Tebet, Jakarta Selatan)"
+        );
       }
     } catch (error) {
       console.error("Gagal mencari lokasi:", error);
     }
+  };
+
+  const handleGetGPSLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Browser Anda tidak mendukung fitur lokasi GPS.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({
+          ...prev,
+          lat: latitude,
+          lng: longitude,
+          location:
+            prev.location && prev.location !== "Belum Diatur"
+              ? prev.location
+              : "Lokasi GPS Terdeteksi",
+        }));
+        showToast("Koordinat GPS HP berhasil terdeteksi!");
+      },
+      (error) => {
+        console.error("Gagal GPS:", error);
+        alert(
+          "Gagal mengambil GPS. Harap pastikan Izin Lokasi di HP/Browser sudah diaktifkan."
+        );
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const showToast = (msg: string) => {
@@ -264,22 +193,17 @@ export default function ProfilePage() {
   const handleSendEmailVerification = async () => {
     if (auth.currentUser) {
       try {
-        const actionCodeSettings = {
+        await sendEmailVerification(auth.currentUser, {
           url: window.location.origin + "/profile",
           handleCodeInApp: true,
-        };
-        await sendEmailVerification(auth.currentUser, actionCodeSettings);
-        showToast("Link verifikasi telah dikirim ke email Anda!");
+        });
+        showToast("Link verifikasi dikirim ke email!");
       } catch (error) {
-        console.error("Gagal mengirim email verifikasi:", error);
-        alert(
-          "Gagal mengirim email. Harap periksa folder Spam/Junk Anda atau coba lagi nanti.",
-        );
+        console.error("Gagal kirim verifikasi:", error);
       }
     }
   };
 
-  // HANDLER PEMICU UPDATE EMAIL / PASSWORD
   const triggerEmailUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail) return;
@@ -301,46 +225,28 @@ export default function ProfilePage() {
     setShowReauthModal(true);
   };
 
-  // HANDLER HAPUS AKUN (FLEKSIBEL GOOGLE VS EMAIL/PASSWORD)
   const triggerAccountDelete = async () => {
     const user = auth.currentUser;
     if (!user || isDeleting) return;
 
-    const confirmDelete = window.confirm(
-      "Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen? Semua data bisnis Anda akan dihapus total dan tindakan ini tidak dapat dibatalkan!",
-    );
-    if (!confirmDelete) return;
+    if (!window.confirm("Apakah Anda yakin ingin MENGHAPUS AKUN ini secara permanen?")) return;
 
     setIsDeleting(true);
-
-    const isGoogleUser = user.providerData.some(
-      (provider) => provider.providerId === "google.com",
-    );
+    const isGoogleUser = user.providerData.some((p) => p.providerId === "google.com");
 
     if (isGoogleUser) {
       try {
         const googleProvider = new GoogleAuthProvider();
         googleProvider.setCustomParameters({ prompt: "select_account" });
-
         await reauthenticateWithPopup(user, googleProvider);
-
         await deleteUser(user);
 
         queryClient.clear();
         localStorage.clear();
         sessionStorage.clear();
-
-        alert("Akun Google Anda dan seluruh datanya telah berhasil dihapus.");
         navigate("/", { replace: true });
       } catch (error: any) {
-        console.error("Gagal menghapus akun Google:", error);
-        if (error.code === "auth/popup-closed-by-user") {
-          alert("Proses verifikasi Google dibatalkan oleh pengguna.");
-        } else if (error.code === "auth/cancelled-popup-request") {
-          console.warn("Permintaan popup sebelumnya dibatalkan.");
-        } else {
-          alert("Gagal menghapus akun: " + error.message);
-        }
+        alert("Gagal hapus akun: " + error.message);
       } finally {
         setIsDeleting(false);
       }
@@ -351,33 +257,21 @@ export default function ProfilePage() {
     }
   };
 
-  // EKSEKUSI SETELAH KATA SANDI LAMA DIKONFIRMASI (KHUSUS EMAIL/PASSWORD)
   const handleReauthenticateAndExecute = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = auth.currentUser;
-
-    if (!user || !user.email) {
-      alert("Sesi user tidak ditemukan. Silakan login kembali.");
-      return;
-    }
+    if (!user || !user.email) return;
 
     try {
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        currentPasswordInput,
-      );
+      const credential = EmailAuthProvider.credential(user.email, currentPasswordInput);
       await reauthenticateWithCredential(user, credential);
 
       if (pendingAction === "email") {
-        const actionCodeSettings = {
+        await verifyBeforeUpdateEmail(user, newEmail, {
           url: window.location.origin + "/profile",
           handleCodeInApp: true,
-        };
-        await verifyBeforeUpdateEmail(user, newEmail, actionCodeSettings);
+        });
         showToast(`Link verifikasi terkirim ke ${newEmail}`);
-        alert(
-          `Link konfirmasi telah dikirim ke ${newEmail}.\nSilakan buka email tersebut untuk menyetujui perubahan.`,
-        );
         setNewEmail("");
       } else if (pendingAction === "password") {
         await updatePassword(user, newPassword);
@@ -386,12 +280,9 @@ export default function ProfilePage() {
         setConfirmPassword("");
       } else if (pendingAction === "delete") {
         await deleteUser(user);
-
         queryClient.clear();
         localStorage.clear();
         sessionStorage.clear();
-
-        alert("Akun Anda telah berhasil dihapus.");
         navigate("/", { replace: true });
         return;
       }
@@ -400,14 +291,7 @@ export default function ProfilePage() {
       setCurrentPasswordInput("");
       setPendingAction(null);
     } catch (error: any) {
-      console.error("Gagal melakukan aksi keamanan:", error);
-      if (error.code === "auth/wrong-password") {
-        alert("Kata sandi saat ini yang Anda masukkan salah!");
-      } else if (error.code === "auth/requires-recent-login") {
-        alert("Sesi Anda telah berakhir. Silakan logout lalu login kembali.");
-      } else {
-        alert("Gagal memproses permintaan: " + error.message);
-      }
+      alert("Gagal memproses: " + error.message);
     }
   };
 
@@ -419,7 +303,7 @@ export default function ProfilePage() {
       sessionStorage.clear();
       navigate("/", { replace: true });
     } catch (error) {
-      console.error("Gagal keluar dari sesi:", error);
+      console.error("Gagal logout:", error);
     }
   };
 
@@ -434,7 +318,7 @@ export default function ProfilePage() {
     try {
       localStorage.setItem("user_profile_data", JSON.stringify(formData));
     } catch (err) {
-      console.error("Gagal menyimpan ke LocalStorage", err);
+      console.error("Gagal simpan local", err);
     }
     setIsEditOpen(false);
     showToast("Profil berhasil diperbarui!");
@@ -483,9 +367,8 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {/* SECTION ATAS: INFORMASI PENGGUNA & LOKASI */}
+      {/* SECTION INFORMASI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Card Kiri: Detail Akun */}
         <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm flex flex-col justify-between gap-5 border border-slate-100">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
@@ -543,12 +426,11 @@ export default function ProfilePage() {
           </div>
 
           <div className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            💡 Untuk mengubah nama pemilik, telepon, dan kategori usaha klik
-            tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
+            💡 Klik <b className="text-[#5F1E1E]">EDIT PROFIL</b> untuk memperbarui detail toko.
           </div>
         </div>
 
-        {/* Card Kanan: Informasi Usaha & Peta Lokasi */}
+        {/* PETA GEOAPIFY */}
         <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-4 border border-slate-100">
           <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3">
             Informasi Usaha & Lokasi
@@ -574,7 +456,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-xl text-xs flex flex-col gap-2">
+          <div className="bg-slate-50 p-3 rounded-xl text-xs flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <span className="text-slate-400 font-medium">Lokasi Usaha</span>
               <span className="font-extrabold text-[#5F1E1E] text-xs">
@@ -582,278 +464,17 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            <div
-              ref={mainMapContainerRef}
-              className="w-full h-44 rounded-xl border border-slate-200 z-0 shadow-inner"
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION BAWAH: PENGATURAN KEAMANAN AKUN */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-4 transition-all">
-        <div
-          onClick={() => setIsSecurityOpen(!isSecurityOpen)}
-          className="flex items-center justify-between cursor-pointer select-none"
-        >
-          <div className="flex items-center gap-3">
-            <img
-              src="/settings.svg"
-              alt="Pengaturan"
-              className="w-6 h-6 object-contain"
-            />
-            <div>
-              <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-                Pengaturan Keamanan Akun
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kelola kata sandi, ganti email terdaftar, atau hapus akun Anda.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center gap-2"
-          >
-            <span>
-              {isSecurityOpen ? "Tutup Pengaturan" : "Kelola Keamanan"}
-            </span>
-            <span className="text-xs">{isSecurityOpen ? "▲" : "▼"}</span>
-          </button>
-        </div>
-
-        {/* ISI PENGATURAN */}
-        {isSecurityOpen && (
-          <div className="border-t border-slate-100 pt-5 flex flex-col gap-5">
-            {/* Pilihan Tab Menu */}
-            <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-3">
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("email")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "email"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-              >
-                Ganti Email
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("password")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "password"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-              >
-                Ubah Kata Sandi
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("danger")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "danger"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-red-50 text-red-600 hover:bg-red-100"
-                  }`}
-              >
-                Zona Bahaya (Hapus Akun)
-              </button>
-            </div>
-
-            {/* Konten Tab 1: Ganti Email */}
-            {activeSecurityTab === "email" && (
-              <form
-                onSubmit={triggerEmailUpdate}
-                className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg"
-              >
-                <div>
-                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
-                    Ganti Email Terdaftar
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mb-3">
-                    Email aktif saat ini:{" "}
-                    <b className="text-slate-700">{profile.email}</b>
-                  </p>
-
-                  <input
-                    type="email"
-                    placeholder="Masukkan Email Baru"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    required
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
-                  >
-                    Simpan Email Baru
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Konten Tab 2: Ganti Password */}
-            {activeSecurityTab === "password" && (
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-lg">
-                {auth.currentUser?.providerData.some(
-                  (p) => p.providerId === "google.com",
-                ) ? (
-                  /* Tampilan Khusus Pengguna Google Sign-In */
-                  <div className="flex flex-col gap-2">
-                    <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase">
-                      Kata Sandi Dikelola oleh Google
-                    </h3>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Akun Anda terhubung dan terverifikasi menggunakan{" "}
-                      <b>Google Sign-In</b>. Anda tidak memerlukan kata sandi
-                      lokal untuk masuk ke aplikasi Zura Retail.
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Jika ingin memperbarui kata sandi akun Google Anda, silakan
-                      ubah langsung di menu keamanan Akun Google Anda.
-                    </p>
-                  </div>
-                ) : (
-                  /* Tampilan Form Pengguna Email & Password Biasa */
-                  <form
-                    onSubmit={triggerPasswordUpdate}
-                    className="flex flex-col gap-4"
-                  >
-                    <div>
-                      <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
-                        Perbarui Kata Sandi Akun
-                      </h3>
-                      <p className="text-[11px] text-slate-500 mb-3">
-                        Pastikan kata sandi baru minimal 6 karakter.
-                      </p>
-
-                      <div className="flex flex-col gap-2.5">
-                        <input
-                          type="password"
-                          placeholder="Kata Sandi Baru"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Konfirmasi Kata Sandi Baru"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
-                      >
-                        Ubah Kata Sandi
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
-
-            {/* Konten Tab 3: Hapus Akun */}
-            {activeSecurityTab === "danger" && (
-              <div className="bg-red-50 p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-lg">
-                <div>
-                  <h3 className="text-xs font-extrabold text-red-700 uppercase mb-1">
-                    Tindakan Permanen: Hapus Akun
-                  </h3>
-                  <p className="text-[11px] text-red-600/80 leading-relaxed">
-                    Menghapus akun akan memusnahkan seluruh akses dashboard dan
-                    data usaha Anda secara otomatis. Tindakan ini tidak dapat
-                    dibatalkan!
-                  </p>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={triggerAccountDelete}
-                    disabled={isDeleting}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                  >
-                    {isDeleting ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>Memproses Hapus...</span>
-                      </>
-                    ) : (
-                      "Hapus Akun Permanen"
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* MODAL RE-AUTHENTICATION (KHUSUS AKUN EMAIL/PASSWORD) */}
-      {showReauthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-slate-100">
-            <div>
-              <h3 className="text-base font-extrabold text-[#5F1E1E] uppercase">
-                Konfirmasi Kata Sandi
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Demi keamanan akun, masukkan kata sandi Anda saat ini untuk
-                melanjutkan aksi ini.
-              </p>
-            </div>
-
-            <form
-              onSubmit={handleReauthenticateAndExecute}
-              className="flex flex-col gap-4"
-            >
-              <input
-                type="password"
-                placeholder="Masukkan Kata Sandi Saat Ini"
-                value={currentPasswordInput}
-                onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                required
-                autoFocus
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+            {/* PETA STATIS GEOAPIFY */}
+            <div className="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <img
+                src={`https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=300&center=lonlat:${profile.lng},${profile.lat}&zoom=15&marker=lonlat:${profile.lng},${profile.lat};color:%235f1e1e;size:medium&apiKey=${GEOAPIFY_API_KEY}`}
+                alt="Peta Lokasi Toko Geoapify"
+                className="w-full h-full object-cover"
               />
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowReauthModal(false);
-                    setCurrentPasswordInput("");
-                    setPendingAction(null);
-                  }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
-                >
-                  Konfirmasi & Lanjutkan
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* MODAL EDIT PROFIL */}
       {isEditOpen && (
@@ -871,7 +492,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm"
               >
                 ✕
               </button>
@@ -889,18 +510,6 @@ export default function ProfilePage() {
                   onChange={handleInputChange}
                   required
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Email Akun
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  disabled
-                  className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-500 cursor-not-allowed"
                 />
               </div>
 
@@ -927,8 +536,8 @@ export default function ProfilePage() {
                     <label
                       key={cat}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${formData.category === cat
-                          ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       <input
@@ -958,7 +567,7 @@ export default function ProfilePage() {
                   <input
                     type="text"
                     name="location"
-                    placeholder="Nama Kota / Wilayah Toko"
+                    placeholder="Contoh: Tebet Barat, Jakarta Selatan"
                     value={formData.location}
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
@@ -966,33 +575,41 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={handleSearchLocation}
-                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
+                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2.5 rounded-xl transition-all whitespace-nowrap"
                   >
-                    Cari Peta
+                    Cari
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGetGPSLocation}
+                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] text-xs font-bold px-3 py-2.5 rounded-xl transition-all whitespace-nowrap flex items-center gap-1 shadow-sm active:scale-95"
+                    title="Deteksi Lokasi GPS HP"
+                  >
+                    <span>📍 GPS</span>
                   </button>
                 </div>
 
-                <div
-                  ref={mapContainerRef}
-                  className="w-full h-48 rounded-xl border border-slate-200 z-0 shadow-inner"
-                ></div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  * Geser pin merah di peta untuk menyesuaikan titik koordinat
-                  presisi.
-                </p>
+                {/* PREVIEW PETA MODAL */}
+                <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+                  <img
+                    src={`https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=300&center=lonlat:${formData.lng},${formData.lat}&zoom=15&marker=lonlat:${formData.lng},${formData.lat};color:%235f1e1e;size:medium&apiKey=${GEOAPIFY_API_KEY}`}
+                    alt="Preview Peta Modal Geoapify"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                  className="px-5 py-2.5 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm"
                 >
                   Simpan Perubahan
                 </button>
