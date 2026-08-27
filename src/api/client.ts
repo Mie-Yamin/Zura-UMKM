@@ -31,9 +31,10 @@ export async function fetchInventory(): Promise<Product[]> {
 
     const q = query(productsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
+
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as Product[];
   } catch (error) {
     console.error("Error fetching inventory:", error);
@@ -45,17 +46,23 @@ export async function addProduct(product: Omit<Product, 'id'>) {
   const uid = getCurrentUserId();
   if (!uid) throw new Error("User belum login");
 
-  const payload = { ...product, userId: uid };
+  // Memastikan field 'id' tidak ikut tersimpan dan menambahkan userId
+  const { id, ...cleanProduct } = product as any;
+  const payload = { ...cleanProduct, userId: uid };
+
   const docRef = await addDoc(productsRef, payload);
   return { id: docRef.id, ...payload };
 }
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
+  if (!id) throw new Error("ID Produk tidak valid untuk pembaruan");
   const productDoc = doc(db, 'products', id);
   await updateDoc(productDoc, updatedData);
 }
 
 export async function deleteProduct(id: string) {
+  if (!id) throw new Error("ID Produk tidak valid untuk penghapusan");
+
   const productDoc = doc(db, 'products', id);
   await deleteDoc(productDoc);
 }
@@ -76,8 +83,8 @@ export async function fetchRecaps(): Promise<SalesRecap[]> {
     const q = query(recapsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as SalesRecap[];
   } catch (error) {
     console.error("Error fetching recaps:", error);
@@ -114,8 +121,8 @@ export async function fetchCustomers(): Promise<Customer[]> {
     const q = query(customersRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as Customer[];
   } catch (error) {
     console.error("Error fetching customers:", error);
@@ -135,8 +142,8 @@ export async function fetchTransactions(): Promise<Transaction[]> {
     const q = query(transactionsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
     })) as Transaction[];
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -184,5 +191,4 @@ export const getKpiSummary = fetchKpiSummary;
 
 // ─── INITIALIZATION ───────────────────────────────────────────────────────────
 
-export function initializeDatabase() {
-}
+export function initializeDatabase() { }

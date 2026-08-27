@@ -246,8 +246,8 @@ export default function PosPage() {
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold border-2 transition-all whitespace-nowrap min-h-[44px] ${selectedCategory === cat
-                  ? 'bg-[#5F1E1E] border-[#5F1E1E] text-[#E8D3A7] shadow-sm'
-                  : 'bg-white border-[#B48328] text-[#5F1E1E] hover:bg-[#E8D3A7]/30'
+                ? 'bg-[#5F1E1E] border-[#5F1E1E] text-[#E8D3A7] shadow-sm'
+                : 'bg-white border-[#B48328] text-[#5F1E1E] hover:bg-[#E8D3A7]/30'
                 }`}
             >
               {cat.toUpperCase()}
@@ -283,8 +283,8 @@ export default function PosPage() {
                   disabled={isOut}
                   onClick={() => addToCart(p)}
                   className={`bg-white border text-left rounded-2xl p-4 flex flex-col justify-between h-56 transition-all duration-300 ${isOut
-                      ? 'border-slate-200 opacity-60 cursor-not-allowed'
-                      : 'border-transparent hover:border-[#B48328] hover:shadow-md active:scale-98'
+                    ? 'border-slate-200 opacity-60 cursor-not-allowed'
+                    : 'border-transparent hover:border-[#B48328] hover:shadow-md active:scale-98'
                     }`}
                 >
                   <div className="w-full flex flex-col gap-2.5">
@@ -442,8 +442,8 @@ export default function PosPage() {
                   type="button"
                   onClick={() => setPaymentMethod(method)}
                   className={`py-2.5 rounded-xl text-xs font-extrabold border-2 transition-colors min-h-[44px] ${paymentMethod === method
-                      ? 'bg-[#5F1E1E] border-[#5F1E1E] text-[#E8D3A7]'
-                      : 'bg-white border-[#B48328] text-[#5F1E1E] hover:bg-[#E8D3A7]/20'
+                    ? 'bg-[#5F1E1E] border-[#5F1E1E] text-[#E8D3A7]'
+                    : 'bg-white border-[#B48328] text-[#5F1E1E] hover:bg-[#E8D3A7]/20'
                     }`}
                 >
                   {method}
@@ -503,8 +503,8 @@ export default function PosPage() {
           disabled={cart.length === 0 || isCashInsufficient}
           onClick={handleProcessTransaction}
           className={`w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-wider shadow transition-all mt-6 ${cart.length === 0 || isCashInsufficient
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
+            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
             }`}
         >
           Proses Transaksi
