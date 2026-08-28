@@ -26,7 +26,6 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/ai-insights" element={<AiInsightsPage />} />
             <Route path="/rekap" element={<SalesRecapPage />} />
-            <Route path="/pos" element={<Navigate to="/rekap" replace />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/finance" element={<FinancePage />} />
             <Route path="/profile" element={<ProfilePage />} />{" "}
