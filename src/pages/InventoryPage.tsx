@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchInventory, addProduct, updateProduct, deleteProduct } from '../api/client';
 import type { Product } from '../types';
@@ -37,7 +37,7 @@ export default function InventoryPage() {
   const [restockProduct, setRestockProduct] = useState<Product | null>(null);
   const [restockQty, setRestockQty] = useState('10');
 
-  // Form States
+  // Form States Basic
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('MAKANAN & MINUMAN (F&B)');
@@ -45,6 +45,10 @@ export default function InventoryPage() {
   const [sellPrice, setSellPrice] = useState('');
   const [stockCount, setStockCount] = useState('');
   const [minStock, setMinStock] = useState('10');
+
+  const [inputMode, setInputMode] = useState<'satuan' | 'grosir'>('grosir');
+  const [wholesaleTotal, setWholesaleTotal] = useState('180000'); // Total Modal Beli Dus
+  const [wholesaleQty, setWholesaleQty] = useState('120'); // Jumlah Isi Pcs
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -78,12 +82,15 @@ export default function InventoryPage() {
   // Reset Form
   const resetForm = () => {
     setName('');
-    setSku('');
+    setSku(`ZR-KP-${Math.floor(1000 + Math.random() * 9000)}`);
     setCategory('MAKANAN & MINUMAN (F&B)');
-    setBuyPrice('');
-    setSellPrice('');
-    setStockCount('');
+    setBuyPrice('1500');
+    setSellPrice('3000');
+    setStockCount('120');
     setMinStock('10');
+    setInputMode('grosir');
+    setWholesaleTotal('180000');
+    setWholesaleQty('120');
     setEditingProduct(null);
   };
 
@@ -97,7 +104,22 @@ export default function InventoryPage() {
     setSellPrice(p.sellPrice ? p.sellPrice.toString() : '');
     setStockCount(p.stockCount.toString());
     setMinStock((p.minStock || 10).toString());
+    setInputMode('satuan'); // Default mode satuan saat edit
     setShowAddModal(true);
+  };
+
+  const handleWholesaleChange = (totalStr: string, qtyStr: string) => {
+    setWholesaleTotal(totalStr);
+    setWholesaleQty(qtyStr);
+
+    const total = parseFloat(totalStr) || 0;
+    const qty = parseFloat(qtyStr) || 0;
+
+    if (qty > 0 && total > 0) {
+      const calculatedHpp = Math.round(total / qty);
+      setBuyPrice(calculatedHpp.toString());
+      setStockCount(qtyStr); // Mengisi stok fisik secara otomatis dari isi dus
+    }
   };
 
   // Submit Handler (Tambah / Edit)
@@ -360,7 +382,6 @@ export default function InventoryPage() {
                         </span>
                       </td>
 
-                      {/* 💥 TOMBOL AKSI VERTIKAL PADA MOBILE, HORIZONTAL PADA DESKTOP 💥 */}
                       <td className="py-4 px-3 sm:px-4 text-center">
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1.5 sm:gap-2 min-w-[100px] sm:min-w-max">
                           <button
@@ -400,10 +421,10 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      {/* ─── MODAL TAMBAH / EDIT PRODUK ─── */}
+      {/* ─── MODAL TAMBAH / EDIT PRODUK (DENGAN HITUNG GROSIR) ─── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">
                 {editingProduct ? 'Edit Data Produk' : 'Tambah Produk Baru'}
@@ -427,7 +448,7 @@ export default function InventoryPage() {
                   type="text"
                   required
                   placeholder="Contoh: Kripik Pisang"
-                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
+                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -440,7 +461,7 @@ export default function InventoryPage() {
                     type="text"
                     required
                     placeholder="ZR-KP-3383"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                   />
@@ -449,7 +470,7 @@ export default function InventoryPage() {
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase">Kategori</label>
                   <select
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-white"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] cursor-pointer truncate"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
@@ -462,14 +483,81 @@ export default function InventoryPage() {
                 </div>
               </div>
 
+
+              {!editingProduct && (
+                <div className="bg-[#FFFDF9] p-3 rounded-xl border-2 border-[#B48328]/40 flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
+                      Mode Hitung Modal Beli (HPP):
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setInputMode('grosir')}
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all ${inputMode === 'grosir'
+                          ? 'bg-[#5F1E1E] text-[#E8D3A7]'
+                          : 'bg-slate-100 text-slate-600'
+                          }`}
+                      >
+                        📦 Grosir / Dus
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInputMode('satuan')}
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all ${inputMode === 'satuan'
+                          ? 'bg-[#5F1E1E] text-[#E8D3A7]'
+                          : 'bg-slate-100 text-slate-600'
+                          }`}
+                      >
+                        🏷️ Satuan Pcs
+                      </button>
+                    </div>
+                  </div>
+
+                  {inputMode === 'grosir' && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[9px] font-bold text-slate-500">Total Modal Dus (Rp)</label>
+                        <input
+                          type="number"
+                          placeholder="180000"
+                          value={wholesaleTotal}
+                          onChange={(e) => handleWholesaleChange(e.target.value, wholesaleQty)}
+                          className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[9px] font-bold text-slate-500">Jumlah Isi (Pcs)</label>
+                        <input
+                          type="number"
+                          placeholder="120"
+                          value={wholesaleQty}
+                          onChange={(e) => handleWholesaleChange(wholesaleTotal, e.target.value)}
+                          className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Harga Beli / HPP (Rp)</label>
+                  <label className="font-bold text-[#5F1E1E] uppercase flex justify-between items-center">
+                    <span>Harga Beli / HPP (Rp)</span>
+                    {inputMode === 'grosir' && !editingProduct && (
+                      <span className="text-[9px] text-[#B48328] font-bold">Auto</span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="0"
                     placeholder="1500"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none"
+                    readOnly={inputMode === 'grosir' && !editingProduct}
+                    className={`border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono focus:outline-none ${inputMode === 'grosir' && !editingProduct
+                      ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                      : 'bg-[#FFFDF9] text-[#5F1E1E]'
+                      }`}
                     value={buyPrice}
                     onChange={(e) => setBuyPrice(e.target.value)}
                   />
@@ -481,7 +569,7 @@ export default function InventoryPage() {
                     type="number"
                     min="0"
                     placeholder="3000"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                     value={sellPrice}
                     onChange={(e) => setSellPrice(e.target.value)}
                   />
@@ -496,7 +584,7 @@ export default function InventoryPage() {
                     min="0"
                     required
                     placeholder="105"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                     value={stockCount}
                     onChange={(e) => setStockCount(e.target.value)}
                   />
@@ -508,7 +596,7 @@ export default function InventoryPage() {
                     type="number"
                     min="1"
                     required
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                   />
