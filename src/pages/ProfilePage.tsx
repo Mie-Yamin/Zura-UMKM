@@ -71,7 +71,8 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+  // State Pengaturan Keamanan Akun
+  const [isSecurityOpen, setIsSecurityOpen] = useState(true);
   const [activeSecurityTab, setActiveSecurityTab] = useState<
     "email" | "password" | "danger"
   >("email");
@@ -426,7 +427,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            💡 Klik <b className="text-[#5F1E1E]">EDIT PROFIL</b> untuk memperbarui detail toko.
+            💡 Untuk mengubah nama pemilik, telepon, dan kategori usaha klik tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
           </div>
         </div>
 
@@ -475,6 +476,235 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* ─── PENGATURAN KEAMANAN AKUN (DARI GAMBAR) ─── */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-5">
+        <div
+          onClick={() => setIsSecurityOpen(!isSecurityOpen)}
+          className="flex items-center justify-between cursor-pointer select-none"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-extrabold">
+              ⚙
+            </div>
+            <div>
+              <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+                Pengaturan Keamanan Akun
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kelola kata sandi, ganti email terdaftar, atau hapus akun Anda.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+          >
+            <span>{isSecurityOpen ? "Tutup Pengaturan ▲" : "Kelola Keamanan ▼"}</span>
+          </button>
+        </div>
+
+        {isSecurityOpen && (
+          <div className="flex flex-col gap-5 pt-2">
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("email")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "email"
+                    ? "bg-[#5F1E1E] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+              >
+                Ganti Email
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("password")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "password"
+                    ? "bg-[#5F1E1E] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+              >
+                Ubah Kata Sandi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSecurityTab("danger")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "danger"
+                    ? "bg-red-600 text-white shadow-sm"
+                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                  }`}
+              >
+                Zona Bahaya (Hapus Akun)
+              </button>
+            </div>
+
+            {/* Tab 1: Ganti Email */}
+            {activeSecurityTab === "email" && (
+              <form
+                onSubmit={triggerEmailUpdate}
+                className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl"
+              >
+                <div>
+                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
+                    Ganti Email Terdaftar
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Email aktif saat ini:{" "}
+                    <b className="text-slate-700">{profile.email || "Belum Diatur"}</b>
+                  </p>
+
+                  <input
+                    type="email"
+                    placeholder="Masukkan Email Baru"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    required
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
+                  />
+                </div>
+
+                <div className="flex justify-start">
+                  <button
+                    type="submit"
+                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    Simpan Email Baru
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Tab 2: Ubah Kata Sandi */}
+            {activeSecurityTab === "password" && (
+              <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl">
+                {auth.currentUser?.providerData.some(
+                  (p) => p.providerId === "google.com"
+                ) ? (
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase">
+                      Kata Sandi Dikelola oleh Google
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Akun Anda terhubung via <b>Google Sign-In</b>. Ubah kata sandi langsung di akun Google Anda.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={triggerPasswordUpdate} className="flex flex-col gap-4">
+                    <div>
+                      <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
+                        Perbarui Kata Sandi Akun
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mb-3">
+                        Pastikan kata sandi baru minimal 6 karakter.
+                      </p>
+
+                      <div className="flex flex-col gap-2.5">
+                        <input
+                          type="password"
+                          placeholder="Kata Sandi Baru"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Konfirmasi Kata Sandi Baru"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-start">
+                      <button
+                        type="submit"
+                        className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                      >
+                        Ubah Kata Sandi
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Zona Bahaya */}
+            {activeSecurityTab === "danger" && (
+              <div className="bg-red-50/80 p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-xl">
+                <div>
+                  <h3 className="text-xs font-extrabold text-red-700 uppercase mb-1">
+                    Tindakan Permanen: Hapus Akun
+                  </h3>
+                  <p className="text-[11px] text-red-600/80 leading-relaxed">
+                    Menghapus akun akan memusnahkan seluruh akses dashboard dan data usaha Anda secara permanen!
+                  </p>
+                </div>
+
+                <div className="flex justify-start">
+                  <button
+                    type="button"
+                    onClick={triggerAccountDelete}
+                    disabled={isDeleting}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    {isDeleting ? "Memproses Hapus..." : "Hapus Akun Permanen"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL RE-AUTHENTICATION */}
+      {showReauthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-slate-100">
+            <div>
+              <h3 className="text-base font-extrabold text-[#5F1E1E] uppercase">
+                Konfirmasi Kata Sandi
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Masukkan kata sandi Anda saat ini untuk melanjutkan.
+              </p>
+            </div>
+            <form onSubmit={handleReauthenticateAndExecute} className="flex flex-col gap-4">
+              <input
+                type="password"
+                placeholder="Masukkan Kata Sandi Saat Ini"
+                value={currentPasswordInput}
+                onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                required
+                autoFocus
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+              />
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowReauthModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm"
+                >
+                  Konfirmasi & Lanjutkan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL EDIT PROFIL */}
       {isEditOpen && (
@@ -536,8 +766,8 @@ export default function ProfilePage() {
                     <label
                       key={cat}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${formData.category === cat
-                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                          ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       <input
