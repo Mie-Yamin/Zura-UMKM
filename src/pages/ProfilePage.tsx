@@ -21,9 +21,13 @@ interface UserProfile {
   phone: string;
   category: string;
   location: string;
-  lat: number;
-  lng: number;
   isEmailVerified: boolean;
+}
+
+interface SopTask {
+  id: string;
+  label: string;
+  completed: boolean;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -35,21 +39,40 @@ const BUSINESS_CATEGORIES = [
   "Lainnya",
 ];
 
-const DEFAULT_LAT = -6.2088;
-const DEFAULT_LNG = 106.8456;
-
-// GANTI DENGAN API KEY GEOAPIFY MILIKMU (atau simpan di .env)
-const GEOAPIFY_API_KEY = import.meta.env.VITE_GEOAPIFY_API_KEY || "YOUR_GEOAPIFY_API_KEY";
-
 const INITIAL_PROFILE: UserProfile = {
   name: "Pengguna Zura",
   email: "",
   phone: "",
   category: "Lainnya",
   location: "Belum Diatur",
-  lat: DEFAULT_LAT,
-  lng: DEFAULT_LNG,
   isEmailVerified: false,
+};
+
+// 💥 SEMUA TUGAS AWAL DIESET UNCHECKED (completed: false) 💥
+const DEFAULT_SOP: SopTask[] = [
+  { id: "1", label: "Cek stok kritis & restock barang di gudang", completed: false },
+  { id: "2", label: "Rekap transaksi harian dari marketplace / POS", completed: false },
+  { id: "3", label: "Cetak resi & kemas pesanan sebelum kirim", completed: false },
+  { id: "4", label: "Verifikasi Laporan Keuangan & Laba Rugi", completed: false },
+];
+
+// TEMPLATE REKOMENDASI TUGAS OPERASIONAL
+const SOP_TEMPLATES = {
+  online: [
+    "Cek obrolan / pesan masuk dari calon pembeli",
+    "Update nomor resi pengiriman marketplace",
+    "Ganti foto banner promo toko",
+  ],
+  fnb: [
+    "Cek tanggal kadaluarsa stok bahan baku",
+    "Bersihkan area kasir & mesin EDC / QRIS",
+    "Hitung uang kas masuk & kembalian",
+  ],
+  monthly: [
+    "Cek tagihan sewa tempat & listrik harian",
+    "Audit fisik persediaan stok (Stok Opname)",
+    "Evaluasi produk terlaris vs deadstock",
+  ],
 };
 
 export default function ProfilePage() {
@@ -66,6 +89,19 @@ export default function ProfilePage() {
       return INITIAL_PROFILE;
     }
   });
+
+  // State SOP Checklist Kustom
+  const [sopTasks, setSopTasks] = useState<SopTask[]>(() => {
+    try {
+      const saved = localStorage.getItem("zura_sop_checklist");
+      return saved ? JSON.parse(saved) : DEFAULT_SOP;
+    } catch {
+      return DEFAULT_SOP;
+    }
+  });
+
+  const [newTaskLabel, setNewTaskLabel] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [formData, setFormData] = useState<UserProfile>(profile);
@@ -121,74 +157,67 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, []);
 
-  const handleSearchLocation = async () => {
-    if (!formData.location.trim()) return;
-
-    try {
-      const searchQuery = formData.location.toLowerCase().includes("indonesia")
-        ? formData.location
-        : `${formData.location}, Indonesia`;
-
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&countrycodes=id&limit=1`
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        const newLat = parseFloat(data[0].lat);
-        const newLng = parseFloat(data[0].lon);
-
-        setFormData((prev) => ({
-          ...prev,
-          lat: newLat,
-          lng: newLng,
-        }));
-        showToast("Koordinat peta berhasil ditemukan!");
-      } else {
-        alert(
-          "Lokasi tidak ditemukan. Coba gunakan format: Nama Jalan/Area, Kota (Contoh: Tebet, Jakarta Selatan)"
-        );
-      }
-    } catch (error) {
-      console.error("Gagal mencari lokasi:", error);
-    }
-  };
-
-  const handleGetGPSLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Browser Anda tidak mendukung fitur lokasi GPS.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData((prev) => ({
-          ...prev,
-          lat: latitude,
-          lng: longitude,
-          location:
-            prev.location && prev.location !== "Belum Diatur"
-              ? prev.location
-              : "Lokasi GPS Terdeteksi",
-        }));
-        showToast("Koordinat GPS HP berhasil terdeteksi!");
-      },
-      (error) => {
-        console.error("Gagal GPS:", error);
-        alert(
-          "Gagal mengambil GPS. Harap pastikan Izin Lokasi di HP/Browser sudah diaktifkan."
-        );
-      },
-      { enableHighAccuracy: true }
-    );
-  };
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Helper Simpan Checklist
+  const saveSopTasks = (tasks: SopTask[]) => {
+    setSopTasks(tasks);
+    try {
+      localStorage.setItem("zura_sop_checklist", JSON.stringify(tasks));
+    } catch (e) {
+      console.error("Gagal simpan SOP", e);
+    }
+  };
+
+  const toggleSopTask = (id: string) => {
+    const updated = sopTasks.map((t) =>
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+    saveSopTasks(updated);
+  };
+
+  const handleResetChecklist = () => {
+    const resetTasks = sopTasks.map((t) => ({ ...t, completed: false }));
+    saveSopTasks(resetTasks);
+    showToast("Semua centang tugas berhasil direset!");
+  };
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskLabel.trim()) return;
+
+    const newTask: SopTask = {
+      id: Date.now().toString(),
+      label: newTaskLabel.trim(),
+      completed: false,
+    };
+
+    saveSopTasks([...sopTasks, newTask]);
+    setNewTaskLabel("");
+    showToast("Tugas kustom berhasil ditambahkan!");
+  };
+
+  const handleDeleteTask = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = sopTasks.filter((t) => t.id !== id);
+    saveSopTasks(updated);
+    showToast("Tugas berhasil dihapus");
+  };
+
+  const handleApplyTemplate = (categoryKey: keyof typeof SOP_TEMPLATES) => {
+    const templateItems = SOP_TEMPLATES[categoryKey];
+    const newItems: SopTask[] = templateItems.map((text, index) => ({
+      id: `${Date.now()}-${index}`,
+      label: text,
+      completed: false,
+    }));
+
+    saveSopTasks([...sopTasks, ...newItems]);
+    setShowTemplates(false);
+    showToast("Rekomendasi tugas berhasil ditambahkan!");
   };
 
   const handleSendEmailVerification = async () => {
@@ -431,53 +460,157 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* PETA GEOAPIFY */}
-        <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-4 border border-slate-100">
-          <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3">
-            Informasi Usaha & Lokasi
-          </h2>
+        {/* SOP CHECKLIST KUSTOM & REKOMENDASI */}
+        <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm flex flex-col justify-between gap-4 border border-slate-100">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
+                  Checklist Operasional Harian Toko
+                </h2>
+                <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  {sopTasks.filter((t) => t.completed).length} / {sopTasks.length}
+                </span>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="bg-slate-50 p-3 rounded-xl">
-              <span className="text-slate-400 font-medium block mb-0.5">
-                Nama Pemilik
-              </span>
-              <span className="font-extrabold text-[#5F1E1E] text-sm">
-                {profile.name}
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Tombol Reset Centang */}
+                <button
+                  type="button"
+                  onClick={handleResetChecklist}
+                  className="text-[11px] font-bold text-slate-500 hover:text-[#5F1E1E] bg-slate-100 px-2.5 py-1 rounded-xl transition-all"
+                  title="Kosongkan semua centang"
+                >
+                  🔄 Reset
+                </button>
+
+                {/* Tombol Rekomendasi Template */}
+                <button
+                  type="button"
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="text-[11px] font-bold text-[#B48328] hover:text-[#5F1E1E] bg-[#E8D3A7]/30 px-3 py-1 rounded-xl transition-all border border-[#B48328]/30 flex items-center gap-1"
+                >
+                  <span>💡 Rekomendasi SOP</span>
+                  <span>{showTemplates ? "▲" : "▼"}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl">
-              <span className="text-slate-400 font-medium block mb-0.5">
-                Kategori Usaha
-              </span>
-              <span className="font-extrabold text-[#5F1E1E] text-sm">
-                {profile.category}
-              </span>
+            {/* Panel Pilihan Template SOP */}
+            {showTemplates && (
+              <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl mb-4 flex flex-col gap-2.5 animate-scaleUp text-xs">
+                <span className="font-extrabold text-[#5F1E1E] text-[10px] uppercase">
+                  PILIH TEMPLATE TUGAS REKOMENDASI:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate("online")}
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                  >
+                    🛒 Toko Online
+                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
+                      Chat, Resi & Banner
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate("fnb")}
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                  >
+                    🍵 F&B / Toko Fisik
+                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
+                      Kadaluarsa & Kasir
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate("monthly")}
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                  >
+                    📅 Rutin / Akhir Bulan
+                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
+                      Stok Opname & Tagihan
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Form Input Tambah Tugas Kustom */}
+            <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Tambah tugas operasional baru..."
+                value={newTaskLabel}
+                onChange={(e) => setNewTaskLabel(e.target.value)}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-[#B48328]"
+              />
+              <button
+                type="submit"
+                className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold text-xs px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+              >
+                + Tambah
+              </button>
+            </form>
+
+            {/* List Item Checklist */}
+            <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+              {sopTasks.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs font-semibold border border-dashed rounded-xl">
+                  Belum ada tugas operasional. Klik <b>Rekomendasi SOP</b> di atas untuk menambahkan tugas.
+                </div>
+              ) : (
+                sopTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => toggleSopTask(task.id)}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-xs font-semibold ${task.completed
+                        ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                        : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] font-extrabold shrink-0 ${task.completed
+                            ? "bg-emerald-500 border-emerald-500 text-white"
+                            : "border-[#B48328] bg-white text-transparent"
+                          }`}
+                      >
+                        ✓
+                      </span>
+                      <span className="truncate">{task.label}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {task.completed ? "Selesai" : "Pending"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTask(task.id, e)}
+                        className="text-slate-300 hover:text-red-600 transition-colors px-1 text-sm font-bold"
+                        title="Hapus Tugas"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-xl text-xs flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400 font-medium">Lokasi Usaha</span>
-              <span className="font-extrabold text-[#5F1E1E] text-xs">
-                {profile.location}
-              </span>
-            </div>
-
-            {/* PETA STATIS GEOAPIFY */}
-            <div className="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
-              <img
-                src={`https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=300&center=lonlat:${profile.lng},${profile.lat}&zoom=15&marker=lonlat:${profile.lng},${profile.lat};color:%235f1e1e;size:medium&apiKey=${GEOAPIFY_API_KEY}`}
-                alt="Peta Lokasi Toko Geoapify"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="bg-[#E8D3A7]/20 p-3 rounded-xl border border-[#B48328]/20 flex items-center justify-between text-[11px] mt-2">
+            <span className="text-[#5F1E1E] font-bold">📋 SOP Usaha Mandiri</span>
+            <span className="text-slate-600">Gunakan tombol "🔄 Reset" untuk mengulang daftar centang harian.</span>
           </div>
         </div>
       </div>
 
-      {/* ─── PENGATURAN KEAMANAN AKUN (DARI GAMBAR) ─── */}
+      {/* PENGATURAN KEAMANAN AKUN */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-5">
         <div
           onClick={() => setIsSecurityOpen(!isSecurityOpen)}
@@ -507,7 +640,6 @@ export default function ProfilePage() {
 
         {isSecurityOpen && (
           <div className="flex flex-col gap-5 pt-2">
-            {/* Tab Navigation */}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -543,7 +675,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Tab 1: Ganti Email */}
             {activeSecurityTab === "email" && (
               <form
                 onSubmit={triggerEmailUpdate}
@@ -579,7 +710,6 @@ export default function ProfilePage() {
               </form>
             )}
 
-            {/* Tab 2: Ubah Kata Sandi */}
             {activeSecurityTab === "password" && (
               <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl">
                 {auth.currentUser?.providerData.some(
@@ -636,7 +766,6 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Tab 3: Zona Bahaya */}
             {activeSecurityTab === "danger" && (
               <div className="bg-red-50/80 p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-xl">
                 <div>
@@ -791,42 +920,16 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Lokasi Usaha
+                  Catatan Alamat Toko
                 </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    name="location"
-                    placeholder="Contoh: Tebet Barat, Jakarta Selatan"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSearchLocation}
-                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2.5 rounded-xl transition-all whitespace-nowrap"
-                  >
-                    Cari
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGetGPSLocation}
-                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] text-xs font-bold px-3 py-2.5 rounded-xl transition-all whitespace-nowrap flex items-center gap-1 shadow-sm active:scale-95"
-                    title="Deteksi Lokasi GPS HP"
-                  >
-                    <span>📍 GPS</span>
-                  </button>
-                </div>
-
-                {/* PREVIEW PETA MODAL */}
-                <div className="relative w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
-                  <img
-                    src={`https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=300&center=lonlat:${formData.lng},${formData.lat}&zoom=15&marker=lonlat:${formData.lng},${formData.lat};color:%235f1e1e;size:medium&apiKey=${GEOAPIFY_API_KEY}`}
-                    alt="Preview Peta Modal Geoapify"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <input
+                  type="text"
+                  name="location"
+                  placeholder="Contoh: Kalibata Tengah No. 8, Jakarta Selatan"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
