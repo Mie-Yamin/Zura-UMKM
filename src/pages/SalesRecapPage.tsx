@@ -58,6 +58,14 @@ export default function SalesRecapPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
+  // SMART MAPPING & PREVIEW STATES UNTUK FILE UNKNOWN FORMAT
+  const [parsedRawRows, setParsedRawRows] = useState<any[]>([]);
+  const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
+  const [selectedNameHeader, setSelectedNameHeader] = useState<string>('');
+  const [selectedQtyHeader, setSelectedQtyHeader] = useState<string>('');
+  const [selectedPriceHeader, setSelectedPriceHeader] = useState<string>('');
+  const [showMappingStep, setShowMappingStep] = useState(false);
+
   // Form Manual States
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [itemRows, setItemRows] = useState<DynamicItemRow[]>([{ productId: '', qty: '' }]);
@@ -116,7 +124,118 @@ export default function SalesRecapPage() {
     showToast("Template Excel (.xlsx) rapih berhasil diunduh!");
   };
 
-  // 💥 ─── LOGIKA SIMULASI WEBHOOK BAYANGAN (DEMO LOMBA / PENJURIAN) ─── 💥
+  // LOGIKA MEMBACA SEMENTARA HEADER & BARIS EXCEL/CSV (STEP 1)
+  const handleFileChange = (file: File) => {
+    setImportFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const parsedRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (parsedRows.length === 0) {
+          showToast('Berkas CSV/Excel kosong!');
+          return;
+        }
+
+        const headers = Object.keys(parsedRows[0] || {});
+        setAvailableHeaders(headers);
+        setParsedRawRows(parsedRows);
+
+        // Auto-detect kolom terdekat
+        const autoName = headers.find(h => /nama|product|item|barang/i.test(h)) || headers[0] || '';
+        const autoQty = headers.find(h => /jumlah|qty|quantity|banyak/i.test(h)) || headers[1] || '';
+        const autoPrice = headers.find(h => /harga|price|nominal|jual/i.test(h)) || headers[2] || '';
+
+        setSelectedNameHeader(autoName);
+        setSelectedQtyHeader(autoQty);
+        setSelectedPriceHeader(autoPrice);
+
+        setShowMappingStep(true); // Pindah ke layar penyesuaian kolom & pratinjau
+      } catch (err) {
+        console.error('Error reading file headers:', err);
+        showToast('Gagal membaca struktur file Excel/CSV!');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // LOGIKA KONFIRMASI SIMPAN DATA HASIL MAPPING KE FIRESTORE (STEP 2)
+  const handleConfirmImport = async () => {
+    const finalSource = importSource === 'Custom' ? customImportSource.trim() : importSource;
+
+    if (!finalSource) {
+      showToast('Silakan isi nama saluran penjualan custom!');
+      return;
+    }
+
+    if (parsedRawRows.length === 0) {
+      showToast('Tidak ada data untuk diimpor!');
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      let calculatedUnits = 0;
+      let calculatedTotalNominal = 0;
+      const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
+
+      parsedRawRows.forEach((row, index) => {
+        const nameVal = row[selectedNameHeader] ? String(row[selectedNameHeader]) : `Produk Impor #${index + 1}`;
+        const qtyVal = Number(String(row[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
+        const priceVal = Number(String(row[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+
+        calculatedUnits += qtyVal;
+        calculatedTotalNominal += priceVal * qtyVal;
+
+        importedItems.push({
+          id: `PRD-IMP-${index + 1}`,
+          name: nameVal,
+          qty: qtyVal,
+          price: priceVal,
+        });
+      });
+
+      const calculatedAdminFee = Math.round(calculatedTotalNominal * 0.05);
+
+      await importRecapsFromFile([
+        {
+          date: importDate,
+          source: finalSource,
+          unitsSold: calculatedUnits,
+          totalAmount: calculatedTotalNominal,
+          adminFee: calculatedAdminFee,
+          status: 'Tersinkronisasi',
+          items: importedItems,
+        },
+      ]);
+
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+
+      setShowImportModal(false);
+      setShowMappingStep(false);
+      setImportFile(null);
+      setParsedRawRows([]);
+      setCustomImportSource('');
+      showToast(`Berhasil mengimpor ${parsedRawRows.length} baris data! Total: ${calculatedUnits} unit.`);
+    } catch (err) {
+      console.error('Error importing mapped file:', err);
+      showToast('Gagal menyimpan rekap hasil impor!');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // ─── LOGIKA SIMULASI WEBHOOK BAYANGAN (DEMO LOMBA / PENJURIAN) ───
   const handleExecuteWebhookDemo = async (source: 'Shopee' | 'TikTok Shop' | 'Tokopedia') => {
     const availableProducts = products.filter((p) => p.stockCount > 0);
 
@@ -155,10 +274,8 @@ export default function SalesRecapPage() {
     };
 
     try {
-      // 1. Simpan Rekap Penjualan Baru ke Firestore
       await addRecap(simulatedRecap);
 
-      // 2. Potong Stok Produk Fisik di Firestore
       const updatedStock = randomProduct.stockCount - orderQty;
       const updatedProduct: Product = {
         ...randomProduct,
@@ -167,7 +284,6 @@ export default function SalesRecapPage() {
       };
       await updateProduct(updatedProduct.id, updatedProduct);
 
-      // 3. Refresh UI Real-time
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['kpi'] });
@@ -304,108 +420,6 @@ export default function SalesRecapPage() {
     }
   };
 
-  // ─── IMPORT FILE HANDLER (MEMBACA BERKAS CSV & EXCEL ASLI) ───
-  const handleImportSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const finalSource = importSource === 'Custom' ? customImportSource.trim() : importSource;
-
-    if (!finalSource) {
-      showToast('Silakan isi nama saluran penjualan custom!');
-      return;
-    }
-
-    if (!importFile) {
-      showToast('Silakan pilih berkas Excel/CSV rekap marketplace!');
-      return;
-    }
-
-    setIsImporting(true);
-
-    const reader = new FileReader();
-
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const workbook = XLSX.read(bstr, { type: 'binary' });
-
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-
-        const parsedRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        if (parsedRows.length === 0) {
-          showToast('Berkas CSV/Excel kosong atau format tidak sesuai!');
-          setIsImporting(false);
-          return;
-        }
-
-        let calculatedUnits = 0;
-        let calculatedTotalNominal = 0;
-        const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
-
-        parsedRows.forEach((row, index) => {
-          const productName =
-            row['Nama Produk'] ||
-            row['Nama Barang'] ||
-            row['Product Name'] ||
-            row['Item'] ||
-            `Produk Impor #${index + 1}`;
-
-          const qty =
-            Number(row['Jumlah'] || row['Qty'] || row['Quantity'] || row['Jumlah Produk'] || 1) || 1;
-
-          const rawPrice =
-            row['Harga Jual'] || row['Harga'] || row['Price'] || row['Harga Satuan'] || 15000;
-
-          const price = Number(String(rawPrice).replace(/\D/g, '')) || 15000;
-
-          calculatedUnits += qty;
-          calculatedTotalNominal += price * qty;
-
-          importedItems.push({
-            id: `PRD-IMP-${index + 1}`,
-            name: String(productName),
-            qty: qty,
-            price: price,
-          });
-        });
-
-        const calculatedAdminFee = Math.round(calculatedTotalNominal * 0.05);
-
-        await importRecapsFromFile([
-          {
-            date: importDate,
-            source: finalSource,
-            unitsSold: calculatedUnits,
-            totalAmount: calculatedTotalNominal,
-            adminFee: calculatedAdminFee,
-            status: 'Tersinkronisasi',
-            items: importedItems,
-          },
-        ]);
-
-        queryClient.invalidateQueries({ queryKey: ['recaps'] });
-        queryClient.invalidateQueries({ queryKey: ['inventory'] });
-        queryClient.invalidateQueries({ queryKey: ['kpi'] });
-
-        setShowImportModal(false);
-        setImportFile(null);
-        setCustomImportSource('');
-        showToast(
-          `Berhasil membaca ${parsedRows.length} baris dari file ${importFile.name}! Total: ${calculatedUnits} unit.`
-        );
-      } catch (err) {
-        console.error('Error parsing CSV/Excel:', err);
-        showToast('Gagal membaca isi berkas CSV/Excel! Pastikan format file valid.');
-      } finally {
-        setIsImporting(false);
-      }
-    };
-
-    reader.readAsBinaryString(importFile);
-  };
-
   const handleDeleteRecap = async (recapId: string) => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus dokumen rekap ${recapId}?`)) {
       return;
@@ -446,7 +460,6 @@ export default function SalesRecapPage() {
 
         {/* TOMBOL AKSI TERMASUK DEMO WEBHOOK LOMBA */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
-          {/* TOMBOL DEMO WEBHOOK DISAMARKAN & RAPI HANYA UNTUK PENJURIAN */}
           <button
             type="button"
             onClick={() => setShowWebhookDemoModal(true)}
@@ -459,7 +472,12 @@ export default function SalesRecapPage() {
 
           <button
             type="button"
-            onClick={() => setShowImportModal(true)}
+            onClick={() => {
+              setShowMappingStep(false);
+              setImportFile(null);
+              setParsedRawRows([]);
+              setShowImportModal(true);
+            }}
             className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 min-h-[44px]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -683,7 +701,7 @@ export default function SalesRecapPage() {
         </div>
       </section>
 
-      {/* ─── MODAL SIMULASI WEBHOOK EVENT-DRIVEN (INFORMASI PENJURIAN LOMBA) ─── */}
+      {/* ─── MODAL SIMULASI WEBHOOK EVENT-DRIVEN ─── */}
       {showWebhookDemoModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -701,16 +719,12 @@ export default function SalesRecapPage() {
               </button>
             </div>
 
-            {/* ALERT PENJELASAN UNTUK JURI */}
             <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
               <span className="font-extrabold uppercase text-[10px] text-[#B48328]">
                 📢 Catatan Pengujian Lomba:
               </span>
               <p className="text-[11px] leading-relaxed font-semibold text-slate-700">
                 Fitur ini disediakan khusus untuk <strong className="text-[#5F1E1E]">Pengujian Penjurian / Lomba</strong> untuk mendemonstrasikan integrasi <strong className="text-[#5F1E1E]">Event-Driven Multi-Channel Sync</strong> secara <em>real-time</em> tanpa harus melakukan transaksi pembelian sungguhan di aplikasi marketplace.
-              </p>
-              <p className="text-[10px] text-slate-500 italic">
-                Sistem akan berpura-pura menerima payload webhook pesanan, mencatat laporan, dan memotong stok fisik di Firestore secara otomatis.
               </p>
             </div>
 
@@ -719,9 +733,7 @@ export default function SalesRecapPage() {
                 PILIH SALURAN E-COMMERCE UNTUK DISIMULASIKAN:
               </span>
 
-              {/* TOMBOL DENGAN LOGO GAMBAR DARI FOLDER PUBLIC */}
               <div className="grid grid-cols-3 gap-2.5">
-                {/* Shopee */}
                 <button
                   type="button"
                   disabled={isSimulating}
@@ -733,15 +745,12 @@ export default function SalesRecapPage() {
                       src="/shopee.png"
                       alt="Shopee Logo"
                       className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   </div>
                   <span className="text-[11px]">Shopee</span>
                 </button>
 
-                {/* TikTok Shop (Ukuran Diperbesar Khusus Logo Horizontal) */}
                 <button
                   type="button"
                   disabled={isSimulating}
@@ -753,15 +762,12 @@ export default function SalesRecapPage() {
                       src="/tiktok.png"
                       alt="TikTok Logo"
                       className="w-full max-w-[80px] h-9 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   </div>
                   <span className="text-[11px]">TikTok Shop</span>
                 </button>
 
-                {/* Tokopedia */}
                 <button
                   type="button"
                   disabled={isSimulating}
@@ -773,9 +779,7 @@ export default function SalesRecapPage() {
                       src="/tokopedia.png"
                       alt="Tokopedia Logo"
                       className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   </div>
                   <span className="text-[11px]">Tokopedia</span>
@@ -794,12 +798,14 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* MODAL IMPOR REKAP MARKETPLACE */}
+      {/* ─── 💥 MODAL IMPOR REKAP DENGAN TEKS PETUNJUK INFORMASI & SMART COLUMN MAPPING 💥 ─── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">IMPOR REKAP MARKETPLACE</h2>
+              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">
+                {showMappingStep ? 'PRATINJAU & PENYESUAIAN KOLOM' : 'IMPOR REKAP MARKETPLACE'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setShowImportModal(false)}
@@ -809,98 +815,211 @@ export default function SalesRecapPage() {
               </button>
             </div>
 
-            {/* BOX CATATAN FORMAT KOLOM & TOMBOL UNDUH TEMPLATE .XLSX */}
-            <div className="bg-[#E8D3A7]/20 border border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-2 text-[10px] text-[#5F1E1E]">
-              <div className="flex justify-between items-center">
-                <span className="font-extrabold uppercase">📌 Format Kolom Excel/CSV:</span>
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-2 py-1 rounded-lg text-[9px] transition-colors flex items-center gap-1"
-                >
-                  <span>📥</span> Unduh Template
-                </button>
-              </div>
-              <p className="leading-tight text-slate-600 font-medium">
-                Pastikan file CSV/Excel memiliki header kolom: <strong className="text-[#5F1E1E]">Nama Produk</strong>, <strong className="text-[#5F1E1E]">Jumlah (Qty)</strong>, dan <strong className="text-[#5F1E1E]">Harga Jual</strong>.
-              </p>
-            </div>
+            {/* STEP 1: PILIH FILE & TANGGAL DENGAN PETUNJUK USER-FRIENDLY */}
+            {!showMappingStep ? (
+              <div className="flex flex-col gap-3.5 text-xs">
 
-            <form onSubmit={handleImportSubmit} className="flex flex-col gap-3.5 text-xs">
-              <div className="flex flex-col gap-1">
-                <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
-                <input
-                  type="date"
-                  required
-                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                  value={importDate}
-                  onChange={(e) => setImportDate(e.target.value)}
-                />
-              </div>
+                {/* 💥 BOX PETUNJUK INFORMASI BARU DENGAN CATATAN PENJELASAN RAMAH USER 💥 */}
+                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
+                  <div className="flex justify-between items-center border-b border-[#B48328]/20 pb-1.5">
+                    <span className="font-extrabold uppercase text-[10px] text-[#B48328] flex items-center gap-1">
+                      <span>💡</span> PETUNJUK IMPOR BERKAS EXCEL / CSV:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                      className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-2 py-1 rounded-lg text-[9px] transition-colors flex items-center gap-1 shadow-sm"
+                    >
+                      <span>📥</span> Unduh Contoh Template
+                    </button>
+                  </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="font-extrabold text-[#5F1E1E] uppercase">PILIH SALURAN ASAL BERKAS</label>
-                <select
-                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] bg-[#FFFDF9] focus:outline-none cursor-pointer"
-                  value={importSource}
-                  onChange={(e) => setImportSource(e.target.value)}
-                >
-                  <option value="Shopee">Shopee Seller Center</option>
-                  <option value="TikTok Shop">TikTok Shop Seller Center</option>
-                  <option value="Tokopedia">Tokopedia Seller Center</option>
-                  <option value="Custom">➕ Lainnya / Tambah Custom...</option>
-                </select>
+                  <p className="text-[11px] leading-relaxed font-semibold text-slate-700">
+                    Pastikan berkas Excel/CSV kamu memiliki setidaknya 3 informasi utama:
+                    <strong className="text-[#5F1E1E]"> Nama Produk</strong>,
+                    <strong className="text-[#5F1E1E]"> Jumlah Terjual (Qty)</strong>, dan
+                    <strong className="text-[#5F1E1E]"> Harga Satuan</strong>.
+                  </p>
 
-                {importSource === 'Custom' && (
+                  <p className="text-[10px] text-slate-500 italic">
+                    *Catatan: Nama header kolom di file kamu bebas (misal: "Barang", "Banyaknya", "Harga"). Di langkah berikutnya kamu bisa mencocokkan kolom secara visual.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
                   <input
-                    type="text"
+                    type="date"
                     required
-                    placeholder="Contoh: Lazada, WhatsApp, atau Bazar"
-                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] animate-scaleUp mt-1"
-                    value={customImportSource}
-                    onChange={(e) => setCustomImportSource(e.target.value)}
+                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    value={importDate}
+                    onChange={(e) => setImportDate(e.target.value)}
                   />
-                )}
-              </div>
+                </div>
 
-              <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-[#FFFDF9] relative transition-colors">
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setImportFile(e.target.files[0]);
-                    }
-                  }}
-                />
-                <span className="font-bold text-[#5F1E1E] truncate max-w-full text-center">
-                  {importFile ? importFile.name : 'Pilih file ekspor laporan marketplace'}
-                </span>
-                <span className="text-[9px] text-slate-500 font-semibold">Mendukung format .CSV atau .XLSX</span>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-extrabold text-[#5F1E1E] uppercase">PILIH SALURAN ASAL BERKAS</label>
+                  <select
+                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] bg-[#FFFDF9] focus:outline-none cursor-pointer"
+                    value={importSource}
+                    onChange={(e) => setImportSource(e.target.value)}
+                  >
+                    <option value="Shopee">Shopee Seller Center</option>
+                    <option value="TikTok Shop">TikTok Shop Seller Center</option>
+                    <option value="Tokopedia">Tokopedia Seller Center</option>
+                    <option value="Custom">➕ Lainnya / Tambah Custom...</option>
+                  </select>
 
-              <div className="flex flex-col sm:flex-row items-center justify-end gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="w-full sm:w-auto px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-600 min-h-[44px]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isImporting}
-                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-black px-5 py-2.5 rounded-2xl shadow-md min-h-[44px] flex justify-center items-center active:scale-95 transition-all"
-                >
-                  {isImporting ? (
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  ) : (
-                    'Impor Laporan'
+                  {importSource === 'Custom' && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: Lazada, WhatsApp, atau Bazar"
+                      className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] animate-scaleUp mt-1"
+                      value={customImportSource}
+                      onChange={(e) => setCustomImportSource(e.target.value)}
+                    />
                   )}
-                </button>
+                </div>
+
+                {/* FILE UPLOAD BOX */}
+                <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-[#FFFDF9] relative transition-colors">
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleFileChange(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <span className="font-bold text-[#5F1E1E] truncate max-w-full text-center">
+                    {importFile ? importFile.name : 'Pilih file ekspor laporan marketplace (.xlsx / .csv)'}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-semibold">Sistem akan otomatis mendeteksi kolom file</span>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(false)}
+                    className="px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-600 text-xs"
+                  >
+                    Batal
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              /* STEP 2: PENYESUAIAN MAPPING KOLOM & PRATINJAU HASIL BACA */
+              <div className="flex flex-col gap-3.5 text-xs">
+                <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-[11px] text-emerald-800 font-bold">
+                  ✓ Berhasil membaca {parsedRawRows.length} baris dari file: <span className="underline">{importFile?.name}</span>
+                </div>
+
+                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-2">
+                  <span className="font-black text-[#5F1E1E] text-[10px] uppercase">
+                    SAMAKAN KOLOM FILE EXCEL KAMU DENGAN SISTEM:
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-600">Kolom Nama Produk:</label>
+                      <select
+                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
+                        value={selectedNameHeader}
+                        onChange={(e) => setSelectedNameHeader(e.target.value)}
+                      >
+                        {availableHeaders.map((h) => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-600">Kolom Jumlah (Qty):</label>
+                      <select
+                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
+                        value={selectedQtyHeader}
+                        onChange={(e) => setSelectedQtyHeader(e.target.value)}
+                      >
+                        {availableHeaders.map((h) => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-600">Kolom Harga Jual:</label>
+                      <select
+                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
+                        value={selectedPriceHeader}
+                        onChange={(e) => setSelectedPriceHeader(e.target.value)}
+                      >
+                        {availableHeaders.map((h) => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PRATINJAU 3 BARIS DATA PERTAMA */}
+                <div className="flex flex-col gap-1">
+                  <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
+                    PRATINJAU CONTOH DATA HASIL MEMBACA:
+                  </span>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto bg-slate-50 p-2 max-h-32">
+                    <table className="w-full text-[10px] text-left">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-[#5F1E1E] font-black">
+                          <th className="p-1">Produk</th>
+                          <th className="p-1 text-center">Qty</th>
+                          <th className="p-1 text-right">Harga</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 font-semibold">
+                        {parsedRawRows.slice(0, 3).map((r, i) => {
+                          const pName = r[selectedNameHeader] || '-';
+                          const pQty = Number(String(r[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
+                          const pPrice = Number(String(r[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+                          return (
+                            <tr key={i}>
+                              <td className="p-1 truncate max-w-[150px]">{pName}</td>
+                              <td className="p-1 text-center">{pQty}</td>
+                              <td className="p-1 text-right">{formatRupiah(pPrice)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowMappingStep(false)}
+                    className="px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-600 text-xs"
+                  >
+                    ← Pilih File Lain
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isImporting}
+                    onClick={handleConfirmImport}
+                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-black px-5 py-2.5 rounded-xl shadow-md text-xs flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    {isImporting ? (
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      '✓ Konfirmasi & Impor Data'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
