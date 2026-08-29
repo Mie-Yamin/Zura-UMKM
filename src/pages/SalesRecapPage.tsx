@@ -42,10 +42,12 @@ export default function SalesRecapPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourceFilter, setSelectedSourceFilter] = useState('Semua');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Modals
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showWebhookDemoModal, setShowWebhookDemoModal] = useState(false);
   const [activeDetailRecap, setActiveDetailRecap] = useState<SalesRecap | null>(null);
 
   // Form Import States
@@ -62,10 +64,10 @@ export default function SalesRecapPage() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // ─── UNDUH TEMPLATE EXCEL (.XLSX) RAPI DENGAN TABEL ASLI ───
+  // ─── UNDUH TEMPLATE EXCEL (.XLSX) RAPI ───
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -99,8 +101,6 @@ export default function SalesRecapPage() {
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
-
-    // Mengatur lebar kolom agar rapi dan tidak terpotong
     worksheet['!cols'] = [
       { wch: 30 },
       { wch: 10 },
@@ -111,10 +111,75 @@ export default function SalesRecapPage() {
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Rekap Penjualan");
-
     XLSX.writeFile(workbook, "template_rekap_penjualan_zura.xlsx");
 
     showToast("Template Excel (.xlsx) rapih berhasil diunduh!");
+  };
+
+  // 💥 ─── LOGIKA SIMULASI WEBHOOK BAYANGAN (DEMO LOMBA / PENJURIAN) ─── 💥
+  const handleExecuteWebhookDemo = async (source: 'Shopee' | 'TikTok Shop' | 'Tokopedia') => {
+    const availableProducts = products.filter((p) => p.stockCount > 0);
+
+    if (availableProducts.length === 0) {
+      showToast('⚠️ Tidak ada produk fisik yang stoknya tersisa untuk disimulasikan!');
+      setShowWebhookDemoModal(false);
+      return;
+    }
+
+    setIsSimulating(true);
+
+    const randomProduct = availableProducts[Math.floor(Math.random() * availableProducts.length)];
+    const orderQty = Math.min(Math.floor(1 + Math.random() * 3), randomProduct.stockCount);
+    const itemPrice = randomProduct.sellPrice || 15000;
+    const totalAmount = itemPrice * orderQty;
+    const adminFee = Math.round(totalAmount * 0.05);
+
+    const recapId = `RCP-HOOK-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const simulatedRecap: SalesRecap = {
+      id: recapId,
+      date: new Date().toISOString().split('T')[0],
+      source: source,
+      unitsSold: orderQty,
+      totalAmount: totalAmount,
+      adminFee: adminFee,
+      status: 'Tersinkronisasi',
+      items: [
+        {
+          id: randomProduct.id,
+          name: randomProduct.name,
+          qty: orderQty,
+          price: itemPrice,
+        },
+      ],
+    };
+
+    try {
+      // 1. Simpan Rekap Penjualan Baru ke Firestore
+      await addRecap(simulatedRecap);
+
+      // 2. Potong Stok Produk Fisik di Firestore
+      const updatedStock = randomProduct.stockCount - orderQty;
+      const updatedProduct: Product = {
+        ...randomProduct,
+        stockCount: updatedStock,
+        status: updatedStock <= (randomProduct.minStock || 10) ? 'low_stock' : 'healthy',
+      };
+      await updateProduct(updatedProduct.id, updatedProduct);
+
+      // 3. Refresh UI Real-time
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+
+      setShowWebhookDemoModal(false);
+      showToast(`⚡ DEMO EVENT WEBHOOK! [${source}] Pesanan Baru: ${orderQty}x ${randomProduct.name} (Stok Otomatis Terpotong -${orderQty})`);
+    } catch (err) {
+      console.error('Simulasi Webhook gagal:', err);
+      showToast('Gagal menjalankan simulasi webhook!');
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   // ─── LOGIKA DYNAMIC ROWS (INPUT MANUAL) ───
@@ -239,7 +304,7 @@ export default function SalesRecapPage() {
     }
   };
 
-  // ─── IMPORT FILE HANDLER (MEMBACA PARSE BERKAS CSV & EXCEL ASLI) ───
+  // ─── IMPORT FILE HANDLER (MEMBACA BERKAS CSV & EXCEL ASLI) ───
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -379,8 +444,19 @@ export default function SalesRecapPage() {
           </p>
         </div>
 
-        {/* TOMBOL AKSI IMPOR EXCEL & INPUT MANUAL */}
+        {/* TOMBOL AKSI TERMASUK DEMO WEBHOOK LOMBA */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+          {/* TOMBOL DEMO WEBHOOK DISAMARKAN & RAPI HANYA UNTUK PENJURIAN */}
+          <button
+            type="button"
+            onClick={() => setShowWebhookDemoModal(true)}
+            className="w-full sm:w-auto bg-[#F5EAD4] border border-[#B48328] hover:bg-[#E8D3A7] text-[#5F1E1E] font-extrabold px-3 py-2.5 rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 min-h-[44px]"
+            title="Klik untuk membuka penguji simulasi webhook event-driven"
+          >
+            <span>⚡</span>
+            <span>Simulasi Webhook</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowImportModal(true)}
@@ -606,6 +682,117 @@ export default function SalesRecapPage() {
           )}
         </div>
       </section>
+
+      {/* ─── MODAL SIMULASI WEBHOOK EVENT-DRIVEN (INFORMASI PENJURIAN LOMBA) ─── */}
+      {showWebhookDemoModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h2 className="text-sm sm:text-base font-black text-[#5F1E1E] uppercase tracking-wide flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>PENGUJI SIMULASI WEBHOOK (DEMO MODE)</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowWebhookDemoModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* ALERT PENJELASAN UNTUK JURI */}
+            <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
+              <span className="font-extrabold uppercase text-[10px] text-[#B48328]">
+                📢 Catatan Pengujian Lomba:
+              </span>
+              <p className="text-[11px] leading-relaxed font-semibold text-slate-700">
+                Fitur ini disediakan khusus untuk <strong className="text-[#5F1E1E]">Pengujian Penjurian / Lomba</strong> untuk mendemonstrasikan integrasi <strong className="text-[#5F1E1E]">Event-Driven Multi-Channel Sync</strong> secara <em>real-time</em> tanpa harus melakukan transaksi pembelian sungguhan di aplikasi marketplace.
+              </p>
+              <p className="text-[10px] text-slate-500 italic">
+                Sistem akan berpura-pura menerima payload webhook pesanan, mencatat laporan, dan memotong stok fisik di Firestore secara otomatis.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
+                PILIH SALURAN E-COMMERCE UNTUK DISIMULASIKAN:
+              </span>
+
+              {/* TOMBOL DENGAN LOGO GAMBAR DARI FOLDER PUBLIC */}
+              <div className="grid grid-cols-3 gap-2.5">
+                {/* Shopee */}
+                <button
+                  type="button"
+                  disabled={isSimulating}
+                  onClick={() => handleExecuteWebhookDemo('Shopee')}
+                  className="bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#EE4D2D] font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
+                >
+                  <div className="h-10 flex items-center justify-center">
+                    <img
+                      src="/shopee.png"
+                      alt="Shopee Logo"
+                      className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px]">Shopee</span>
+                </button>
+
+                {/* TikTok Shop (Ukuran Diperbesar Khusus Logo Horizontal) */}
+                <button
+                  type="button"
+                  disabled={isSimulating}
+                  onClick={() => handleExecuteWebhookDemo('TikTok Shop')}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-neutral-900 font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
+                >
+                  <div className="h-10 flex items-center justify-center w-full px-1">
+                    <img
+                      src="/tiktok.png"
+                      alt="TikTok Logo"
+                      className="w-full max-w-[80px] h-9 object-contain group-hover:scale-110 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px]">TikTok Shop</span>
+                </button>
+
+                {/* Tokopedia */}
+                <button
+                  type="button"
+                  disabled={isSimulating}
+                  onClick={() => handleExecuteWebhookDemo('Tokopedia')}
+                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#00AA5B] font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
+                >
+                  <div className="h-10 flex items-center justify-center">
+                    <img
+                      src="/tokopedia.png"
+                      alt="Tokopedia Logo"
+                      className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px]">Tokopedia</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowWebhookDemoModal(false)}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors mt-2"
+            >
+              Tutup Penguji
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODAL IMPOR REKAP MARKETPLACE */}
       {showImportModal && (
