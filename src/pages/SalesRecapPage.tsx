@@ -9,7 +9,7 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
-// Interface untuk Baris Item Dinamis
+// Interface untuk Baris Item Dinamis Modal Manual
 interface DynamicItemRow {
   productId: string;
   qty: number | '';
@@ -56,18 +56,68 @@ export default function SalesRecapPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
-  // STATE FORM MANUAL (DYNAMIC ROWS MULTI-ITEM)
+  // Form Manual States
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
-  const [itemRows, setItemRows] = useState<DynamicItemRow[]>([
-    { productId: '', qty: '' }
-  ]);
+  const [itemRows, setItemRows] = useState<DynamicItemRow[]>([{ productId: '', qty: '' }]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // ─── LOGIKA DYNAMIC ROWS ───
+  // ─── UNDUH TEMPLATE EXCEL (.XLSX) RAPI DENGAN TABEL ASLI ───
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Nama Produk": "Kripik Pisang Manis 200g",
+        "Jumlah": 10,
+        "Harga Jual": 15000,
+        "Tanggal": "2026-08-29",
+        "Saluran": "Shopee",
+      },
+      {
+        "Nama Produk": "Teh Botol Melati 450ml",
+        "Jumlah": 5,
+        "Harga Jual": 5000,
+        "Tanggal": "2026-08-29",
+        "Saluran": "Shopee",
+      },
+      {
+        "Nama Produk": "Mie Goreng Spesial",
+        "Jumlah": 12,
+        "Harga Jual": 3500,
+        "Tanggal": "2026-08-29",
+        "Saluran": "Shopee",
+      },
+      {
+        "Nama Produk": "Kripik Singkong Balado",
+        "Jumlah": 8,
+        "Harga Jual": 12000,
+        "Tanggal": "2026-08-29",
+        "Saluran": "Shopee",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+
+    // Mengatur lebar kolom agar rapi dan tidak terpotong
+    worksheet['!cols'] = [
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Rekap Penjualan");
+
+    XLSX.writeFile(workbook, "template_rekap_penjualan_zura.xlsx");
+
+    showToast("Template Excel (.xlsx) rapih berhasil diunduh!");
+  };
+
+  // ─── LOGIKA DYNAMIC ROWS (INPUT MANUAL) ───
   const handleAddRow = () => {
     setItemRows((prev) => [...prev, { productId: '', qty: '' }]);
   };
@@ -88,7 +138,6 @@ export default function SalesRecapPage() {
     );
   };
 
-  // AKUMULASI OTOMATIS: TOTAL UNIT & TOTAL NOMINAL
   const calculatedTotals = useMemo(() => {
     let totalUnits = 0;
     let totalNominal = 0;
@@ -105,7 +154,6 @@ export default function SalesRecapPage() {
     return { totalUnits, totalNominal };
   }, [itemRows, products]);
 
-  // Filtered recaps list
   const filteredRecaps = useMemo(() => {
     return recaps.filter((r) => {
       const matchesSearch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,7 +163,6 @@ export default function SalesRecapPage() {
     });
   }, [recaps, searchQuery, selectedSourceFilter]);
 
-  // SUBMIT TRANSAKSI MULTI-ITEM DYNAMIC ROWS
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -192,6 +239,7 @@ export default function SalesRecapPage() {
     }
   };
 
+  // ─── IMPORT FILE HANDLER (MEMBACA PARSE BERKAS CSV & EXCEL ASLI) ───
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -216,11 +264,9 @@ export default function SalesRecapPage() {
         const bstr = evt.target?.result;
         const workbook = XLSX.read(bstr, { type: 'binary' });
 
-        // Ambil Sheet Pertama dari Berkas
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
 
-        // Konversi Sheet Menjadi Array JSON
         const parsedRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
         if (parsedRows.length === 0) {
@@ -233,9 +279,7 @@ export default function SalesRecapPage() {
         let calculatedTotalNominal = 0;
         const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
 
-        // Membaca baris demi baris file
         parsedRows.forEach((row, index) => {
-          // Deteksi kolom nama produk, qty, dan harga secara fleksibel
           const productName =
             row['Nama Produk'] ||
             row['Nama Barang'] ||
@@ -262,10 +306,8 @@ export default function SalesRecapPage() {
           });
         });
 
-        // Hitung Potongan Admin Marketplace (5%)
         const calculatedAdminFee = Math.round(calculatedTotalNominal * 0.05);
 
-        // Simpan Data Rekap Hasil Parse ke Firestore
         await importRecapsFromFile([
           {
             date: importDate,
@@ -320,19 +362,24 @@ export default function SalesRecapPage() {
 
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#5F1E1E] text-[#E8D3A7] px-4 py-3 rounded-xl shadow-xl border border-[#B48328] text-sm gap-2 animate-bounce font-bold">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
-          {toastMessage}
+        <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#5F1E1E] text-[#E8D3A7] px-4 py-3 rounded-xl shadow-xl border border-[#B48328] text-sm gap-2 animate-bounce font-bold max-w-md">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] shrink-0"></span>
+          <span>{toastMessage}</span>
         </div>
       )}
 
       {/* HEADER */}
       <header className="bg-white p-4 sm:p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">Rekap Penjualan & Input Data</h1>
-          <p className="text-[10px] sm:text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">Impor laporan Excel/CSV berkala dari marketplace atau masukkan transaksi manual secara langsung.</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">
+            Rekap Penjualan & Input Data
+          </h1>
+          <p className="text-[10px] sm:text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">
+            Impor laporan Excel/CSV berkala dari marketplace atau masukkan transaksi manual secara langsung.
+          </p>
         </div>
 
+        {/* TOMBOL AKSI IMPOR EXCEL & INPUT MANUAL */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
           <button
             type="button"
@@ -560,7 +607,7 @@ export default function SalesRecapPage() {
         </div>
       </section>
 
-      {/* MODAL: IMPOR REKAP MARKETPLACE */}
+      {/* MODAL IMPOR REKAP MARKETPLACE */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -575,9 +622,24 @@ export default function SalesRecapPage() {
               </button>
             </div>
 
-            <form onSubmit={handleImportSubmit} className="flex flex-col gap-3.5 text-xs">
+            {/* BOX CATATAN FORMAT KOLOM & TOMBOL UNDUH TEMPLATE .XLSX */}
+            <div className="bg-[#E8D3A7]/20 border border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-2 text-[10px] text-[#5F1E1E]">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold uppercase">📌 Format Kolom Excel/CSV:</span>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-2 py-1 rounded-lg text-[9px] transition-colors flex items-center gap-1"
+                >
+                  <span>📥</span> Unduh Template
+                </button>
+              </div>
+              <p className="leading-tight text-slate-600 font-medium">
+                Pastikan file CSV/Excel memiliki header kolom: <strong className="text-[#5F1E1E]">Nama Produk</strong>, <strong className="text-[#5F1E1E]">Jumlah (Qty)</strong>, dan <strong className="text-[#5F1E1E]">Harga Jual</strong>.
+              </p>
+            </div>
 
-              {/* Field Tanggal Rekap Impor */}
+            <form onSubmit={handleImportSubmit} className="flex flex-col gap-3.5 text-xs">
               <div className="flex flex-col gap-1">
                 <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
                 <input
@@ -614,7 +676,6 @@ export default function SalesRecapPage() {
                 )}
               </div>
 
-              {/* Box Upload File */}
               <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-[#FFFDF9] relative transition-colors">
                 <input
                   type="file"
@@ -632,7 +693,6 @@ export default function SalesRecapPage() {
                 <span className="text-[9px] text-slate-500 font-semibold">Mendukung format .CSV atau .XLSX</span>
               </div>
 
-              {/* Tombol Aksi Form */}
               <div className="flex flex-col sm:flex-row items-center justify-end gap-2 mt-2">
                 <button
                   type="button"
@@ -662,8 +722,6 @@ export default function SalesRecapPage() {
       {showManualModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-
-            {/* Header Modal */}
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">
                 INPUT PENJUALAN / OPNAME MANUAL
@@ -678,8 +736,6 @@ export default function SalesRecapPage() {
             </div>
 
             <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-xs">
-
-              {/* Field Tanggal */}
               <div className="flex flex-col gap-1">
                 <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
                 <input
@@ -691,13 +747,11 @@ export default function SalesRecapPage() {
                 />
               </div>
 
-              {/* Container Dynamic Multi-Item Rows */}
               <div className="border-2 border-[#B48328] p-3.5 rounded-2xl bg-[#E8D3A7]/20 flex flex-col gap-3">
                 <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase tracking-wider block">
                   POTONG STOK PUSAT (MULTI-ITEM):
                 </span>
 
-                {/* Daftar Baris Dinamis */}
                 <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
                   {itemRows.map((row, index) => {
                     const selectedProd = products.find((p) => p.id === row.productId);
@@ -707,8 +761,6 @@ export default function SalesRecapPage() {
                     return (
                       <div key={index} className="bg-white p-2.5 rounded-xl border border-[#B48328]/40 flex flex-col gap-2 shadow-sm">
                         <div className="grid grid-cols-12 gap-2 items-center">
-
-                          {/* Dropdown Produk */}
                           <div className="col-span-7 flex flex-col gap-0.5">
                             <label className="text-[9px] font-bold text-slate-500">Produk Fisik #{index + 1}</label>
                             <select
@@ -726,7 +778,6 @@ export default function SalesRecapPage() {
                             </select>
                           </div>
 
-                          {/* Kuantitas */}
                           <div className="col-span-3 flex flex-col gap-0.5">
                             <label className="text-[9px] font-bold text-slate-500">Qty</label>
                             <input
@@ -743,7 +794,6 @@ export default function SalesRecapPage() {
                             />
                           </div>
 
-                          {/* Tombol Hapus Baris */}
                           <div className="col-span-2 flex items-end justify-center pt-3">
                             <button
                               type="button"
@@ -760,7 +810,6 @@ export default function SalesRecapPage() {
                           </div>
                         </div>
 
-                        {/* Subtotal Per Baris */}
                         {selectedProd && (
                           <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-1 text-slate-500 font-bold">
                             <span>Harga: {formatRupiah(selectedProd.sellPrice)} / unit</span>
@@ -772,7 +821,6 @@ export default function SalesRecapPage() {
                   })}
                 </div>
 
-                {/* Tombol Tambah Baris */}
                 <button
                   type="button"
                   onClick={handleAddRow}
@@ -783,7 +831,6 @@ export default function SalesRecapPage() {
                 </button>
               </div>
 
-              {/* Total Terhitung Otomatis */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="font-extrabold text-[#5F1E1E] uppercase">UNIT TERJUAL</label>
@@ -806,7 +853,6 @@ export default function SalesRecapPage() {
                 </div>
               </div>
 
-              {/* Tombol Aksi Modal */}
               <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                 <button
                   type="button"
@@ -841,7 +887,6 @@ export default function SalesRecapPage() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
 
-            {/* Header Modal Detail */}
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-sm font-black text-[#5F1E1E] uppercase tracking-wide">RINCIAN DOKUMEN REKAP</h3>
               <button
@@ -855,7 +900,6 @@ export default function SalesRecapPage() {
 
             <div className="flex flex-col gap-3.5 text-xs">
 
-              {/* Info Kode & Saluran */}
               <div className="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
                 <div className="flex flex-col">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">Kode Rekap</span>
@@ -873,7 +917,6 @@ export default function SalesRecapPage() {
                 </div>
               </div>
 
-              {/* Ringkasan Finansial */}
               <div className="grid grid-cols-3 gap-2 text-center bg-[#E8D3A7]/20 p-2.5 rounded-2xl border border-[#B48328]/30">
                 <div>
                   <p className="text-[9px] text-slate-500 font-bold uppercase">Unit Terjual</p>
