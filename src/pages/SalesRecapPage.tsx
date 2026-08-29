@@ -375,12 +375,23 @@ export default function SalesRecapPage() {
   }, [itemRows, products]);
 
   const filteredRecaps = useMemo(() => {
-    return recaps.filter((r) => {
-      const matchesSearch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.source || '').toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSource = selectedSourceFilter === 'Semua' || r.source === selectedSourceFilter;
-      return matchesSearch && matchesSource;
-    });
+    return recaps
+      .filter((r) => {
+        const matchesSearch = (r.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (r.source || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSource = selectedSourceFilter === 'Semua' || r.source === selectedSourceFilter;
+        return matchesSearch && matchesSource;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+
+        if (dateB !== dateA) {
+          return dateB - dateA;
+        }
+
+        return (b.id || '').localeCompare(a.id || '');
+      });
   }, [recaps, searchQuery, selectedSourceFilter]);
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -551,7 +562,7 @@ export default function SalesRecapPage() {
               <div>
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase ${src === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
                   src === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                    src === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                    src === 'TikTok Shop' ? 'bg-neutral-900 text-[#E8D3A7]' :
                       'bg-[#5F1E1E] text-[#E8D3A7]'
                   }`}>
                   {src}
@@ -573,6 +584,8 @@ export default function SalesRecapPage() {
           <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">Log Riwayat Unggahan Rekap & Opname</h2>
 
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+
+            {/* DROPDOWN FILTER DINAMIS DENGAN CUSTOM SALURAN */}
             <select
               className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px] cursor-pointer"
               value={selectedSourceFilter}
@@ -631,7 +644,7 @@ export default function SalesRecapPage() {
                     <td className="py-3 px-4">
                       <span className={`px-2.5 py-0.5 rounded-xl text-[10px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
                         r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                          r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                          r.source === 'TikTok Shop' ? 'bg-neutral-900 text-[#E8D3A7]' :
                             'bg-[#5F1E1E] text-[#E8D3A7]'
                         }`}>
                         {r.source}
@@ -702,7 +715,7 @@ export default function SalesRecapPage() {
                     <p className="text-[9px] text-slate-400 font-bold uppercase">Saluran</p>
                     <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-xl text-[9px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
                       r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                        r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                        r.source === 'TikTok Shop' ? 'bg-neutral-900 text-[#E8D3A7]' :
                           'bg-[#5F1E1E] text-[#E8D3A7]'
                       }`}>
                       {r.source}
@@ -1299,7 +1312,7 @@ export default function SalesRecapPage() {
                   <span className="text-[9px] text-slate-400 font-bold uppercase">Sumber Laporan</span>
                   <span className={`font-bold self-start mt-0.5 px-2.5 py-0.5 rounded-xl text-[10px] ${activeDetailRecap.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
                     activeDetailRecap.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                      activeDetailRecap.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                      activeDetailRecap.source === 'TikTok Shop' ? 'bg-neutral-900 text-[#E8D3A7]' :
                         'bg-[#5F1E1E] text-[#E8D3A7]'
                     }`}>
                     {activeDetailRecap.source}
