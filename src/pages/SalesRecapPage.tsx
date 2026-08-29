@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts, updateProduct } from '../api/client';
+import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts, updateProduct, deleteRecap } from '../api/client';
 import type { SalesRecap, Product } from '../types';
 
 const formatRupiah = (val?: number) => {
@@ -47,8 +47,10 @@ export default function SalesRecapPage() {
   const [showManualModal, setShowManualModal] = useState(false);
   const [activeDetailRecap, setActiveDetailRecap] = useState<SalesRecap | null>(null);
 
-  // Form states
-  const [importSource, setImportSource] = useState<'Shopee' | 'Tokopedia' | 'TikTok Shop'>('Shopee');
+  // Form Import States
+  const [importDate, setImportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [importSource, setImportSource] = useState<string>('Shopee');
+  const [customImportSource, setCustomImportSource] = useState<string>(''); // STATE UNTUK NAMA CUSTOM
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
@@ -70,7 +72,7 @@ export default function SalesRecapPage() {
   };
 
   const handleRemoveRow = (index: number) => {
-    if (itemRows.length === 1) return; // Sisakan minimal 1 baris
+    if (itemRows.length === 1) return;
     setItemRows((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -186,9 +188,17 @@ export default function SalesRecapPage() {
     }
   };
 
-  // Import File Handler
+  // IMPORT FILE HANDLER (HANYA SHOPEE, TIKTOK, TOKOPEDIA, CUSTOM)
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const finalSource = importSource === 'Custom' ? customImportSource.trim() : importSource;
+
+    if (!finalSource) {
+      showToast('Silakan isi nama saluran penjualan custom!');
+      return;
+    }
+
     if (!importFile) {
       showToast('Silakan pilih berkas Excel/CSV rekap marketplace!');
       return;
@@ -199,8 +209,8 @@ export default function SalesRecapPage() {
       try {
         await importRecapsFromFile([
           {
-            date: new Date().toISOString().split('T')[0],
-            source: importSource,
+            date: importDate,
+            source: finalSource,
             unitsSold: 10,
             totalAmount: 150000,
             adminFee: 7500,
@@ -213,7 +223,8 @@ export default function SalesRecapPage() {
 
         setShowImportModal(false);
         setImportFile(null);
-        showToast(`Laporan rekap ${importSource} berhasil diimpor!`);
+        setCustomImportSource('');
+        showToast(`Laporan rekap ${finalSource} tanggal ${importDate} berhasil diimpor!`);
       } catch (err) {
         console.error('Error importing file:', err);
         showToast('Gagal mengimpor file rekap!');
@@ -221,6 +232,23 @@ export default function SalesRecapPage() {
         setIsImporting(false);
       }
     }, 1200);
+  };
+
+  // 💥 FUNGSI HAPUS REKAP 💥
+  const handleDeleteRecap = async (recapId: string) => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus dokumen rekap ${recapId}?`)) {
+      return;
+    }
+
+    try {
+      await deleteRecap(recapId);
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      showToast(`Dokumen rekap ${recapId} berhasil dihapus!`);
+    } catch (err) {
+      console.error('Gagal menghapus rekap:', err);
+      showToast('Gagal menghapus dokumen rekap!');
+    }
   };
 
   return (
@@ -308,8 +336,8 @@ export default function SalesRecapPage() {
             >
               <option value="Semua">Semua Saluran</option>
               <option value="Shopee">Shopee</option>
-              <option value="Tokopedia">Tokopedia</option>
               <option value="TikTok Shop">TikTok Shop</option>
+              <option value="Tokopedia">Tokopedia</option>
               <option value="Manual">Manual/Opname</option>
             </select>
 
@@ -375,13 +403,23 @@ export default function SalesRecapPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setActiveDetailRecap(r)}
-                        className="text-[#5F1E1E] hover:underline font-extrabold"
-                      >
-                        Lihat Rincian
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveDetailRecap(r)}
+                          className="text-[#5F1E1E] hover:underline font-extrabold"
+                        >
+                          Lihat Rincian
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRecap(r.id)}
+                          className="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-2 py-1 rounded-lg text-[10px] transition-colors"
+                          title="Hapus Rekap Ini"
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -389,14 +427,81 @@ export default function SalesRecapPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile View Stack Card */}
+        <div className="block md:hidden flex flex-col gap-3">
+          {isLoadingRecaps ? (
+            <div className="text-center py-8 text-[#5F1E1E] font-bold text-xs animate-pulse">
+              Memuat data rekap...
+            </div>
+          ) : filteredRecaps.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 font-bold text-xs">
+              Tidak ada data rekap yang cocok.
+            </div>
+          ) : (
+            filteredRecaps.map((r) => (
+              <div key={r.id} className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                  <span className="font-mono font-bold text-xs text-slate-500">{r.id}</span>
+                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-xl text-[10px]">
+                    <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></span>
+                    {r.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">Tanggal</p>
+                    <p className="font-bold text-[#5F1E1E]">{r.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">Saluran</p>
+                    <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-xl text-[9px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
+                      r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
+                        r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
+                          'bg-[#5F1E1E] text-[#E8D3A7]'
+                      }`}>
+                      {r.source}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">Volume</p>
+                    <p className="font-bold text-[#5F1E1E]">{r.unitsSold} Unit</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">Total Nominal</p>
+                    <p className="font-black text-[#B48328]">{formatRupiah(r.totalAmount)}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-50 pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRecap(r.id)}
+                    className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs py-1.5 px-3 rounded-lg"
+                  >
+                    Hapus
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailRecap(r)}
+                    className="text-[#5F1E1E] hover:underline font-extrabold text-xs py-1.5 px-3 hover:bg-[#E8D3A7]/20 rounded-lg"
+                  >
+                    Lihat Rincian
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
-      {/* MODAL IMPOR */}
+      {/* ─── MODAL: IMPOR REKAP MARKETPLACE (SHOPEE, TIKTOK, TOKOPEDIA & CUSTOM) ─── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">Impor Rekap Marketplace</h2>
+              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">IMPOR REKAP MARKETPLACE</h2>
               <button
                 type="button"
                 onClick={() => setShowImportModal(false)}
@@ -407,20 +512,48 @@ export default function SalesRecapPage() {
             </div>
 
             <form onSubmit={handleImportSubmit} className="flex flex-col gap-3.5 text-xs">
+
+              {/* Field Tanggal Rekap Impor */}
               <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#5F1E1E] uppercase">Pilih Saluran Asal Berkas</label>
-                <select
-                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] bg-white focus:outline-none"
-                  value={importSource}
-                  onChange={(e) => setImportSource(e.target.value as any)}
-                >
-                  <option value="Shopee">Shopee Seller Center</option>
-                  <option value="Tokopedia">Tokopedia Seller Center</option>
-                  <option value="TikTok Shop">TikTok Shop Seller Center</option>
-                </select>
+                <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
+                <input
+                  type="date"
+                  required
+                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                  value={importDate}
+                  onChange={(e) => setImportDate(e.target.value)}
+                />
               </div>
 
-              <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50 relative">
+              {/* 💥 FIELD SALURAN: SHOPEE, TIKTOK SHOP, TOKOPEDIA & CUSTOM 💥 */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-extrabold text-[#5F1E1E] uppercase">PILIH SALURAN ASAL BERKAS</label>
+                <select
+                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] bg-[#FFFDF9] focus:outline-none cursor-pointer"
+                  value={importSource}
+                  onChange={(e) => setImportSource(e.target.value)}
+                >
+                  <option value="Shopee">Shopee Seller Center</option>
+                  <option value="TikTok Shop">TikTok Shop Seller Center</option>
+                  <option value="Tokopedia">Tokopedia Seller Center</option>
+                  <option value="Custom">➕ Lainnya / Tambah Custom...</option>
+                </select>
+
+                {/* Input Teks Khusus jika memilih 'Custom' */}
+                {importSource === 'Custom' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Lazada, WhatsApp, atau Bazar"
+                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] animate-scaleUp mt-1"
+                    value={customImportSource}
+                    onChange={(e) => setCustomImportSource(e.target.value)}
+                  />
+                )}
+              </div>
+
+              {/* Box Upload File */}
+              <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-[#FFFDF9] relative transition-colors">
                 <input
                   type="file"
                   accept=".csv,.xlsx,.xls"
@@ -437,7 +570,8 @@ export default function SalesRecapPage() {
                 <span className="text-[9px] text-slate-500 font-semibold">Mendukung format .CSV atau .XLSX</span>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
+              {/* Tombol Aksi Form */}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2 mt-2">
                 <button
                   type="button"
                   onClick={() => setShowImportModal(false)}
@@ -448,7 +582,7 @@ export default function SalesRecapPage() {
                 <button
                   type="submit"
                   disabled={isImporting}
-                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-4 py-2.5 rounded-xl flex justify-center items-center shadow min-h-[44px]"
+                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-black px-5 py-2.5 rounded-2xl shadow-md min-h-[44px] flex justify-center items-center active:scale-95 transition-all"
                 >
                   {isImporting ? (
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
