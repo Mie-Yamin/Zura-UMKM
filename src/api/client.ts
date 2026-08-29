@@ -101,6 +101,13 @@ export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
   return { id: docRef.id, ...payload };
 }
 
+export async function deleteRecap(id: string) {
+  if (!id) throw new Error("ID Rekap tidak valid untuk penghapusan");
+
+  const recapDoc = doc(db, 'recaps', id);
+  await deleteDoc(recapDoc);
+}
+
 export async function importRecapsFromFile(recaps: Omit<SalesRecap, 'id'>[]) {
   const promises = recaps.map((recap) => addRecap(recap));
   return await Promise.all(promises);
@@ -110,6 +117,7 @@ export async function importRecapsFromFile(recaps: Omit<SalesRecap, 'id'>[]) {
 export const getFirestoreRecaps = fetchRecaps;
 export const getLocalRecaps = fetchRecaps;
 export const addFirestoreRecap = addRecap;
+export const deleteFirestoreRecap = deleteRecap;
 
 // ─── PELANGGAN ────────────────────────────────────────────────────────────────
 
