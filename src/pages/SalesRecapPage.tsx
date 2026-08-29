@@ -8,10 +8,10 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
-// Interface untuk Baris Item Dinamis
+// 💥 INTERFACE DYNAMIC ITEM ROW DENGAN MENDUKUNG STRING KOSONG 💥
 interface DynamicItemRow {
   productId: string;
-  qty: number;
+  qty: number | '';
 }
 
 export default function SalesRecapPage() {
@@ -50,15 +50,15 @@ export default function SalesRecapPage() {
   // Form Import States
   const [importDate, setImportDate] = useState(new Date().toISOString().split('T')[0]);
   const [importSource, setImportSource] = useState<string>('Shopee');
-  const [customImportSource, setCustomImportSource] = useState<string>(''); // STATE UNTUK NAMA CUSTOM
+  const [customImportSource, setCustomImportSource] = useState<string>('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
-  // STATE FORM MANUAL (DYNAMIC ROWS MULTI-ITEM)
+  // 💥 STATE FORM MANUAL (QTY DIAWALI STRING KOSONG) 💥
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [itemRows, setItemRows] = useState<DynamicItemRow[]>([
-    { productId: '', qty: 1 }
+    { productId: '', qty: '' }
   ]);
 
   const showToast = (msg: string) => {
@@ -68,7 +68,7 @@ export default function SalesRecapPage() {
 
   // ─── LOGIKA DYNAMIC ROWS ───
   const handleAddRow = () => {
-    setItemRows((prev) => [...prev, { productId: '', qty: 1 }]);
+    setItemRows((prev) => [...prev, { productId: '', qty: '' }]);
   };
 
   const handleRemoveRow = (index: number) => {
@@ -76,7 +76,7 @@ export default function SalesRecapPage() {
     setItemRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleRowChange = (index: number, field: keyof DynamicItemRow, value: string | number) => {
+  const handleRowChange = (index: number, field: keyof DynamicItemRow, value: any) => {
     setItemRows((prev) =>
       prev.map((row, i) => {
         if (i === index) {
@@ -87,16 +87,17 @@ export default function SalesRecapPage() {
     );
   };
 
-  // AKUMULASI OTOMATIS: TOTAL UNIT & TOTAL NOMINAL
+  // 💥 AKUMULASI OTOMATIS (SAFE UNTUK STRING KOSONG) 💥
   const calculatedTotals = useMemo(() => {
     let totalUnits = 0;
     let totalNominal = 0;
 
     itemRows.forEach((row) => {
       const prod = products.find((p) => p.id === row.productId);
-      if (prod && row.qty > 0) {
-        totalUnits += row.qty;
-        totalNominal += (prod.sellPrice || 0) * row.qty;
+      const numericQty = typeof row.qty === 'number' ? row.qty : 0;
+      if (prod && numericQty > 0) {
+        totalUnits += numericQty;
+        totalNominal += (prod.sellPrice || 0) * numericQty;
       }
     });
 
@@ -117,10 +118,12 @@ export default function SalesRecapPage() {
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validRows = itemRows.filter((r) => r.productId !== '' && r.qty > 0);
+    const validRows = itemRows
+      .map((r) => ({ ...r, qty: typeof r.qty === 'number' ? r.qty : 0 }))
+      .filter((r) => r.productId !== '' && r.qty > 0);
 
     if (validRows.length === 0) {
-      showToast('Pilih minimal 1 produk fisik!');
+      showToast('Pilih minimal 1 produk fisik dengan kuantitas lebih dari 0!');
       return;
     }
 
@@ -178,7 +181,7 @@ export default function SalesRecapPage() {
       queryClient.invalidateQueries({ queryKey: ['kpi'] });
 
       setShowManualModal(false);
-      setItemRows([{ productId: '', qty: 1 }]);
+      setItemRows([{ productId: '', qty: '' }]);
       showToast('Penjualan Multi-Item berhasil disimpan & stok terpotong!');
     } catch (error) {
       console.error('Error saving recap to Firestore:', error);
@@ -188,7 +191,7 @@ export default function SalesRecapPage() {
     }
   };
 
-  // IMPORT FILE HANDLER (HANYA SHOPEE, TIKTOK, TOKOPEDIA, CUSTOM)
+  // IMPORT FILE HANDLER
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -495,7 +498,7 @@ export default function SalesRecapPage() {
         </div>
       </section>
 
-      {/* ─── MODAL: IMPOR REKAP MARKETPLACE (SHOPEE, TIKTOK, TOKOPEDIA & CUSTOM) ─── */}
+      {/* ─── MODAL: IMPOR REKAP MARKETPLACE ─── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -537,7 +540,6 @@ export default function SalesRecapPage() {
                   <option value="Custom">➕ Lainnya / Tambah Custom...</option>
                 </select>
 
-                {/* Input Teks Khusus jika memilih 'Custom' */}
                 {importSource === 'Custom' && (
                   <input
                     type="text"
@@ -594,7 +596,7 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* MODAL INPUT PENJUALAN DYNAMIC ITEM ROWS (MULTI-ITEM) */}
+      {/* ─── MODAL INPUT PENJUALAN DYNAMIC ITEM ROWS (QTY BISA DIHAPUS BERSHI) ─── */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -637,7 +639,8 @@ export default function SalesRecapPage() {
                 <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
                   {itemRows.map((row, index) => {
                     const selectedProd = products.find((p) => p.id === row.productId);
-                    const subtotal = (selectedProd?.sellPrice || 0) * row.qty;
+                    const numericQty = typeof row.qty === 'number' ? row.qty : 0;
+                    const subtotal = (selectedProd?.sellPrice || 0) * numericQty;
 
                     return (
                       <div key={index} className="bg-white p-2.5 rounded-xl border border-[#B48328]/40 flex flex-col gap-2 shadow-sm">
@@ -661,16 +664,20 @@ export default function SalesRecapPage() {
                             </select>
                           </div>
 
-                          {/* Kuantitas */}
+                          {/* 💥 KUANTITAS (BISA DIHAPUS KOSONG) 💥 */}
                           <div className="col-span-3 flex flex-col gap-0.5">
                             <label className="text-[9px] font-bold text-slate-500">Qty</label>
                             <input
                               type="number"
                               min="1"
                               required
+                              placeholder="0"
                               className="border border-[#B48328] rounded-lg p-1.5 w-full font-bold text-[#5F1E1E] text-[10px] min-h-[32px]"
                               value={row.qty}
-                              onChange={(e) => handleRowChange(index, 'qty', Math.max(1, parseInt(e.target.value) || 1))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleRowChange(index, 'qty', val === '' ? '' : parseInt(val) || 0);
+                              }}
                             />
                           </div>
 
