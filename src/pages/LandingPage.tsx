@@ -160,7 +160,7 @@ export default function AntiGravityLandingPage() {
             onClick={handleLoginClick}
             className="relative z-50 border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider cursor-pointer active:scale-95"
           >
-            {auth.currentUser ? 'DASHBOARD' : 'LOGIN'}
+            {auth.currentUser ? 'LOGIN' : 'LOGIN'}
           </button>
 
           <button
@@ -550,8 +550,8 @@ export default function AntiGravityLandingPage() {
           >
             <div
               className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${currentSlideIndex === index
-                  ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                  : 'bg-[#E5C88B] hover:opacity-80'
+                ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                : 'bg-[#E5C88B] hover:opacity-80'
                 }`}
             />
             <span className="sr-only">Slide {index + 1}</span>

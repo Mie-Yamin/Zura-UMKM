@@ -1,17 +1,23 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts, updateProduct } from '../api/client';
 import type { SalesRecap, Product } from '../types';
 
 const formatRupiah = (val?: number) => {
-  if (val === undefined) return 'Rp 0';
+  if (val === undefined || isNaN(val)) return 'Rp 0';
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
+
+// Interface untuk Baris Item Dinamis
+interface DynamicItemRow {
+  productId: string;
+  qty: number;
+}
 
 export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
-  // ─── FETCH DATA ASYNC VIA USEQUERY (FIRESTORE) ───
+  // ─── AMBIL DATA FIRESTORE VIA USEQUERY ───
   const { data: rawRecaps = [], isLoading: isLoadingRecaps } = useQuery({
     queryKey: ['recaps'],
     queryFn: async () => {
@@ -28,11 +34,10 @@ export default function SalesRecapPage() {
     },
   });
 
-  // Jaminan bertipe Array murni
   const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 
-  // States
+  // States Utama
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourceFilter, setSelectedSourceFilter] = useState('Semua');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -48,32 +53,53 @@ export default function SalesRecapPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
-  // Manual Form states
+  // STATE FORM MANUAL (DYNAMIC ROWS MULTI-ITEM)
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
-  const [manualProductId, setManualProductId] = useState('');
-  const [manualProductQty, setManualProductQty] = useState('1');
-  const [manualAmount, setManualAmount] = useState('0');
+  const [itemRows, setItemRows] = useState<DynamicItemRow[]>([
+    { productId: '', qty: 1 }
+  ]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Produk fisik yang dipilih
-  const selectedProd = useMemo(() => {
-    return products.find((p) => p.id === manualProductId);
-  }, [products, manualProductId]);
+  // ─── LOGIKA DYNAMIC ROWS ───
+  const handleAddRow = () => {
+    setItemRows((prev) => [...prev, { productId: '', qty: 1 }]);
+  };
 
-  // Sync Otomatis Total Nominal (Harga x Kuantitas)
-  useEffect(() => {
-    const qty = parseInt(manualProductQty) || 0;
-    if (selectedProd && selectedProd.sellPrice) {
-      const total = selectedProd.sellPrice * qty;
-      setManualAmount(total.toString());
-    } else if (!manualProductId) {
-      setManualAmount('0');
-    }
-  }, [selectedProd, manualProductQty, manualProductId]);
+  const handleRemoveRow = (index: number) => {
+    if (itemRows.length === 1) return; // Sisakan minimal 1 baris
+    setItemRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index: number, field: keyof DynamicItemRow, value: string | number) => {
+    setItemRows((prev) =>
+      prev.map((row, i) => {
+        if (i === index) {
+          return { ...row, [field]: value };
+        }
+        return row;
+      })
+    );
+  };
+
+  // AKUMULASI OTOMATIS: TOTAL UNIT & TOTAL NOMINAL
+  const calculatedTotals = useMemo(() => {
+    let totalUnits = 0;
+    let totalNominal = 0;
+
+    itemRows.forEach((row) => {
+      const prod = products.find((p) => p.id === row.productId);
+      if (prod && row.qty > 0) {
+        totalUnits += row.qty;
+        totalNominal += (prod.sellPrice || 0) * row.qty;
+      }
+    });
+
+    return { totalUnits, totalNominal };
+  }, [itemRows, products]);
 
   // Filtered recaps list
   const filteredRecaps = useMemo(() => {
@@ -85,72 +111,73 @@ export default function SalesRecapPage() {
     });
   }, [recaps, searchQuery, selectedSourceFilter]);
 
-  // ─── HANDLE MANUAL / OPNAME SUBMIT DIRECT TO FIRESTORE ───
+  // SUBMIT TRANSAKSI MULTI-ITEM DYNAMIC ROWS
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const units = parseInt(manualProductQty) || 1;
-    const amount = parseFloat(manualAmount) || 0;
+    const validRows = itemRows.filter((r) => r.productId !== '' && r.qty > 0);
 
-    if (amount <= 0) {
-      showToast('Pilih produk fisik dan pastikan nominal lebih dari 0!');
+    if (validRows.length === 0) {
+      showToast('Pilih minimal 1 produk fisik!');
       return;
     }
 
-    if (selectedProd && units > selectedProd.stockCount) {
-      showToast(`Stok ${selectedProd.name} tidak mencukupi! Tersisa: ${selectedProd.stockCount}`);
-      return;
+    for (const row of validRows) {
+      const prod = products.find((p) => p.id === row.productId);
+      if (prod && row.qty > prod.stockCount) {
+        showToast(`Stok ${prod.name} tidak mencukupi! Tersisa: ${prod.stockCount}`);
+        return;
+      }
     }
 
     setIsSubmittingManual(true);
 
     const recapId = `RCP-MAN-${Math.floor(100 + Math.random() * 900)}`;
 
+    const recapItems = validRows.map((row) => {
+      const prod = products.find((p) => p.id === row.productId)!;
+      return {
+        id: prod.id,
+        name: prod.name,
+        qty: row.qty,
+        price: prod.sellPrice || 0,
+      };
+    });
+
     const manualRecap: SalesRecap = {
       id: recapId,
       date: manualDate,
       source: 'Manual',
-      unitsSold: units,
-      totalAmount: amount,
+      unitsSold: calculatedTotals.totalUnits,
+      totalAmount: calculatedTotals.totalNominal,
       adminFee: 0,
       status: 'Tersinkronisasi',
+      items: recapItems,
     };
 
-    if (selectedProd) {
-      manualRecap.items = [
-        {
-          id: selectedProd.id,
-          name: selectedProd.name,
-          qty: units,
-          price: selectedProd.sellPrice || (amount / units),
-        },
-      ];
-    }
-
     try {
-      // 1. Post transaksi ke Cloud Firestore
       await addRecap(manualRecap);
 
-      // 2. Otomatis potong stok fisik
-      if (selectedProd) {
-        const updatedStock = selectedProd.stockCount - units;
-        const updatedProduct: Product = {
-          ...selectedProd,
-          stockCount: updatedStock,
-          status: updatedStock <= (selectedProd.minStock || 10) ? 'low_stock' : 'healthy',
-        };
-        await updateProduct(updatedProduct.id, updatedProduct);
+      for (const item of recapItems) {
+        const targetProd = products.find((p) => p.id === item.id);
+        if (targetProd) {
+          const updatedStock = targetProd.stockCount - item.qty;
+          const updatedProduct: Product = {
+            ...targetProd,
+            stockCount: updatedStock,
+            status: updatedStock <= (targetProd.minStock || 10) ? 'low_stock' : 'healthy',
+          };
+          await updateProduct(updatedProduct.id, updatedProduct);
+        }
       }
 
-      // Invalidate queries agar UI diperbarui
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['kpi'] });
 
       setShowManualModal(false);
-      setManualProductId('');
-      setManualProductQty('1');
-      showToast('Data Penjualan Manual berhasil disimpan & stok terpotong!');
+      setItemRows([{ productId: '', qty: 1 }]);
+      showToast('Penjualan Multi-Item berhasil disimpan & stok terpotong!');
     } catch (error) {
       console.error('Error saving recap to Firestore:', error);
       showToast('Gagal menyimpan transaksi ke Firestore!');
@@ -159,7 +186,7 @@ export default function SalesRecapPage() {
     }
   };
 
-  // Handle marketplace file import
+  // Import File Handler
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) {
@@ -186,7 +213,7 @@ export default function SalesRecapPage() {
 
         setShowImportModal(false);
         setImportFile(null);
-        showToast(`Laporan rekap ${importSource} berhasil diimpor & tersimpan ke Firestore!`);
+        showToast(`Laporan rekap ${importSource} berhasil diimpor!`);
       } catch (err) {
         console.error('Error importing file:', err);
         showToast('Gagal mengimpor file rekap!');
@@ -197,7 +224,7 @@ export default function SalesRecapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-3 sm:p-5 md:p-6 flex flex-col gap-3 md:gap-6 font-dmsans w-full max-w-full overflow-x-hidden min-w-0" aria-label="Rekap Penjualan & Input Data">
+    <div className="min-h-screen bg-[#E8D3A7] text-[#0F172A] p-3 sm:p-5 md:p-6 flex flex-col gap-3 md:gap-6 font-dmsans w-full max-w-full overflow-x-hidden min-w-0">
 
       {/* Toast Alert */}
       {toastMessage && (
@@ -207,14 +234,13 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* ─── HEADER REKAP PENJUALAN ─── */}
+      {/* HEADER */}
       <header className="bg-white p-4 sm:p-5 rounded-2xl border border-transparent shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-[#5F1E1E] uppercase tracking-tight">Rekap Penjualan & Input Data</h1>
           <p className="text-[10px] sm:text-xs md:text-sm font-medium text-[#B48328] mt-1 leading-snug">Impor laporan Excel/CSV berkala dari marketplace atau masukkan transaksi manual secara langsung.</p>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
           <button
             type="button"
@@ -240,8 +266,8 @@ export default function SalesRecapPage() {
         </div>
       </header>
 
-      {/* ─── KARTU SALURAN PENJUALAN ─── */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6" aria-label="Saluran Penjualan Ringkasan">
+      {/* RINGKASAN SALURAN */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {['Shopee', 'Tokopedia', 'TikTok Shop', 'Manual'].map((src) => {
           const matchingRecaps = recaps.filter((r) => r.source === src);
           const totalUnits = matchingRecaps.reduce((sum, r) => sum + (r.unitsSold || 0), 0);
@@ -269,15 +295,13 @@ export default function SalesRecapPage() {
         })}
       </section>
 
-      {/* ─── TABEL RIWAYAT REKAP ─── */}
+      {/* TABEL REKAP */}
       <section className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-3 md:gap-4 w-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-3">
           <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">Log Riwayat Unggahan Rekap & Opname</h2>
 
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
-            {/* Source filter */}
             <select
-              aria-label="Filter Saluran Rekap"
               className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px]"
               value={selectedSourceFilter}
               onChange={(e) => setSelectedSourceFilter(e.target.value)}
@@ -289,9 +313,7 @@ export default function SalesRecapPage() {
               <option value="Manual">Manual/Opname</option>
             </select>
 
-            {/* Search */}
             <input
-              id="recap-search"
               type="text"
               className="bg-[#E8D3A7]/20 border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none w-full md:w-48 placeholder-[#B48328]/70 min-h-[44px]"
               placeholder="Cari Kode Rekap..."
@@ -301,7 +323,7 @@ export default function SalesRecapPage() {
           </div>
         </div>
 
-        {/* Desktop View Table */}
+        {/* Tabel Desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -320,7 +342,7 @@ export default function SalesRecapPage() {
               {isLoadingRecaps ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-[#5F1E1E] font-bold animate-pulse">
-                    Memuat data rekap dari Cloud Firestore...
+                    Memuat data rekap...
                   </td>
                 </tr>
               ) : filteredRecaps.length === 0 ? (
@@ -367,73 +389,9 @@ export default function SalesRecapPage() {
             </tbody>
           </table>
         </div>
-
-        {/* Mobile View Card Stack */}
-        <div className="block md:hidden flex flex-col gap-3">
-          {isLoadingRecaps ? (
-            <div className="text-center py-8 text-[#5F1E1E] font-bold text-xs animate-pulse">
-              Memuat data rekap...
-            </div>
-          ) : filteredRecaps.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 font-bold text-xs">
-              Tidak ada data rekap yang cocok.
-            </div>
-          ) : (
-            filteredRecaps.map((r) => (
-              <div key={r.id} className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col gap-3 shadow-sm">
-                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                  <span className="font-mono font-bold text-xs text-slate-500">{r.id}</span>
-                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-xl text-[10px]">
-                    <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></span>
-                    {r.status}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Tanggal</p>
-                    <p className="font-bold text-[#5F1E1E]">{r.date}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Saluran</p>
-                    <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-xl text-[9px] font-bold ${r.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
-                      r.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                        r.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
-                          'bg-[#5F1E1E] text-[#E8D3A7]'
-                      }`}>
-                      {r.source}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Volume</p>
-                    <p className="font-bold text-[#5F1E1E]">{r.unitsSold} Unit</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Total Nominal</p>
-                    <p className="font-black text-[#B48328]">{formatRupiah(r.totalAmount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-red-600 font-bold uppercase">Biaya Admin</p>
-                    <p className="font-mono text-red-600 font-bold">-{formatRupiah(r.adminFee)}</p>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-50 pt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setActiveDetailRecap(r)}
-                    className="text-[#5F1E1E] hover:underline font-extrabold text-xs py-2 px-3 hover:bg-[#E8D3A7]/20 rounded-lg"
-                  >
-                    Lihat Rincian
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </section>
 
-      {/* ─── MODAL: IMPOR REKAP DATA ─── */}
+      {/* MODAL IMPOR */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -473,9 +431,6 @@ export default function SalesRecapPage() {
                     }
                   }}
                 />
-                <svg className="w-8 h-8 text-[#B48328]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                </svg>
                 <span className="font-bold text-[#5F1E1E] truncate max-w-full text-center">
                   {importFile ? importFile.name : 'Pilih file ekspor laporan marketplace'}
                 </span>
@@ -507,12 +462,16 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* ─── MODAL: INPUT PENJUALAN MANUAL / OPNAME (OPSI 1: TERHUBUNG OTOMATIS) ─── */}
+      {/* MODAL INPUT PENJUALAN DYNAMIC ITEM ROWS (MULTI-ITEM) */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+
+            {/* Header Modal */}
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">Input Penjualan / Opname Manual</h2>
+              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">
+                INPUT PENJUALAN / OPNAME MANUAL
+              </h2>
               <button
                 type="button"
                 onClick={() => setShowManualModal(false)}
@@ -522,76 +481,131 @@ export default function SalesRecapPage() {
               </button>
             </div>
 
-            <form onSubmit={handleManualSubmit} className="flex flex-col gap-3 text-xs">
+            <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-xs">
+
+              {/* Field Tanggal */}
               <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#5F1E1E] uppercase">Tanggal Rekap</label>
+                <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
                 <input
                   type="date"
                   required
-                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
+                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
                   value={manualDate}
                   onChange={(e) => setManualDate(e.target.value)}
                 />
               </div>
 
-              {/* Deduct stock option & Produk selector */}
-              <div className="border-2 border-[#B48328] p-3 rounded-xl bg-[#E8D3A7]/20 flex flex-col gap-2">
-                <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">POTONG STOK PUSAT:</span>
+              {/* Container Dynamic Multi-Item Rows */}
+              <div className="border-2 border-[#B48328] p-3.5 rounded-2xl bg-[#E8D3A7]/20 flex flex-col gap-3">
+                <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase tracking-wider block">
+                  POTONG STOK PUSAT (MULTI-ITEM):
+                </span>
 
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-8 flex flex-col gap-0.5">
-                    <label className="text-[9px] font-bold text-slate-500">Produk Fisik</label>
-                    <select
-                      required
-                      className="border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] bg-white text-[10px] min-h-[32px] cursor-pointer"
-                      value={manualProductId}
-                      onChange={(e) => setManualProductId(e.target.value)}
-                    >
-                      <option value="">-- Pilih Produk Fisik --</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id} disabled={p.stockCount <= 0}>
-                          {p.name} {p.stockCount <= 0 ? '(STOK HABIS)' : `(Stok: ${p.stockCount})`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Daftar Baris Dinamis */}
+                <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+                  {itemRows.map((row, index) => {
+                    const selectedProd = products.find((p) => p.id === row.productId);
+                    const subtotal = (selectedProd?.sellPrice || 0) * row.qty;
 
-                  <div className="col-span-4 flex flex-col gap-0.5">
-                    <label className="text-[9px] font-bold text-slate-500">Kuantitas</label>
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      className="border border-[#B48328] rounded-lg p-1.5 w-full font-bold text-[#5F1E1E] text-[10px] min-h-[32px]"
-                      value={manualProductQty}
-                      onChange={(e) => setManualProductQty(e.target.value)}
-                    />
-                  </div>
+                    return (
+                      <div key={index} className="bg-white p-2.5 rounded-xl border border-[#B48328]/40 flex flex-col gap-2 shadow-sm">
+                        <div className="grid grid-cols-12 gap-2 items-center">
+
+                          {/* Dropdown Produk */}
+                          <div className="col-span-7 flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-500">Produk Fisik #{index + 1}</label>
+                            <select
+                              required
+                              className="border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] bg-white text-[10px] min-h-[32px] cursor-pointer truncate"
+                              value={row.productId}
+                              onChange={(e) => handleRowChange(index, 'productId', e.target.value)}
+                            >
+                              <option value="">-- Pilih Produk --</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id} disabled={p.stockCount <= 0}>
+                                  {p.name} {p.stockCount <= 0 ? '(HABIS)' : `(Stok: ${p.stockCount})`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Kuantitas */}
+                          <div className="col-span-3 flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-500">Qty</label>
+                            <input
+                              type="number"
+                              min="1"
+                              required
+                              className="border border-[#B48328] rounded-lg p-1.5 w-full font-bold text-[#5F1E1E] text-[10px] min-h-[32px]"
+                              value={row.qty}
+                              onChange={(e) => handleRowChange(index, 'qty', Math.max(1, parseInt(e.target.value) || 1))}
+                            />
+                          </div>
+
+                          {/* Tombol Hapus Baris */}
+                          <div className="col-span-2 flex items-end justify-center pt-3">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRow(index)}
+                              disabled={itemRows.length === 1}
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition-colors ${itemRows.length === 1
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-red-600 hover:bg-red-50'
+                                }`}
+                              title="Hapus Baris"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Subtotal Per Baris */}
+                        {selectedProd && (
+                          <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-1 text-slate-500 font-bold">
+                            <span>Harga: {formatRupiah(selectedProd.sellPrice)} / unit</span>
+                            <span className="text-[#5F1E1E]">Subtotal: {formatRupiah(subtotal)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+
+                {/* Tombol Tambah Baris */}
+                <button
+                  type="button"
+                  onClick={handleAddRow}
+                  className="w-full py-2 bg-white border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/30 text-[#5F1E1E] font-extrabold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 active:scale-98"
+                >
+                  <span>+</span>
+                  <span>Tambah Produk Lain</span>
+                </button>
               </div>
 
-              {/* Display Ringkasan Terhitung Otomatis */}
+              {/* Total Terhitung Otomatis */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Unit Terjual</label>
+                  <label className="font-extrabold text-[#5F1E1E] uppercase">UNIT TERJUAL</label>
                   <input
                     type="number"
                     readOnly
-                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-bold text-slate-500 focus:outline-none cursor-not-allowed"
-                    value={manualProductQty}
+                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-bold text-slate-600 focus:outline-none cursor-not-allowed"
+                    value={calculatedTotals.totalUnits}
                   />
                 </div>
+
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Total Nominal (Rp)</label>
+                  <label className="font-extrabold text-[#5F1E1E] uppercase">TOTAL NOMINAL (RP)</label>
                   <input
                     type="text"
                     readOnly
-                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-bold font-mono text-[#B48328] focus:outline-none cursor-not-allowed"
-                    value={formatRupiah(parseFloat(manualAmount))}
+                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-black font-mono text-[#B48328] focus:outline-none cursor-not-allowed"
+                    value={formatRupiah(calculatedTotals.totalNominal)}
                   />
                 </div>
               </div>
 
+              {/* Tombol Aksi Modal */}
               <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                 <button
                   type="button"
@@ -602,10 +616,10 @@ export default function SalesRecapPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingManual || !selectedProd}
-                  className={`w-full sm:w-auto font-bold px-5 py-2.5 rounded-xl text-xs shadow min-h-[44px] flex items-center justify-center ${!selectedProd
+                  disabled={isSubmittingManual || calculatedTotals.totalUnits === 0}
+                  className={`w-full sm:w-auto font-black px-6 py-2.5 rounded-xl text-xs shadow-md min-h-[44px] flex items-center justify-center transition-all ${calculatedTotals.totalUnits === 0
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7]'
+                      : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
                     }`}
                 >
                   {isSubmittingManual ? (
@@ -615,12 +629,13 @@ export default function SalesRecapPage() {
                   )}
                 </button>
               </div>
+
             </form>
           </div>
         </div>
       )}
 
-      {/* ─── MODAL: RINCIAN DETAIL REKAP ─── */}
+      {/* RINCIAN DETAIL REKAP */}
       {activeDetailRecap && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
