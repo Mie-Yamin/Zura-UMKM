@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as XLSX from 'xlsx';
 import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts, updateProduct, deleteRecap } from '../api/client';
 import type { SalesRecap, Product } from '../types';
 
@@ -191,7 +192,6 @@ export default function SalesRecapPage() {
     }
   };
 
-  // IMPORT FILE HANDLER
   const handleImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -208,28 +208,76 @@ export default function SalesRecapPage() {
     }
 
     setIsImporting(true);
-    setTimeout(async () => {
-      try {
-        const sampleProduct = products.length > 0 ? products[0] : null;
 
+    const reader = new FileReader();
+
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+
+        // Ambil Sheet Pertama dari Berkas
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Konversi Sheet Menjadi Array JSON
+        const parsedRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (parsedRows.length === 0) {
+          showToast('Berkas CSV/Excel kosong atau format tidak sesuai!');
+          setIsImporting(false);
+          return;
+        }
+
+        let calculatedUnits = 0;
+        let calculatedTotalNominal = 0;
+        const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
+
+        // Membaca baris demi baris file
+        parsedRows.forEach((row, index) => {
+          // Deteksi kolom nama produk, qty, dan harga secara fleksibel
+          const productName =
+            row['Nama Produk'] ||
+            row['Nama Barang'] ||
+            row['Product Name'] ||
+            row['Item'] ||
+            `Produk Impor #${index + 1}`;
+
+          const qty =
+            Number(row['Jumlah'] || row['Qty'] || row['Quantity'] || row['Jumlah Produk'] || 1) || 1;
+
+          const rawPrice =
+            row['Harga Jual'] || row['Harga'] || row['Price'] || row['Harga Satuan'] || 15000;
+
+          const price = Number(String(rawPrice).replace(/\D/g, '')) || 15000;
+
+          calculatedUnits += qty;
+          calculatedTotalNominal += price * qty;
+
+          importedItems.push({
+            id: `PRD-IMP-${index + 1}`,
+            name: String(productName),
+            qty: qty,
+            price: price,
+          });
+        });
+
+        // Hitung Potongan Admin Marketplace (5%)
+        const calculatedAdminFee = Math.round(calculatedTotalNominal * 0.05);
+
+        // Simpan Data Rekap Hasil Parse ke Firestore
         await importRecapsFromFile([
           {
             date: importDate,
             source: finalSource,
-            unitsSold: 10,
-            totalAmount: 150000,
-            adminFee: 7500,
+            unitsSold: calculatedUnits,
+            totalAmount: calculatedTotalNominal,
+            adminFee: calculatedAdminFee,
             status: 'Tersinkronisasi',
-            items: [
-              {
-                id: sampleProduct ? sampleProduct.id : 'PRD-IMP-1',
-                name: sampleProduct ? sampleProduct.name : `Kripik Pisang`,
-                qty: 10,
-                price: 15000,
-              },
-            ],
+            items: importedItems,
           },
         ]);
+
         queryClient.invalidateQueries({ queryKey: ['recaps'] });
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
         queryClient.invalidateQueries({ queryKey: ['kpi'] });
@@ -237,14 +285,18 @@ export default function SalesRecapPage() {
         setShowImportModal(false);
         setImportFile(null);
         setCustomImportSource('');
-        showToast(`Laporan rekap ${finalSource} tanggal ${importDate} berhasil diimpor!`);
+        showToast(
+          `Berhasil membaca ${parsedRows.length} baris dari file ${importFile.name}! Total: ${calculatedUnits} unit.`
+        );
       } catch (err) {
-        console.error('Error importing file:', err);
-        showToast('Gagal mengimpor file rekap!');
+        console.error('Error parsing CSV/Excel:', err);
+        showToast('Gagal membaca isi berkas CSV/Excel! Pastikan format file valid.');
       } finally {
         setIsImporting(false);
       }
-    }, 1200);
+    };
+
+    reader.readAsBinaryString(importFile);
   };
 
   const handleDeleteRecap = async (recapId: string) => {
@@ -784,6 +836,7 @@ export default function SalesRecapPage() {
         </div>
       )}
 
+      {/* MODAL RINCIAN DETAIL REKAP */}
       {activeDetailRecap && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -863,7 +916,6 @@ export default function SalesRecapPage() {
                     })}
                   </div>
                 ) : (
-                  /* Fallback Jika Dokumen Lama Belum Punya Array Items */
                   <div className="p-3 border-2 border-[#B48328]/30 rounded-2xl bg-[#FFFDF9] flex justify-between items-center shadow-sm">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-black text-[#5F1E1E] text-xs uppercase">Produk Rekap {activeDetailRecap.source}</span>
