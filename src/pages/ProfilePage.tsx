@@ -48,7 +48,6 @@ const INITIAL_PROFILE: UserProfile = {
   isEmailVerified: false,
 };
 
-// 💥 SEMUA TUGAS AWAL DIESET UNCHECKED (completed: false) 💥
 const DEFAULT_SOP: SopTask[] = [
   { id: "1", label: "Cek stok kritis & restock barang di gudang", completed: false },
   { id: "2", label: "Rekap transaksi harian dari marketplace / POS", completed: false },
@@ -56,7 +55,6 @@ const DEFAULT_SOP: SopTask[] = [
   { id: "4", label: "Verifikasi Laporan Keuangan & Laba Rugi", completed: false },
 ];
 
-// TEMPLATE REKOMENDASI TUGAS OPERASIONAL
 const SOP_TEMPLATES = {
   online: [
     "Cek obrolan / pesan masuk dari calon pembeli",
@@ -90,7 +88,6 @@ export default function ProfilePage() {
     }
   });
 
-  // State SOP Checklist Kustom
   const [sopTasks, setSopTasks] = useState<SopTask[]>(() => {
     try {
       const saved = localStorage.getItem("zura_sop_checklist");
@@ -107,7 +104,6 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // State Pengaturan Keamanan Akun
   const [isSecurityOpen, setIsSecurityOpen] = useState(true);
   const [activeSecurityTab, setActiveSecurityTab] = useState<
     "email" | "password" | "danger"
@@ -162,7 +158,6 @@ export default function ProfilePage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Helper Simpan Checklist
   const saveSopTasks = (tasks: SopTask[]) => {
     setSopTasks(tasks);
     try {
@@ -355,7 +350,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#E8D3A7] text-[#0F172A] p-6 flex flex-col gap-6 font-dmsans">
+    <div className="relative min-h-screen bg-[#E8D3A7] text-[#0F172A] p-4 sm:p-6 flex flex-col gap-6 font-dmsans">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#0F172A] text-white px-4 py-3 rounded-xl shadow-lg text-sm gap-2 animate-bounce">
@@ -375,14 +370,14 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <button
             type="button"
             onClick={() => {
               setFormData(profile);
               setIsEditOpen(true);
             }}
-            className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            className="flex-1 md:flex-none bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
           >
             EDIT PROFIL
           </button>
@@ -390,7 +385,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2"
+            className="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
           >
             <span>LOGOUT</span>
           </button>
@@ -474,7 +469,6 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Tombol Reset Centang */}
                 <button
                   type="button"
                   onClick={handleResetChecklist}
@@ -484,7 +478,6 @@ export default function ProfilePage() {
                   🔄 Reset
                 </button>
 
-                {/* Tombol Rekomendasi Template */}
                 <button
                   type="button"
                   onClick={() => setShowTemplates(!showTemplates)}
@@ -496,7 +489,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Panel Pilihan Template SOP */}
             {showTemplates && (
               <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl mb-4 flex flex-col gap-2.5 animate-scaleUp text-xs">
                 <span className="font-extrabold text-[#5F1E1E] text-[10px] uppercase">
@@ -539,7 +531,6 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Form Input Tambah Tugas Kustom */}
             <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
               <input
                 type="text"
@@ -556,7 +547,6 @@ export default function ProfilePage() {
               </button>
             </form>
 
-            {/* List Item Checklist */}
             <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
               {sopTasks.length === 0 ? (
                 <div className="text-center py-6 text-slate-400 text-xs font-semibold border border-dashed rounded-xl">
@@ -568,15 +558,15 @@ export default function ProfilePage() {
                     key={task.id}
                     onClick={() => toggleSopTask(task.id)}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-xs font-semibold ${task.completed
-                        ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
-                        : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
+                      ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                      : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
                       }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
                         className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] font-extrabold shrink-0 ${task.completed
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-[#B48328] bg-white text-transparent"
+                          ? "bg-emerald-500 border-emerald-500 text-white"
+                          : "border-[#B48328] bg-white text-transparent"
                           }`}
                       >
                         ✓
@@ -610,14 +600,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* PENGATURAN KEAMANAN AKUN */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-5">
+      {/* PENGATURAN KEAMANAN AKUN (MOBILE-RESPONSIVE FIX) */}
+      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex flex-col gap-4 sm:gap-5">
         <div
           onClick={() => setIsSecurityOpen(!isSecurityOpen)}
-          className="flex items-center justify-between cursor-pointer select-none"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-extrabold">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-extrabold shrink-0 mt-0.5 sm:mt-0">
               ⚙
             </div>
             <div>
@@ -632,21 +622,22 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-1 sm:mt-0"
           >
             <span>{isSecurityOpen ? "Tutup Pengaturan ▲" : "Kelola Keamanan ▼"}</span>
           </button>
         </div>
 
         {isSecurityOpen && (
-          <div className="flex flex-col gap-5 pt-2">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-4 sm:gap-5 pt-2 border-t border-slate-100 sm:border-0">
+            {/* Tab Navigation Responsive */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("email")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "email"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "email"
+                  ? "bg-[#5F1E1E] text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 Ganti Email
@@ -655,9 +646,9 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("password")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "password"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "password"
+                  ? "bg-[#5F1E1E] text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 Ubah Kata Sandi
@@ -666,25 +657,26 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("danger")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeSecurityTab === "danger"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "danger"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "bg-red-50 text-red-600 hover:bg-red-100"
                   }`}
               >
                 Zona Bahaya (Hapus Akun)
               </button>
             </div>
 
+            {/* Content Tab: Ganti Email */}
             {activeSecurityTab === "email" && (
               <form
                 onSubmit={triggerEmailUpdate}
-                className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl"
+                className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl w-full"
               >
                 <div>
                   <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
                     Ganti Email Terdaftar
                   </h3>
-                  <p className="text-[11px] text-slate-500 mb-3">
+                  <p className="text-[11px] text-slate-500 mb-3 break-all">
                     Email aktif saat ini:{" "}
                     <b className="text-slate-700">{profile.email || "Belum Diatur"}</b>
                   </p>
@@ -702,7 +694,7 @@ export default function ProfilePage() {
                 <div className="flex justify-start">
                   <button
                     type="submit"
-                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
                   >
                     Simpan Email Baru
                   </button>
@@ -710,8 +702,9 @@ export default function ProfilePage() {
               </form>
             )}
 
+            {/* Content Tab: Ubah Kata Sandi */}
             {activeSecurityTab === "password" && (
-              <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl">
+              <div className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl w-full">
                 {auth.currentUser?.providerData.some(
                   (p) => p.providerId === "google.com"
                 ) ? (
@@ -756,7 +749,7 @@ export default function ProfilePage() {
                     <div className="flex justify-start">
                       <button
                         type="submit"
-                        className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                        className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
                       >
                         Ubah Kata Sandi
                       </button>
@@ -766,8 +759,9 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* Content Tab: Zona Bahaya */}
             {activeSecurityTab === "danger" && (
-              <div className="bg-red-50/80 p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-xl">
+              <div className="bg-red-50/80 p-4 sm:p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-xl w-full">
                 <div>
                   <h3 className="text-xs font-extrabold text-red-700 uppercase mb-1">
                     Tindakan Permanen: Hapus Akun
@@ -782,7 +776,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={triggerAccountDelete}
                     disabled={isDeleting}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
                   >
                     {isDeleting ? "Memproses Hapus..." : "Hapus Akun Permanen"}
                   </button>
@@ -895,8 +889,8 @@ export default function ProfilePage() {
                     <label
                       key={cat}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${formData.category === cat
-                          ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       <input
