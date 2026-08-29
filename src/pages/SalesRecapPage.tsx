@@ -75,6 +75,17 @@ export default function SalesRecapPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // 💥 ─── MENGAMBIL DAFTAR NAMA SALURAN DINAMIS TERMASUK CUSTOM ─── 💥
+  const dynamicSourcesList = useMemo(() => {
+    const defaultSources = ['Shopee', 'TikTok Shop', 'Tokopedia', 'Manual'];
+    const customSourcesFromRecaps = recaps
+      .map((r) => r.source)
+      .filter((src): src is string => Boolean(src) && !defaultSources.includes(src));
+
+    const uniqueCustom = Array.from(new Set(customSourcesFromRecaps));
+    return ['Semua', ...defaultSources, ...uniqueCustom];
+  }, [recaps]);
+
   // ─── UNDUH TEMPLATE EXCEL (.XLSX) RAPI ───
   const handleDownloadTemplate = () => {
     const templateData = [
@@ -157,7 +168,7 @@ export default function SalesRecapPage() {
         setSelectedQtyHeader(autoQty);
         setSelectedPriceHeader(autoPrice);
 
-        setShowMappingStep(true); // Pindah ke layar penyesuaian kolom & pratinjau
+        setShowMappingStep(true);
       } catch (err) {
         console.error('Error reading file headers:', err);
         showToast('Gagal membaca struktur file Excel/CSV!');
@@ -534,16 +545,18 @@ export default function SalesRecapPage() {
           <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">Log Riwayat Unggahan Rekap & Opname</h2>
 
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+
+            {/* 💥 DROPDOWN FILTER DENGAN DAFTAR DINAMIS TERMASUK CUSTOM 💥 */}
             <select
-              className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px]"
+              className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px] cursor-pointer"
               value={selectedSourceFilter}
               onChange={(e) => setSelectedSourceFilter(e.target.value)}
             >
-              <option value="Semua">Semua Saluran</option>
-              <option value="Shopee">Shopee</option>
-              <option value="TikTok Shop">TikTok Shop</option>
-              <option value="Tokopedia">Tokopedia</option>
-              <option value="Manual">Manual/Opname</option>
+              {dynamicSourcesList.map((src) => (
+                <option key={src} value={src}>
+                  {src === 'Semua' ? 'SEMUA SALURAN' : src.toUpperCase()}
+                </option>
+              ))}
             </select>
 
             <input
@@ -798,7 +811,7 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* ─── 💥 MODAL IMPOR REKAP DENGAN TEKS PETUNJUK INFORMASI & SMART COLUMN MAPPING 💥 ─── */}
+      {/* ─── MODAL IMPOR REKAP DENGAN TEKS PETUNJUK INFORMASI & SMART COLUMN MAPPING ─── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -819,7 +832,6 @@ export default function SalesRecapPage() {
             {!showMappingStep ? (
               <div className="flex flex-col gap-3.5 text-xs">
 
-                {/* 💥 BOX PETUNJUK INFORMASI BARU DENGAN CATATAN PENJELASAN RAMAH USER 💥 */}
                 <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
                   <div className="flex justify-between items-center border-b border-[#B48328]/20 pb-1.5">
                     <span className="font-extrabold uppercase text-[10px] text-[#B48328] flex items-center gap-1">
