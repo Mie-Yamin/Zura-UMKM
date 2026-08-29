@@ -66,7 +66,7 @@ export default function InventoryPage() {
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showCategoryManager, setShowCategoryManager] = useState(false); // Modal khusus kelola/hapus kategori
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -298,9 +298,9 @@ export default function InventoryPage() {
       )}
 
       {/* ─── 1. HEADER ─── */}
-      <header className="bg-white p-5 sm:p-6 rounded-2xl border border-transparent shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
+      <header className="bg-white p-4 sm:p-6 rounded-2xl border border-transparent shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#5F1E1E] uppercase tracking-wide">
+          <h1 className="text-lg sm:text-2xl font-black text-[#5F1E1E] uppercase tracking-wide">
             MANAJEMEN STOK GUDANG PUSAT
           </h1>
           <p className="text-xs sm:text-sm font-semibold text-[#B48328] mt-1">
@@ -308,7 +308,7 @@ export default function InventoryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
           <button
             type="button"
             onClick={() => {
@@ -338,14 +338,14 @@ export default function InventoryPage() {
           />
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full md:w-auto">
           {/* Dropdown Kategori */}
           <div className="relative w-full sm:w-auto">
             <select
               aria-label="Filter Kategori Produk"
               value={selectedCategory}
               onChange={(e) => setSelectedFilterCategory(e.target.value)}
-              className="w-full sm:w-auto appearance-none bg-[#FFFDF9] border-2 border-[#B48328] text-[#5F1E1E] font-extrabold rounded-2xl pl-4 pr-10 py-2.5 text-xs focus:outline-none uppercase cursor-pointer"
+              className="w-full sm:w-auto appearance-none bg-[#FFFDF9] border-2 border-[#B48328] text-[#5F1E1E] font-extrabold rounded-2xl pl-4 pr-10 py-2.5 text-xs focus:outline-none uppercase cursor-pointer min-h-[42px]"
             >
               {categoriesFilterList.map((cat) => (
                 <option key={cat} value={cat}>
@@ -366,7 +366,7 @@ export default function InventoryPage() {
               aria-label="Filter Status Stok"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full sm:w-auto appearance-none bg-[#FFFDF9] border-2 border-[#B48328] text-[#5F1E1E] font-extrabold rounded-2xl pl-4 pr-10 py-2.5 text-xs focus:outline-none uppercase cursor-pointer"
+              className="w-full sm:w-auto appearance-none bg-[#FFFDF9] border-2 border-[#B48328] text-[#5F1E1E] font-extrabold rounded-2xl pl-4 pr-10 py-2.5 text-xs focus:outline-none uppercase cursor-pointer min-h-[42px]"
             >
               <option value="SEMUA STATUS">SEMUA STATUS</option>
               <option value="STOK AMAN">STOK AMAN</option>
@@ -382,9 +382,11 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      {/* ─── 3. TABEL ─── */}
+      {/* ─── 3. TAMPILAN INVENTARIS (TABLE DESKTOP & CARD STACK MOBILE) ─── */}
       <section className="bg-white rounded-2xl shadow-sm overflow-hidden border border-transparent w-full">
-        <div className="overflow-x-auto">
+
+        {/* DESKTOP TABLE VIEW */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-[#5F1E1E] text-[#E8D3A7] uppercase text-[10px] font-black tracking-wider border-b border-white/10">
@@ -498,14 +500,107 @@ export default function InventoryPage() {
             </tbody>
           </table>
         </div>
+
+        {/* MOBILE CARD STACK VIEW (RAPI DI SMARTPHONE) */}
+        <div className="block md:hidden p-3 flex flex-col gap-3">
+          {isLoading ? (
+            <div className="py-8 text-center text-[#5F1E1E] font-extrabold animate-pulse text-xs">
+              Memuat data stok produk...
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 font-bold text-xs">
+              Tidak ada produk yang sesuai.
+            </div>
+          ) : (
+            filteredProducts.map((p) => {
+              const isLow = p.stockCount <= (p.minStock || 10);
+              const isDead = p.isDeadstock === true;
+              const aiDays = p.aiForecasterDays || (isLow ? 5 : isDead ? 0 : Math.floor(15 + Math.random() * 20));
+
+              return (
+                <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-sm flex flex-col gap-2.5">
+                  <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-2">
+                    <div>
+                      <h3 className="font-extrabold text-[#5F1E1E] text-xs uppercase leading-tight">{p.name}</h3>
+                      <p className="font-mono text-[9px] font-bold text-slate-400 mt-0.5">{p.sku}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 px-2.5 py-0.5 rounded-xl text-[9px] font-extrabold tracking-wider ${isLow
+                        ? 'bg-red-100 text-red-700'
+                        : isDead
+                          ? 'bg-slate-200 text-slate-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                    >
+                      {isLow ? 'KRITIS' : isDead ? 'DEADSTOCK' : 'AMAN'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="bg-[#F5EAD4] text-[#5F1E1E] font-black px-2 py-0.5 rounded-lg uppercase">
+                      {p.category || 'F&B'}
+                    </span>
+                    <span className="font-bold text-[#5F1E1E] flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#B48328]"></span>
+                      AI: ~{aiDays} Hari Lagi
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-[#FFFDF9] border border-[#B48328]/20 p-2.5 rounded-xl text-[10px]">
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase">Harga Beli</p>
+                      <p className="font-bold text-slate-600 mt-0.5">{formatRupiah(p.buyPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase">Harga Jual</p>
+                      <p className="font-black text-[#5F1E1E] mt-0.5">{formatRupiah(p.sellPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase">Stok Fisik</p>
+                      <p className="font-black text-[#B48328] mt-0.5">{p.stockCount} unit</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRestockProduct(p);
+                        setRestockQty('10');
+                      }}
+                      className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-black py-2 rounded-xl text-[10px] shadow-sm flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      <span>+</span> Restock
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(p)}
+                      className="bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-extrabold py-2 rounded-xl text-[10px] flex items-center justify-center"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id)}
+                      className="bg-[#FEE2E2] hover:bg-[#FCA5A5] text-[#991B1B] font-extrabold py-2 rounded-xl text-[10px] flex items-center justify-center"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
       </section>
 
-      {/* ─── MODAL TAMBAH / EDIT PRODUK ─── */}
+      {/* ─── MODAL TAMBAH / EDIT PRODUK (DISESUAIKAN MOBILE) ─── */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">
+              <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">
                 {editingProduct ? 'Edit Data Produk' : 'Tambah Produk Baru'}
               </h2>
               <button
@@ -514,7 +609,7 @@ export default function InventoryPage() {
                   setShowAddModal(false);
                   resetForm();
                 }}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold px-1"
               >
                 &times;
               </button>
@@ -522,34 +617,34 @@ export default function InventoryPage() {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="font-bold text-[#5F1E1E] uppercase">Nama Produk</label>
+                <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Nama Produk</label>
                 <input
                   type="text"
                   required
                   placeholder="Contoh: Kripik Pisang"
-                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* GRID 1 KOLOM DI MOBILE, 2 KOLOM DI DESKTOP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Kode SKU</label>
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Kode SKU</label>
                   <input
                     type="text"
                     required
                     placeholder="ZR-KP-3383"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                   />
                 </div>
 
-                {/* FIELD DROPDOWN KATEGORI + TOMBOL KELOLA */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center">
-                    <label className="font-bold text-[#5F1E1E] uppercase">Kategori</label>
+                    <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Kategori</label>
                     {customCategories.length > 0 && (
                       <button
                         type="button"
@@ -561,7 +656,7 @@ export default function InventoryPage() {
                     )}
                   </div>
                   <select
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] cursor-pointer truncate"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] cursor-pointer truncate text-xs"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
@@ -575,7 +670,6 @@ export default function InventoryPage() {
                 </div>
               </div>
 
-              {/* Input Teks Khusus jika memilih 'CUSTOM' */}
               {category === 'CUSTOM' && (
                 <div className="flex flex-col gap-1 animate-scaleUp">
                   <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">
@@ -585,7 +679,7 @@ export default function InventoryPage() {
                     type="text"
                     required
                     placeholder="Contoh: ATK & ALAT TULIS"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                     value={customCategoryInput}
                     onChange={(e) => setCustomCategoryInput(e.target.value)}
                   />
@@ -593,18 +687,18 @@ export default function InventoryPage() {
               )}
 
               {!editingProduct && (
-                <div className="bg-[#FFFDF9] p-3 rounded-xl border-2 border-[#B48328]/40 flex flex-col gap-2">
-                  <div className="flex justify-between items-center">
+                <div className="bg-[#FFFDF9] p-3 rounded-xl border-2 border-[#B48328]/40 flex flex-col gap-2.5">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
                     <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
                       Mode Hitung Modal Beli (HPP):
                     </span>
-                    <div className="flex gap-1.5">
+                    <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                       <button
                         type="button"
                         onClick={() => setInputMode('grosir')}
-                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all ${inputMode === 'grosir'
+                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${inputMode === 'grosir'
                           ? 'bg-[#5F1E1E] text-[#E8D3A7]'
-                          : 'bg-slate-100 text-slate-600'
+                          : 'text-slate-600'
                           }`}
                       >
                         📦 Grosir / Dus
@@ -612,9 +706,9 @@ export default function InventoryPage() {
                       <button
                         type="button"
                         onClick={() => setInputMode('satuan')}
-                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all ${inputMode === 'satuan'
+                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${inputMode === 'satuan'
                           ? 'bg-[#5F1E1E] text-[#E8D3A7]'
-                          : 'bg-slate-100 text-slate-600'
+                          : 'text-slate-600'
                           }`}
                       >
                         🏷️ Satuan Pcs
@@ -623,25 +717,25 @@ export default function InventoryPage() {
                   </div>
 
                   {inputMode === 'grosir' && (
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <div className="flex flex-col gap-0.5">
-                        <label className="text-[9px] font-bold text-slate-500">Total Modal Dus (Rp)</label>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Total Modal Dus (Rp)</label>
                         <input
                           type="text"
                           placeholder="180.000"
                           value={formatRupiahInput(wholesaleTotal)}
                           onChange={(e) => handleWholesaleChange(e.target.value, wholesaleQty)}
-                          className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
+                          className="w-full border border-[#B48328] rounded-lg p-2 font-bold text-[#5F1E1E] text-xs bg-white"
                         />
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <label className="text-[9px] font-bold text-slate-500">Jumlah Isi (Pcs)</label>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Jumlah Isi (Pcs)</label>
                         <input
                           type="text"
                           placeholder="120"
                           value={formatRupiahInput(wholesaleQty)}
                           onChange={(e) => handleWholesaleChange(wholesaleTotal, e.target.value)}
-                          className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
+                          className="w-full border border-[#B48328] rounded-lg p-2 font-bold text-[#5F1E1E] text-xs bg-white"
                         />
                       </div>
                     </div>
@@ -649,9 +743,10 @@ export default function InventoryPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* GRID 1 KOLOM DI MOBILE, 2 KOLOM DI DESKTOP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase flex justify-between items-center">
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px] flex justify-between items-center">
                     <span>Harga Beli / HPP (Rp)</span>
                     {inputMode === 'grosir' && !editingProduct && (
                       <span className="text-[9px] text-[#B48328] font-bold">Auto</span>
@@ -661,7 +756,7 @@ export default function InventoryPage() {
                     type="text"
                     placeholder="1.500"
                     readOnly={inputMode === 'grosir' && !editingProduct}
-                    className={`border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono focus:outline-none ${inputMode === 'grosir' && !editingProduct
+                    className={`border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-xs focus:outline-none ${inputMode === 'grosir' && !editingProduct
                       ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
                       : 'bg-[#FFFDF9] text-[#5F1E1E]'
                       }`}
@@ -671,57 +766,58 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Harga Jual (Rp)</label>
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Harga Jual (Rp)</label>
                   <input
                     type="text"
                     placeholder="3.000"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                     value={formatRupiahInput(sellPrice)}
                     onChange={(e) => setSellPrice(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* GRID 1 KOLOM DI MOBILE, 2 KOLOM DI DESKTOP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Stok Fisik</label>
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Stok Fisik</label>
                   <input
                     type="text"
                     required
                     placeholder="105"
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                     value={formatRupiahInput(stockCount)}
                     onChange={(e) => setStockCount(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Min. Stok Kritis</label>
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">Min. Stok Kritis</label>
                   <input
                     type="text"
                     required
-                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] text-xs"
                     value={formatRupiahInput(minStock)}
                     onChange={(e) => setMinStock(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 mt-3">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 mt-3 pt-1 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     resetForm();
                   }}
-                  className="bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs"
+                  className="w-full sm:w-auto bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs min-h-[40px]"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow flex items-center justify-center min-h-[38px]"
+                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow flex items-center justify-center min-h-[40px]"
                 >
                   {isSubmitting ? (
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -737,6 +833,7 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* ─── MODAL KELOLA KATEGORI ─── */}
       {showCategoryManager && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-xs p-5 shadow-2xl flex flex-col gap-3 animate-scaleUp">
@@ -807,7 +904,7 @@ export default function InventoryPage() {
                 <input
                   type="text"
                   required
-                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
+                  className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none text-xs"
                   value={formatRupiahInput(restockQty)}
                   onChange={(e) => setRestockQty(parseRawNumber(e.target.value).toString())}
                 />
