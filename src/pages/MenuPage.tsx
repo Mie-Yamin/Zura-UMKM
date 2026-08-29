@@ -6,13 +6,13 @@ export default function MenuPage() {
     const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    // Gabungkan seluruh menu menjadi 1 array yang konsisten
+    // Daftar Menu Utama
     const menuItems = [
         { title: "DASHBOARD", image: "/landingPage/dashboard.svg", path: "/dashboard" },
-        { title: "REKAP PENJUALAN", image: "/landingPage/rekapPenjualan.svg", path: "/rekap" },
+        { title: "REKAP PENJUALAN", image: "/landingPage/rekapPenjualan.svg", path: "/sales" },
         { title: "MANAJEMEN STOK", image: "/landingPage/manajemenStok.svg", path: "/inventory" },
         { title: "LAPORAN KEUANGAN", image: "/landingPage/laporanKeuangan.svg", path: "/finance" },
-        { title: "AI Insight Hub", image: "/landingPage/aiInsight.svg", path: "/ai-insights" },
+        { title: "AI Insight Hub", image: "/landingPage/aiInsight.svg", path: "/ai-insight" },
     ];
 
     return (
@@ -57,7 +57,10 @@ export default function MenuPage() {
                     >
                         Home
                     </button>
-                    <button type="button" className="border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer">
+                    <button
+                        type="button"
+                        className="border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer"
+                    >
                         Menu
                     </button>
                 </div>
@@ -83,25 +86,35 @@ export default function MenuPage() {
             {/* Mobile Menu Overlay */}
             {mobileMenuOpen && (
                 <div className="fixed inset-0 z-40 md:hidden">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        onClick={() => setMobileMenuOpen(false)}
+                    />
                     <div className="absolute top-14 right-3 w-44 rounded-xl shadow-2xl p-3 space-y-1 bg-[#5F1E1E] border border-[#E8D3A7]/30">
                         <button
                             type="button"
-                            onClick={() => { navigate("/"); setMobileMenuOpen(false); }}
+                            onClick={() => {
+                                navigate("/");
+                                setMobileMenuOpen(false);
+                            }}
                             className="w-full text-left text-sm px-3 py-2 rounded-lg text-[#E8D3A7] hover:bg-white/10 transition-all cursor-pointer font-medium"
                         >
                             Home
                         </button>
-                        <button type="button" className="w-full text-left text-sm px-3 py-2 rounded-lg border border-[#E8D3A7] text-[#E8D3A7] font-semibold transition-all cursor-pointer">
+                        <button
+                            type="button"
+                            className="w-full text-left text-sm px-3 py-2 rounded-lg border border-[#E8D3A7] text-[#E8D3A7] font-semibold transition-all cursor-pointer"
+                        >
                             Menu
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Main Content Layout Rapih */}
+            {/* Main Content Layout */}
             <main className="relative z-10 w-full h-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-20 pb-8 overflow-y-auto">
-                <div className="max-w-3xl w-full grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 justify-items-center">
+
+                <div className="md:hidden max-w-3xl w-full grid grid-cols-2 gap-4 sm:gap-6 justify-items-center">
                     {menuItems.map((item, index) => {
                         const isLastItem = index === menuItems.length - 1;
                         return (
@@ -109,7 +122,7 @@ export default function MenuPage() {
                                 key={index}
                                 type="button"
                                 onClick={() => navigate(item.path)}
-                                className={`group relative w-full max-w-[170px] sm:max-w-none aspect-square bg-white hover:bg-[#F5E8CE] rounded-2xl sm:rounded-3xl shadow-[0_8px_20px_rgba(0,0,0,0.25)] p-3 sm:p-5 md:p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer ${isLastItem ? "col-span-2 md:col-span-1 justify-self-center w-1/2 sm:w-full" : ""
+                                className={`group relative w-full max-w-[170px] aspect-square bg-white hover:bg-[#F5E8CE] rounded-2xl shadow-[0_8px_20px_rgba(0,0,0,0.25)] p-3 flex items-center justify-center transition-all duration-300 active:scale-95 focus:outline-none overflow-hidden cursor-pointer ${isLastItem ? "col-span-2 justify-self-center w-1/2" : ""
                                     }`}
                             >
                                 <div className="w-full h-full flex items-center justify-center p-1">
@@ -123,6 +136,49 @@ export default function MenuPage() {
                         );
                     })}
                 </div>
+
+                <div className="hidden md:flex flex-col gap-6 w-full max-w-4xl items-center justify-center">
+                    {/* Baris Atas: 3 Kotak */}
+                    <div className="flex justify-center items-center gap-6 lg:gap-8 w-full">
+                        {menuItems.slice(0, 3).map((item, index) => (
+                            <button
+                                key={index}
+                                type="button"
+                                onClick={() => navigate(item.path)}
+                                className="group relative w-48 h-48 lg:w-56 lg:h-56 bg-white hover:bg-[#F5E8CE] rounded-3xl shadow-[0_10px_25px_rgba(0,0,0,0.3)] p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer shrink-0"
+                            >
+                                <div className="w-full h-full flex items-center justify-center p-2">
+                                    <img
+                                        src={item.image}
+                                        alt={item.title}
+                                        className="max-w-full max-h-full object-contain pointer-events-none transform group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Baris Bawah: 2 Kotak (Center Aligned) */}
+                    <div className="flex justify-center items-center gap-6 lg:gap-8 w-full">
+                        {menuItems.slice(3, 5).map((item, index) => (
+                            <button
+                                key={index}
+                                type="button"
+                                onClick={() => navigate(item.path)}
+                                className="group relative w-48 h-48 lg:w-56 lg:h-56 bg-white hover:bg-[#F5E8CE] rounded-3xl shadow-[0_10px_25px_rgba(0,0,0,0.3)] p-6 flex items-center justify-center transition-all duration-300 hover:scale-105 focus:outline-none overflow-hidden cursor-pointer shrink-0"
+                            >
+                                <div className="w-full h-full flex items-center justify-center p-2">
+                                    <img
+                                        src={item.image}
+                                        alt={item.title}
+                                        className="max-w-full max-h-full object-contain pointer-events-none transform group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
             </main>
         </div>
     );

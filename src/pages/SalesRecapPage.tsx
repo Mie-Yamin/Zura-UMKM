@@ -234,7 +234,6 @@ export default function SalesRecapPage() {
     }, 1200);
   };
 
-  // 💥 FUNGSI HAPUS REKAP 💥
   const handleDeleteRecap = async (recapId: string) => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus dokumen rekap ${recapId}?`)) {
       return;
@@ -525,7 +524,6 @@ export default function SalesRecapPage() {
                 />
               </div>
 
-              {/* 💥 FIELD SALURAN: SHOPEE, TIKTOK SHOP, TOKOPEDIA & CUSTOM 💥 */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-extrabold text-[#5F1E1E] uppercase">PILIH SALURAN ASAL BERKAS</label>
                 <select
@@ -683,8 +681,8 @@ export default function SalesRecapPage() {
                               onClick={() => handleRemoveRow(index)}
                               disabled={itemRows.length === 1}
                               className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition-colors ${itemRows.length === 1
-                                  ? 'text-slate-300 cursor-not-allowed'
-                                  : 'text-red-600 hover:bg-red-50'
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-red-600 hover:bg-red-50'
                                 }`}
                               title="Hapus Baris"
                             >
@@ -752,8 +750,8 @@ export default function SalesRecapPage() {
                   type="submit"
                   disabled={isSubmittingManual || calculatedTotals.totalUnits === 0}
                   className={`w-full sm:w-auto font-black px-6 py-2.5 rounded-xl text-xs shadow-md min-h-[44px] flex items-center justify-center transition-all ${calculatedTotals.totalUnits === 0
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
                     }`}
                 >
                   {isSubmittingManual ? (
