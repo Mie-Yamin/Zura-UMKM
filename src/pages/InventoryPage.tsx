@@ -8,6 +8,19 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
+// 💥 HELPER FORMAT FORMATTING RUPIAH UNTUK INPUT FIELD 💥
+const formatRupiahInput = (val: string | number) => {
+  if (!val && val !== 0) return '';
+  const cleanNumber = val.toString().replace(/\D/g, '');
+  if (!cleanNumber) return '';
+  return Number(cleanNumber).toLocaleString('id-ID');
+};
+
+const parseRawNumber = (formattedVal: string) => {
+  const cleanNumber = formattedVal.replace(/\D/g, '');
+  return cleanNumber ? Number(cleanNumber) : 0;
+};
+
 export default function InventoryPage() {
   const queryClient = useQueryClient();
 
@@ -104,21 +117,21 @@ export default function InventoryPage() {
     setSellPrice(p.sellPrice ? p.sellPrice.toString() : '');
     setStockCount(p.stockCount.toString());
     setMinStock((p.minStock || 10).toString());
-    setInputMode('satuan'); // Default mode satuan saat edit
+    setInputMode('satuan');
     setShowAddModal(true);
   };
 
   const handleWholesaleChange = (totalStr: string, qtyStr: string) => {
-    setWholesaleTotal(totalStr);
-    setWholesaleQty(qtyStr);
+    const rawTotal = parseRawNumber(totalStr);
+    const rawQty = parseRawNumber(qtyStr);
 
-    const total = parseFloat(totalStr) || 0;
-    const qty = parseFloat(qtyStr) || 0;
+    setWholesaleTotal(rawTotal.toString());
+    setWholesaleQty(rawQty.toString());
 
-    if (qty > 0 && total > 0) {
-      const calculatedHpp = Math.round(total / qty);
+    if (rawQty > 0 && rawTotal > 0) {
+      const calculatedHpp = Math.round(rawTotal / rawQty);
       setBuyPrice(calculatedHpp.toString());
-      setStockCount(qtyStr); // Mengisi stok fisik secara otomatis dari isi dus
+      setStockCount(rawQty.toString());
     }
   };
 
@@ -421,7 +434,7 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      {/* ─── MODAL TAMBAH / EDIT PRODUK (DENGAN HITUNG GROSIR) ─── */}
+      {/* ─── MODAL TAMBAH / EDIT PRODUK (INPUT HARGA PAKAI FORMAT TITIK) ─── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -483,7 +496,6 @@ export default function InventoryPage() {
                 </div>
               </div>
 
-
               {!editingProduct && (
                 <div className="bg-[#FFFDF9] p-3 rounded-xl border-2 border-[#B48328]/40 flex flex-col gap-2">
                   <div className="flex justify-between items-center">
@@ -516,12 +528,13 @@ export default function InventoryPage() {
 
                   {inputMode === 'grosir' && (
                     <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Total Modal Dus dengan Titik Ribuan Otomatis */}
                       <div className="flex flex-col gap-0.5">
                         <label className="text-[9px] font-bold text-slate-500">Total Modal Dus (Rp)</label>
                         <input
-                          type="number"
-                          placeholder="180000"
-                          value={wholesaleTotal}
+                          type="text"
+                          placeholder="180.000"
+                          value={formatRupiahInput(wholesaleTotal)}
                           onChange={(e) => handleWholesaleChange(e.target.value, wholesaleQty)}
                           className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
                         />
@@ -529,9 +542,9 @@ export default function InventoryPage() {
                       <div className="flex flex-col gap-0.5">
                         <label className="text-[9px] font-bold text-slate-500">Jumlah Isi (Pcs)</label>
                         <input
-                          type="number"
+                          type="text"
                           placeholder="120"
-                          value={wholesaleQty}
+                          value={formatRupiahInput(wholesaleQty)}
                           onChange={(e) => handleWholesaleChange(wholesaleTotal, e.target.value)}
                           className="w-full border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] text-xs bg-white"
                         />
@@ -542,6 +555,7 @@ export default function InventoryPage() {
               )}
 
               <div className="grid grid-cols-2 gap-3">
+                {/* Harga Beli / HPP (Rp) dengan Titik Ribuan Otomatis */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase flex justify-between items-center">
                     <span>Harga Beli / HPP (Rp)</span>
@@ -550,28 +564,27 @@ export default function InventoryPage() {
                     )}
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    placeholder="1500"
+                    type="text"
+                    placeholder="1.500"
                     readOnly={inputMode === 'grosir' && !editingProduct}
                     className={`border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono focus:outline-none ${inputMode === 'grosir' && !editingProduct
                       ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
                       : 'bg-[#FFFDF9] text-[#5F1E1E]'
                       }`}
-                    value={buyPrice}
-                    onChange={(e) => setBuyPrice(e.target.value)}
+                    value={formatRupiahInput(buyPrice)}
+                    onChange={(e) => setBuyPrice(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
 
+                {/* Harga Jual (Rp) dengan Titik Ribuan Otomatis */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase">Harga Jual (Rp)</label>
                   <input
-                    type="number"
-                    min="0"
-                    placeholder="3000"
+                    type="text"
+                    placeholder="3.000"
                     className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold font-mono text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                    value={sellPrice}
-                    onChange={(e) => setSellPrice(e.target.value)}
+                    value={formatRupiahInput(sellPrice)}
+                    onChange={(e) => setSellPrice(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
               </div>
@@ -580,25 +593,23 @@ export default function InventoryPage() {
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase">Stok Fisik</label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
                     required
                     placeholder="105"
                     className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                    value={stockCount}
-                    onChange={(e) => setStockCount(e.target.value)}
+                    value={formatRupiahInput(stockCount)}
+                    onChange={(e) => setStockCount(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase">Min. Stok Kritis</label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
                     required
                     className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                    value={minStock}
-                    onChange={(e) => setMinStock(e.target.value)}
+                    value={formatRupiahInput(minStock)}
+                    onChange={(e) => setMinStock(parseRawNumber(e.target.value).toString())}
                   />
                 </div>
               </div>
@@ -657,12 +668,11 @@ export default function InventoryPage() {
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-[#5F1E1E] uppercase">Kuantitas Restock</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
                   required
                   className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none"
-                  value={restockQty}
-                  onChange={(e) => setRestockQty(e.target.value)}
+                  value={formatRupiahInput(restockQty)}
+                  onChange={(e) => setRestockQty(parseRawNumber(e.target.value).toString())}
                 />
               </div>
 
