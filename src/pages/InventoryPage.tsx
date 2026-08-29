@@ -8,7 +8,7 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
-// 💥 HELPER FORMAT FORMATTING RUPIAH UNTUK INPUT FIELD 💥
+// HELPER FORMAT FORMATTING RUPIAH UNTUK INPUT FIELD
 const formatRupiahInput = (val: string | number) => {
   if (!val && val !== 0) return '';
   const cleanNumber = val.toString().replace(/\D/g, '');
@@ -20,6 +20,15 @@ const parseRawNumber = (formattedVal: string) => {
   const cleanNumber = formattedVal.replace(/\D/g, '');
   return cleanNumber ? Number(cleanNumber) : 0;
 };
+
+// Kategori Bawaan Sistem
+const DEFAULT_CATEGORIES = [
+  'MAKANAN & MINUMAN (F&B)',
+  'FASHION & PAKAIAN',
+  'ELEKTRONIK',
+  'KECANTIKAN & KESEHATAN',
+  'LAINNYA',
+];
 
 export default function InventoryPage() {
   const queryClient = useQueryClient();
@@ -41,8 +50,23 @@ export default function InventoryPage() {
   const [selectedStatus, setSelectedStatus] = useState('SEMUA STATUS');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // STATE KATEGORI CUSTOM (TERSIMPAN DI LOCALSTORAGE)
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('zura_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('zura_custom_categories', JSON.stringify(customCategories));
+  }, [customCategories]);
+
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false); // Modal khusus kelola/hapus kategori
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,21 +78,29 @@ export default function InventoryPage() {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('MAKANAN & MINUMAN (F&B)');
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [stockCount, setStockCount] = useState('');
   const [minStock, setMinStock] = useState('10');
 
   const [inputMode, setInputMode] = useState<'satuan' | 'grosir'>('grosir');
-  const [wholesaleTotal, setWholesaleTotal] = useState('180000'); // Total Modal Beli Dus
-  const [wholesaleQty, setWholesaleQty] = useState('120'); // Jumlah Isi Pcs
+  const [wholesaleTotal, setWholesaleTotal] = useState('180000');
+  const [wholesaleQty, setWholesaleQty] = useState('120');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const categoriesList = ['SEMUA', 'MAKANAN & MINUMAN (F&B)', 'FASHION & PAKAIAN', 'ELEKTRONIK', 'KECANTIKAN & KESEHATAN', 'LAINNYA'];
+  // Gabungan Kategori Utama + Custom
+  const fullCategoriesList = useMemo(() => {
+    return [...DEFAULT_CATEGORIES, ...customCategories];
+  }, [customCategories]);
+
+  const categoriesFilterList = useMemo(() => {
+    return ['SEMUA', ...fullCategoriesList];
+  }, [fullCategoriesList]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -97,6 +129,7 @@ export default function InventoryPage() {
     setName('');
     setSku(`ZR-KP-${Math.floor(1000 + Math.random() * 9000)}`);
     setCategory('MAKANAN & MINUMAN (F&B)');
+    setCustomCategoryInput('');
     setBuyPrice('1500');
     setSellPrice('3000');
     setStockCount('120');
@@ -112,7 +145,16 @@ export default function InventoryPage() {
     setEditingProduct(p);
     setName(p.name);
     setSku(p.sku);
-    setCategory(p.category || 'MAKANAN & MINUMAN (F&B)');
+
+    const existingCategory = p.category || 'MAKANAN & MINUMAN (F&B)';
+    if (fullCategoriesList.includes(existingCategory)) {
+      setCategory(existingCategory);
+      setCustomCategoryInput('');
+    } else {
+      setCategory('CUSTOM');
+      setCustomCategoryInput(existingCategory);
+    }
+
     setBuyPrice(p.buyPrice ? p.buyPrice.toString() : '');
     setSellPrice(p.sellPrice ? p.sellPrice.toString() : '');
     setStockCount(p.stockCount.toString());
@@ -135,12 +177,36 @@ export default function InventoryPage() {
     }
   };
 
+  const handleDeleteCustomCategory = (catToDelete: string) => {
+    if (window.confirm(`Hapus kategori "${catToDelete}" dari daftar?`)) {
+      setCustomCategories((prev) => prev.filter((c) => c !== catToDelete));
+      if (category === catToDelete) {
+        setCategory('MAKANAN & MINUMAN (F&B)');
+      }
+      showToast(`Kategori "${catToDelete}" berhasil dihapus!`);
+    }
+  };
+
   // Submit Handler (Tambah / Edit)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !sku) {
       showToast('Nama produk dan SKU wajib diisi!');
       return;
+    }
+
+    let finalCategory = category;
+    if (category === 'CUSTOM') {
+      const trimmedCustom = customCategoryInput.trim().toUpperCase();
+      if (!trimmedCustom) {
+        showToast('Silakan masukkan nama kategori custom!');
+        return;
+      }
+      finalCategory = trimmedCustom;
+
+      if (!fullCategoriesList.includes(trimmedCustom)) {
+        setCustomCategories((prev) => [...prev, trimmedCustom]);
+      }
     }
 
     setIsSubmitting(true);
@@ -150,7 +216,7 @@ export default function InventoryPage() {
     const payload: Omit<Product, 'id'> = {
       name,
       sku,
-      category,
+      category: finalCategory,
       buyPrice: parseFloat(buyPrice) || 0,
       sellPrice: parseFloat(sellPrice) || 0,
       stockCount: stock,
@@ -281,9 +347,9 @@ export default function InventoryPage() {
               onChange={(e) => setSelectedFilterCategory(e.target.value)}
               className="w-full sm:w-auto appearance-none bg-[#FFFDF9] border-2 border-[#B48328] text-[#5F1E1E] font-extrabold rounded-2xl pl-4 pr-10 py-2.5 text-xs focus:outline-none uppercase cursor-pointer"
             >
-              {categoriesList.map((cat) => (
+              {categoriesFilterList.map((cat) => (
                 <option key={cat} value={cat}>
-                  KATEGORI: {cat}
+                  {cat === 'SEMUA' ? 'KATEGORI: SEMUA' : cat}
                 </option>
               ))}
             </select>
@@ -434,7 +500,7 @@ export default function InventoryPage() {
         </div>
       </section>
 
-      {/* ─── MODAL TAMBAH / EDIT PRODUK (INPUT HARGA PAKAI FORMAT TITIK) ─── */}
+      {/* ─── MODAL TAMBAH / EDIT PRODUK ─── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -480,21 +546,51 @@ export default function InventoryPage() {
                   />
                 </div>
 
+                {/* FIELD DROPDOWN KATEGORI + TOMBOL KELOLA */}
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-[#5F1E1E] uppercase">Kategori</label>
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold text-[#5F1E1E] uppercase">Kategori</label>
+                    {customCategories.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCategoryManager(true)}
+                        className="text-[9px] text-[#B48328] hover:underline font-bold"
+                      >
+                        ⚙️ Kelola
+                      </button>
+                    )}
+                  </div>
                   <select
                     className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] cursor-pointer truncate"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
-                    {categoriesList.filter((c) => c !== 'SEMUA').map((cat) => (
+                    {fullCategoriesList.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
                     ))}
+                    <option value="CUSTOM">➕ Tambah Kategori Custom...</option>
                   </select>
                 </div>
               </div>
+
+              {/* Input Teks Khusus jika memilih 'CUSTOM' */}
+              {category === 'CUSTOM' && (
+                <div className="flex flex-col gap-1 animate-scaleUp">
+                  <label className="font-bold text-[#5F1E1E] uppercase text-[10px]">
+                    Ketik Nama Kategori Baru:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: ATK & ALAT TULIS"
+                    className="border-2 border-[#B48328] rounded-xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                  />
+                </div>
+              )}
 
               {!editingProduct && (
                 <div className="bg-[#FFFDF9] p-3 rounded-xl border-2 border-[#B48328]/40 flex flex-col gap-2">
@@ -528,7 +624,6 @@ export default function InventoryPage() {
 
                   {inputMode === 'grosir' && (
                     <div className="grid grid-cols-2 gap-2 pt-1">
-                      {/* Total Modal Dus dengan Titik Ribuan Otomatis */}
                       <div className="flex flex-col gap-0.5">
                         <label className="text-[9px] font-bold text-slate-500">Total Modal Dus (Rp)</label>
                         <input
@@ -555,7 +650,6 @@ export default function InventoryPage() {
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Harga Beli / HPP (Rp) dengan Titik Ribuan Otomatis */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase flex justify-between items-center">
                     <span>Harga Beli / HPP (Rp)</span>
@@ -576,7 +670,6 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                {/* Harga Jual (Rp) dengan Titik Ribuan Otomatis */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-[#5F1E1E] uppercase">Harga Jual (Rp)</label>
                   <input
@@ -640,6 +733,50 @@ export default function InventoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showCategoryManager && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-xs p-5 shadow-2xl flex flex-col gap-3 animate-scaleUp">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-black text-[#5F1E1E] uppercase">Kelola Kategori Custom</h3>
+              <button
+                type="button"
+                onClick={() => setShowCategoryManager(false)}
+                className="text-slate-400 hover:text-slate-600 text-base font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto my-1">
+              {customCategories.length === 0 ? (
+                <p className="text-[10px] text-slate-400 italic text-center py-4">Belum ada kategori custom tersimpan.</p>
+              ) : (
+                customCategories.map((cat) => (
+                  <div key={cat} className="flex justify-between items-center p-2 bg-[#FFFDF9] border border-[#B48328]/30 rounded-xl">
+                    <span className="font-extrabold text-[#5F1E1E] text-xs truncate max-w-[170px]">{cat}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomCategory(cat)}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-2 py-1 rounded-lg text-[10px] transition-colors"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCategoryManager(false)}
+              className="w-full py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 transition-colors mt-1"
+            >
+              Selesai
+            </button>
           </div>
         </div>
       )}

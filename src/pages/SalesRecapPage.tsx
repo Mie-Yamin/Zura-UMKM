@@ -784,7 +784,6 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* ─── 💥 MODAL RINCIAN DETAIL REKAP (RINCIAN STRUK LENGKAP: BARANG, QTY, HARGA) 💥 ─── */}
       {activeDetailRecap && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -837,7 +836,6 @@ export default function SalesRecapPage() {
                 </div>
               </div>
 
-              {/* 💥 DAFTAR RINCIAN ITEM BARANG TERJUAL (NAMA, UNIT, HARGA & SUBTOTAL) 💥 */}
               <div className="flex flex-col gap-2">
                 <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase tracking-wider">
                   DETIL ITEM BARANG TERJUAL:
