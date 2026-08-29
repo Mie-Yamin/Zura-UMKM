@@ -1,6 +1,14 @@
 {
     "rewrites": [
         {
+            "source": "/grok-api/(.*)",
+            "destination": "https://api.x.ai/$1"
+        },
+        {
+            "source": "/groq-api/(.*)",
+            "destination": "https://api.groq.com/openai/$1"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

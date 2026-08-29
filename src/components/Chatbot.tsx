@@ -1,10 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, X, AlertTriangle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { getLocalProducts, getLocalRecaps } from '../api/client';
+import { askGrokAI } from '../api/grokService';
 
 interface Message {
     sender: 'user' | 'bot';
     text: string;
 }
+
+const formatMessageText = (text: string) => {
+    const lines = text.split('\n');
+    return lines.map((line, lineIdx) => {
+        const parts = line.split(/(\*\*.*?\*\*)/g);
+        const renderedLine = parts.map((part, partIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={partIdx} className="font-extrabold">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+        });
+        return (
+            <React.Fragment key={lineIdx}>
+                {renderedLine}
+                {lineIdx < lines.length - 1 && <br />}
+            </React.Fragment>
+        );
+    });
+};
 
 export default function Chatbot() {
     const [isOpen, setIsOpen] = useState(false);
@@ -12,7 +34,28 @@ export default function Chatbot() {
     const [messages, setMessages] = useState<Message[]>([
         { sender: 'bot', text: 'Halo! Saya Zura AI Assistant. Ada yang bisa saya bantu terkait pengelolaan toko hari ini?' }
     ]);
+    const [isLoadingAI, setIsLoadingAI] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Ambil data produk & rekap penjualan dari Firestore via React Query
+    const { data: rawProducts = [] } = useQuery({
+        queryKey: ['inventory'],
+        queryFn: async () => {
+            const res = await getLocalProducts();
+            return Array.isArray(res) ? res : [];
+        },
+    });
+
+    const { data: rawRecaps = [] } = useQuery({
+        queryKey: ['recaps'],
+        queryFn: async () => {
+            const res = await getLocalRecaps();
+            return Array.isArray(res) ? res : [];
+        },
+    });
+
+    const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
+    const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,52 +63,26 @@ export default function Chatbot() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isOpen]);
+    }, [messages, isOpen, isLoadingAI]);
 
-    const handleSend = (e: React.FormEvent) => {
+    const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || isLoadingAI) return;
 
         const userMessage = input.trim();
         setMessages((prev) => [...prev, { sender: 'user', text: userMessage }]);
         setInput('');
+        setIsLoadingAI(true);
 
-        setTimeout(() => {
-            const lower = userMessage.toLowerCase();
-
-            const allowedKeywords = [
-                'stok', 'inventory', 'barang', 'sku', 'restock', 'produk',
-                'jual', 'penjualan', 'transaksi', 'kasir', 'pos', 'omset', 'rekap',
-                'keuangan', 'laba', 'rugi', 'modal', 'kas', 'harga', 'diskon',
-                'toko', 'ritel', 'retail', 'umkm', 'usaha', 'dagang', 'bisnis',
-                'zura', 'fitur', 'halo', 'hi', 'pagi', 'siang', 'malam', 'bantuan'
-            ];
-
-            // Pengecekan topik
-            const isRelevant = allowedKeywords.some((keyword) => lower.includes(keyword));
-
-            let botResponse = '';
-
-            if (!isRelevant) {
-                // Penolakan jika pertanyaan di luar konteks perdagangan/UMKM
-                botResponse = 'Maaf, sebagai Zura AI, saya hanya ditugaskan untuk membantu pertanyaan seputar operasional toko, manajemen stok, rekap penjualan, dan keuangan UMKM Anda.';
-            } else {
-                // Jawaban otomatis seputar UMKM
-                if (lower.includes('stok') || lower.includes('inventory') || lower.includes('barang')) {
-                    botResponse = 'Anda dapat memantau ketersediaan barang, jumlah SKU, dan rekomendasi restock otomatis melalui menu Manajemen Stok.';
-                } else if (lower.includes('jual') || lower.includes('rekap') || lower.includes('transaksi') || lower.includes('omset')) {
-                    botResponse = 'Laporan rekap harian, performa produk terlaris, dan statistik transaksi dapat diakses pada menu Rekap Penjualan.';
-                } else if (lower.includes('keuangan') || lower.includes('laba') || lower.includes('modal')) {
-                    botResponse = 'Ringkasan arus kas, estimasi laba rugi harian, dan tren margin keuntungan toko dapat dipantau di menu Laporan Keuangan.';
-                } else if (lower.includes('halo') || lower.includes('hi') || lower.includes('pagi') || lower.includes('siang') || lower.includes('malam')) {
-                    botResponse = 'Halo! Ada yang bisa Zura AI bantu untuk kelancaran usaha dan operasional toko Anda hari ini?';
-                } else {
-                    botResponse = 'Bagaimana Zura AI bisa membantu mempermudah pengelolaan bisnis retail/UMKM Anda hari ini?';
-                }
-            }
-
+        try {
+            const botResponse = await askGrokAI(userMessage, messages, { products, recaps });
             setMessages((prev) => [...prev, { sender: 'bot', text: botResponse }]);
-        }, 600);
+        } catch (error) {
+            console.error('Chatbot AI Error:', error);
+            setMessages((prev) => [...prev, { sender: 'bot', text: 'Maaf, terjadi masalah koneksi dengan Zura AI. Silakan coba lagi.' }]);
+        } finally {
+            setIsLoadingAI(false);
+        }
     };
 
     return (
@@ -125,10 +142,19 @@ export default function Chatbot() {
                                         : 'bg-white text-[#5F1E1E] rounded-bl-none shadow-md font-medium'
                                         }`}
                                 >
-                                    {msg.text}
+                                    {formatMessageText(msg.text)}
                                 </div>
                             </div>
                         ))}
+                        {isLoadingAI && (
+                            <div className="flex justify-start">
+                                <div className="max-w-[82%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed bg-white text-[#5F1E1E] rounded-bl-none shadow-md font-medium flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 bg-[#5F1E1E] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                    <span className="w-1.5 h-1.5 bg-[#5F1E1E] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                    <span className="w-1.5 h-1.5 bg-[#5F1E1E] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                </div>
+                            </div>
+                        )}
                         <div ref={messagesEndRef} />
                     </div>
 

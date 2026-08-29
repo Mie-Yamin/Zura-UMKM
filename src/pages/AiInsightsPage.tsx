@@ -2,10 +2,30 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLocalRecaps, getLocalProducts, fetchCustomers } from '../api/client';
 import type { SalesRecap, Product, Customer } from '../types';
+import { generateGrokInsights } from '../api/grokService';
 
 const formatRupiah = (val?: number) => {
   if (val === undefined || isNaN(val)) return 'Rp 0';
   return `Rp ${val.toLocaleString('id-ID')}`;
+};
+
+const formatMessageText = (text: string) => {
+  const lines = text.split('\n');
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\*\*.*?\*\*)/g);
+    const renderedLine = parts.map((part, partIdx) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={partIdx} className="font-extrabold text-[#5F1E1E]">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+    return (
+      <React.Fragment key={lineIdx}>
+        {renderedLine}
+        {lineIdx < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
 };
 
 export default function AiInsightsPage() {
@@ -38,6 +58,13 @@ export default function AiInsightsPage() {
   const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const customers = useMemo(() => (Array.isArray(rawCustomers) ? rawCustomers : []), [rawCustomers]);
+
+  // Ambil laporan AI dinamis menggunakan Groq
+  const { data: aiInsightsText, isLoading: loadingInsights } = useQuery({
+    queryKey: ['ai-insights-report', products.length, recaps.length],
+    queryFn: () => generateGrokInsights(products, recaps),
+    enabled: products.length > 0 || recaps.length > 0,
+  });
 
   // States
   const [selectedChannel, setSelectedChannel] = useState('Semua Saluran');
@@ -167,48 +194,34 @@ export default function AiInsightsPage() {
         </article>
       </section>
 
-      {/* ─── KARTU REKOMENDASI AI ─── */}
-      <section className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-4 w-full">
-        <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3">
-          Rekomendasi Tindakan Strategis Bisnis
-        </h2>
+      {/* ─── KARTU REKOMENDASI AI DINAMIS ─── */}
+      {loadingInsights || loadingRecaps || loadingProducts ? (
+        <section className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-4 w-full animate-pulse border border-transparent">
+          <div className="h-5 bg-slate-200 rounded-lg w-1/3"></div>
+          <div className="h-px bg-slate-100 my-2"></div>
+          <div className="flex flex-col gap-3">
+            <div className="h-4 bg-slate-100 rounded-lg w-full"></div>
+            <div className="h-4 bg-slate-100 rounded-lg w-5/6"></div>
+            <div className="h-4 bg-slate-100 rounded-lg w-4/5"></div>
+            <div className="h-4 bg-slate-100 rounded-lg w-full"></div>
+          </div>
+        </section>
+      ) : (
+        <section className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-4 w-full">
+          <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#B48328] animate-pulse"></span>
+            Rekomendasi Tindakan Strategis Bisnis (Grok AI)
+          </h2>
 
-        <div className="flex flex-col gap-3">
-          {aiRecommendations.map((rec, idx) => (
-            <div
-              key={idx}
-              className={`p-4 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${rec.type === 'CRITICAL'
-                  ? 'bg-red-50/50 border-red-200'
-                  : rec.type === 'WARNING'
-                    ? 'bg-amber-50/50 border-amber-200'
-                    : 'bg-blue-50/50 border-blue-200'
-                }`}
-            >
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${rec.type === 'CRITICAL'
-                        ? 'bg-red-600 animate-ping'
-                        : rec.type === 'WARNING'
-                          ? 'bg-amber-500'
-                          : 'bg-blue-500'
-                      }`}
-                  ></span>
-                  <h3 className="font-extrabold text-xs sm:text-sm text-[#5F1E1E]">{rec.title}</h3>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed pl-4">{rec.desc}</p>
-              </div>
-
-              <button
-                type="button"
-                className="self-end sm:self-center bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-4 py-2 rounded-xl text-xs flex-shrink-0 transition-all shadow-sm"
-              >
-                {rec.action}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
+          <div className="text-xs sm:text-sm text-slate-700 leading-relaxed space-y-2 p-1 font-medium">
+            {aiInsightsText ? formatMessageText(aiInsightsText) : (
+              <p className="text-slate-400 font-semibold italic text-center py-6">
+                Belum ada data transaksi atau produk yang cukup untuk dianalisis oleh AI.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
     </div>
   );

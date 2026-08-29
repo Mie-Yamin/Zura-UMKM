@@ -2,6 +2,26 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLocalRecaps, getLocalProducts } from "../api/client";
 import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";
+import { generateFinanceInsights } from "../api/grokService";
+
+const formatMessageText = (text: string) => {
+  const lines = text.split('\n');
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\*\*.*?\*\*)/g);
+    const renderedLine = parts.map((part, partIdx) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={partIdx} className="font-extrabold text-[#5F1E1E]">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+    return (
+      <React.Fragment key={lineIdx}>
+        {renderedLine}
+        {lineIdx < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+};
 import {
   LineChart,
   Line,
@@ -135,23 +155,12 @@ export default function FinancePage() {
     return data12Months;
   }, [selectedPeriod, finances, recaps]);
 
-  // 3. AI Financial Narrative Summary Generator
-  const aiNarrativeText = useMemo(() => {
-    if (finances.totalRevenue === 0) {
-      return "Belum ada data transaksi yang tercatat. AI akan memberikan analisis kesehatan finansial setelah Anda mengunggah atau memasukkan laporan rekap penjualan.";
-    }
-
-    const profitMargin = (
-      (finances.netProfit / finances.totalRevenue) *
-      100
-    ).toFixed(1);
-    const adminPercent = (
-      (finances.totalAdminFee / finances.totalRevenue) *
-      100
-    ).toFixed(1);
-
-    return `Kesehatan Keuangan bisnis dinilai ${finances.netProfit >= 0 ? "Sehat" : "Perlu Perhatian"} dengan Laba Bersih aktual ${formatRupiah(finances.netProfit)} dan Margin Laba Bersih ${profitMargin}%. Biaya admin platform berkontribusi sebesar ${adminPercent}% dari omzet kotor. AI menyarankan optimasi pengunggahan laporan rekap secara berkala untuk menjaga keakuratan pembukuan.`;
-  }, [finances]);
+  // 3. AI Financial Narrative Summary Generator (Dinamis dari Groq API)
+  const { data: aiFinancialSummary, isLoading: loadingInsights } = useQuery({
+    queryKey: ["ai-finance-summary", finances.totalRevenue, finances.netProfit, finances.totalExpenses],
+    queryFn: () => generateFinanceInsights(finances),
+    enabled: finances.totalRevenue > 0,
+  });
 
   // 4. Excel/PDF Export Trigger
   const handleExport = (type: "Excel" | "PDF") => {
@@ -419,7 +428,7 @@ export default function FinancePage() {
         <div className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
           <div>
             <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328]"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#B48328] animate-pulse"></span>
               Rangkuman Finansial AI
             </h2>
             <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
@@ -428,9 +437,19 @@ export default function FinancePage() {
           </div>
 
           <div className="bg-[#E8D3A7]/30 border border-[#B48328]/30 rounded-2xl p-5 flex flex-col gap-3">
-            <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
-              {aiNarrativeText}
-            </p>
+            {loadingInsights ? (
+              <div className="flex flex-col gap-2 animate-pulse py-2">
+                <div className="h-4 bg-slate-200/50 rounded-lg w-full"></div>
+                <div className="h-4 bg-slate-200/50 rounded-lg w-5/6"></div>
+                <div className="h-4 bg-slate-200/50 rounded-lg w-4/5"></div>
+              </div>
+            ) : (
+              <p className="text-xs font-medium text-[#5F1E1E] leading-relaxed">
+                {aiFinancialSummary ? formatMessageText(aiFinancialSummary) : (
+                  "Belum ada data transaksi yang tercatat. AI akan memberikan analisis kesehatan finansial setelah Anda mengunggah atau memasukkan laporan rekap penjualan."
+                )}
+              </p>
+            )}
             <div className="border-t border-[#B48328]/30 pt-3 flex justify-between text-xs font-extrabold text-[#5F1E1E]">
               <span>Rasio Net Profit Margin:</span>
               <span className="text-[#B48328]">
