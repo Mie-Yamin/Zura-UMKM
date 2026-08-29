@@ -61,9 +61,17 @@ export default function SalesRecapPage() {
   // SMART MAPPING & PREVIEW STATES UNTUK FILE UNKNOWN FORMAT
   const [parsedRawRows, setParsedRawRows] = useState<any[]>([]);
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
+
+  // Selection States
   const [selectedNameHeader, setSelectedNameHeader] = useState<string>('');
   const [selectedQtyHeader, setSelectedQtyHeader] = useState<string>('');
   const [selectedPriceHeader, setSelectedPriceHeader] = useState<string>('');
+
+  // Custom Input Text States jika user memilih opsi "CUSTOM"
+  const [customNameInput, setCustomNameInput] = useState<string>('');
+  const [customQtyInput, setCustomQtyInput] = useState<string>('');
+  const [customPriceInput, setCustomPriceInput] = useState<string>('');
+
   const [showMappingStep, setShowMappingStep] = useState(false);
 
   // Form Manual States
@@ -75,7 +83,7 @@ export default function SalesRecapPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // 💥 ─── MENGAMBIL DAFTAR NAMA SALURAN DINAMIS TERMASUK CUSTOM ─── 💥
+  // MENGAMBIL DAFTAR NAMA SALURAN DINAMIS TERMASUK CUSTOM
   const dynamicSourcesList = useMemo(() => {
     const defaultSources = ['Shopee', 'TikTok Shop', 'Tokopedia', 'Manual'];
     const customSourcesFromRecaps = recaps
@@ -168,6 +176,10 @@ export default function SalesRecapPage() {
         setSelectedQtyHeader(autoQty);
         setSelectedPriceHeader(autoPrice);
 
+        setCustomNameInput('');
+        setCustomQtyInput('');
+        setCustomPriceInput('');
+
         setShowMappingStep(true);
       } catch (err) {
         console.error('Error reading file headers:', err);
@@ -175,6 +187,14 @@ export default function SalesRecapPage() {
       }
     };
     reader.readAsBinaryString(file);
+  };
+
+  // LOGIKA HELPER MENDAPATKAN KEY HEADER AKTIF (DARI DROPDOWN ATAU CUSTOM INPUT)
+  const getEffectiveHeaderKey = (selectedOption: string, customInput: string) => {
+    if (selectedOption === 'CUSTOM') {
+      return customInput.trim();
+    }
+    return selectedOption;
   };
 
   // LOGIKA KONFIRMASI SIMPAN DATA HASIL MAPPING KE FIRESTORE (STEP 2)
@@ -191,6 +211,10 @@ export default function SalesRecapPage() {
       return;
     }
 
+    const finalNameHeader = getEffectiveHeaderKey(selectedNameHeader, customNameInput);
+    const finalQtyHeader = getEffectiveHeaderKey(selectedQtyHeader, customQtyInput);
+    const finalPriceHeader = getEffectiveHeaderKey(selectedPriceHeader, customPriceInput);
+
     setIsImporting(true);
 
     try {
@@ -199,9 +223,13 @@ export default function SalesRecapPage() {
       const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
 
       parsedRawRows.forEach((row, index) => {
-        const nameVal = row[selectedNameHeader] ? String(row[selectedNameHeader]) : `Produk Impor #${index + 1}`;
-        const qtyVal = Number(String(row[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
-        const priceVal = Number(String(row[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+        const rawName = row[finalNameHeader];
+        const rawQty = row[finalQtyHeader];
+        const rawPrice = row[finalPriceHeader];
+
+        const nameVal = rawName ? String(rawName) : `Produk Impor #${index + 1}`;
+        const qtyVal = Number(String(rawQty || 1).replace(/\D/g, '')) || 1;
+        const priceVal = Number(String(rawPrice || 15000).replace(/\D/g, '')) || 15000;
 
         calculatedUnits += qtyVal;
         calculatedTotalNominal += priceVal * qtyVal;
@@ -246,7 +274,7 @@ export default function SalesRecapPage() {
     }
   };
 
-  // ─── LOGIKA SIMULASI WEBHOOK BAYANGAN (DEMO LOMBA / PENJURIAN) ───
+  // ─── LOGIKA SIMULASI WEBHOOK BAYANGAN ───
   const handleExecuteWebhookDemo = async (source: 'Shopee' | 'TikTok Shop' | 'Tokopedia') => {
     const availableProducts = products.filter((p) => p.stockCount > 0);
 
@@ -545,8 +573,6 @@ export default function SalesRecapPage() {
           <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">Log Riwayat Unggahan Rekap & Opname</h2>
 
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
-
-            {/* 💥 DROPDOWN FILTER DENGAN DAFTAR DINAMIS TERMASUK CUSTOM 💥 */}
             <select
               className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px] cursor-pointer"
               value={selectedSourceFilter}
@@ -811,7 +837,7 @@ export default function SalesRecapPage() {
         </div>
       )}
 
-      {/* ─── MODAL IMPOR REKAP DENGAN TEKS PETUNJUK INFORMASI & SMART COLUMN MAPPING ─── */}
+      {/* ─── MODAL IMPOR REKAP DENGAN CUSTOM COLUMN HEADER MAPPING ─── */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
@@ -828,7 +854,7 @@ export default function SalesRecapPage() {
               </button>
             </div>
 
-            {/* STEP 1: PILIH FILE & TANGGAL DENGAN PETUNJUK USER-FRIENDLY */}
+            {/* STEP 1: PILIH FILE & TANGGAL */}
             {!showMappingStep ? (
               <div className="flex flex-col gap-3.5 text-xs">
 
@@ -923,18 +949,20 @@ export default function SalesRecapPage() {
                 </div>
               </div>
             ) : (
-              /* STEP 2: PENYESUAIAN MAPPING KOLOM & PRATINJAU HASIL BACA */
+              /* STEP 2: PENYESUAIAN MAPPING KOLOM DENGAN OPSI CUSTOM NAME INPUT */
               <div className="flex flex-col gap-3.5 text-xs">
                 <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-[11px] text-emerald-800 font-bold">
                   ✓ Berhasil membaca {parsedRawRows.length} baris dari file: <span className="underline">{importFile?.name}</span>
                 </div>
 
-                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-2">
+                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-3">
                   <span className="font-black text-[#5F1E1E] text-[10px] uppercase">
                     SAMAKAN KOLOM FILE EXCEL KAMU DENGAN SISTEM:
                   </span>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                    {/* DROPDOWN + CUSTOM INPUT NAMA PRODUK */}
                     <div className="flex flex-col gap-1">
                       <label className="text-[9px] font-bold text-slate-600">Kolom Nama Produk:</label>
                       <select
@@ -945,9 +973,22 @@ export default function SalesRecapPage() {
                         {availableHeaders.map((h) => (
                           <option key={h} value={h}>{h}</option>
                         ))}
+                        <option value="CUSTOM">➕ Ketik Custom Header...</option>
                       </select>
+
+                      {selectedNameHeader === 'CUSTOM' && (
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nama kolom Excel..."
+                          className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white focus:outline-none animate-scaleUp mt-1"
+                          value={customNameInput}
+                          onChange={(e) => setCustomNameInput(e.target.value)}
+                        />
+                      )}
                     </div>
 
+                    {/* DROPDOWN + CUSTOM INPUT JUMLAH (QTY) */}
                     <div className="flex flex-col gap-1">
                       <label className="text-[9px] font-bold text-slate-600">Kolom Jumlah (Qty):</label>
                       <select
@@ -958,9 +999,22 @@ export default function SalesRecapPage() {
                         {availableHeaders.map((h) => (
                           <option key={h} value={h}>{h}</option>
                         ))}
+                        <option value="CUSTOM">➕ Ketik Custom Header...</option>
                       </select>
+
+                      {selectedQtyHeader === 'CUSTOM' && (
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nama kolom Qty..."
+                          className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white focus:outline-none animate-scaleUp mt-1"
+                          value={customQtyInput}
+                          onChange={(e) => setCustomQtyInput(e.target.value)}
+                        />
+                      )}
                     </div>
 
+                    {/* DROPDOWN + CUSTOM INPUT HARGA JUAL */}
                     <div className="flex flex-col gap-1">
                       <label className="text-[9px] font-bold text-slate-600">Kolom Harga Jual:</label>
                       <select
@@ -971,12 +1025,25 @@ export default function SalesRecapPage() {
                         {availableHeaders.map((h) => (
                           <option key={h} value={h}>{h}</option>
                         ))}
+                        <option value="CUSTOM">➕ Ketik Custom Header...</option>
                       </select>
+
+                      {selectedPriceHeader === 'CUSTOM' && (
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nama kolom Harga..."
+                          className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white focus:outline-none animate-scaleUp mt-1"
+                          value={customPriceInput}
+                          onChange={(e) => setCustomPriceInput(e.target.value)}
+                        />
+                      )}
                     </div>
+
                   </div>
                 </div>
 
-                {/* PRATINJAU 3 BARIS DATA PERTAMA */}
+                {/* PRATINJAU DATA PERTAMA */}
                 <div className="flex flex-col gap-1">
                   <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
                     PRATINJAU CONTOH DATA HASIL MEMBACA:
@@ -992,9 +1059,14 @@ export default function SalesRecapPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-200 font-semibold">
                         {parsedRawRows.slice(0, 3).map((r, i) => {
-                          const pName = r[selectedNameHeader] || '-';
-                          const pQty = Number(String(r[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
-                          const pPrice = Number(String(r[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+                          const effNameKey = getEffectiveHeaderKey(selectedNameHeader, customNameInput);
+                          const effQtyKey = getEffectiveHeaderKey(selectedQtyHeader, customQtyInput);
+                          const effPriceKey = getEffectiveHeaderKey(selectedPriceHeader, customPriceInput);
+
+                          const pName = r[effNameKey] || '-';
+                          const pQty = Number(String(r[effQtyKey] || 1).replace(/\D/g, '')) || 1;
+                          const pPrice = Number(String(r[effPriceKey] || 15000).replace(/\D/g, '')) || 15000;
+
                           return (
                             <tr key={i}>
                               <td className="p-1 truncate max-w-[150px]">{pName}</td>
