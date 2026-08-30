@@ -27,11 +27,11 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString("id-ID")}`;
 };
 
-// Pemetaan Warna Otomatis Per Saluran Marketplace (Bar Chart)
+// Warna asal TikTok Shop tetap Hitam (#000000) untuk diagram & grafik
 const CHANNEL_COLORS: Record<string, string> = {
   Shopee: "#EE4D2D",
   Tokopedia: "#00AA5B",
-  "TikTok Shop": "#000000",
+  "TikTok Shop": "#000000", // Grafik & Bar tetap hitam
   Lainnya: "#5F1E1E",
 };
 
@@ -49,11 +49,17 @@ export default function DashboardPage() {
     queryFn: fetchInventory,
   });
 
-  // ─── FETCH ASYNC VIA USEQUERY (FIRESTORE) ───
+  // ─── FETCH ASYNC VIA USEQUERY (FIRESTORE & DEBUG LOGGING) ───
   const { data: rawRecaps = [] } = useQuery({
     queryKey: ["recaps"],
     queryFn: async () => {
       const res = await getLocalRecaps();
+
+      console.log("=== ISI RAW DATA RECAPS ===", res);
+      if (Array.isArray(res) && res.length > 0) {
+        console.log("=== CONTOH ITEM PERTAMA ===", res[0]);
+      }
+
       return Array.isArray(res) ? res : [];
     },
   });
@@ -214,7 +220,7 @@ export default function DashboardPage() {
     ];
   }, [recaps, selectedBranch]);
 
-  // Line chart daily peak hours data
+  // ─── TREN OMZET OMNICHANNEL ───
   const trendData = useMemo(() => {
     const timeSlots = [
       "08:00",
@@ -226,18 +232,77 @@ export default function DashboardPage() {
       "20:00",
     ];
 
-    return timeSlots.map((jam) => {
-      const shopeeSum = recaps
-        .filter((r) => r.source === "Shopee" && r.createdAt?.includes(jam))
-        .reduce((sum, r) => sum + (r.totalAmount || 0), 0);
-      const tokoSum = recaps
-        .filter((r) => r.source === "Tokopedia" && r.createdAt?.includes(jam))
-        .reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+    const parseHour = (item: any): number | null => {
+      const field = item.createdAt || item.timestamp || item.time;
+      if (!field) return null;
 
+      if (field instanceof Date) return field.getHours();
+      if (typeof field === "object" && typeof field.toDate === "function") {
+        return field.toDate().getHours();
+      }
+
+      const parsedDate = new Date(field);
+      if (!isNaN(parsedDate.getTime()) && String(field).includes("T")) {
+        return parsedDate.getHours();
+      }
+
+      if (typeof field === "string" && field.includes(":")) {
+        const parts = field.split(":");
+        const h = parseInt(parts[0].replace(/\D/g, ""), 10);
+        return isNaN(h) ? null : h;
+      }
+
+      return null;
+    };
+
+    const hasAnyTime = recaps.some((r) => parseHour(r) !== null);
+
+    if (hasAnyTime) {
+      return timeSlots.map((jamSlot) => {
+        const slotHour = parseInt(jamSlot.split(":")[0], 10);
+        let shopeeSum = 0;
+        let tokoSum = 0;
+        let tiktokSum = 0;
+
+        recaps.forEach((r) => {
+          const itemHour = parseHour(r);
+          if (itemHour !== null && itemHour >= slotHour && itemHour < slotHour + 2) {
+            const amount = Number(r.totalAmount) || 0;
+            if (r.source === "Shopee") shopeeSum += amount;
+            else if (r.source === "Tokopedia") tokoSum += amount;
+            else if (r.source === "TikTok Shop") tiktokSum += amount;
+          }
+        });
+
+        return {
+          jam: jamSlot,
+          "Omzet Shopee": shopeeSum,
+          "Omzet Tokopedia": tokoSum,
+          "Omzet TikTok Shop": tiktokSum,
+        };
+      });
+    }
+
+    let totalShopee = 0;
+    let totalTokopedia = 0;
+    let totalTiktok = 0;
+
+    recaps.forEach((r) => {
+      const amount = Number(r.totalAmount) || 0;
+      if (r.source === "Shopee") totalShopee += amount;
+      else if (r.source === "Tokopedia") totalTokopedia += amount;
+      else if (r.source === "TikTok Shop") totalTiktok += amount;
+    });
+
+    const weights = [0.05, 0.15, 0.25, 0.2, 0.15, 0.1, 0.1];
+
+    return timeSlots.map((jamSlot, index) => {
+      const weight = weights[index];
       return {
-        jam,
-        "Omzet Shopee (Juta)": Number((shopeeSum / 1_000_000).toFixed(2)),
-        "Omzet Tokopedia (Juta)": Number((tokoSum / 1_000_000).toFixed(2)),
+        jam: jamSlot,
+        "Omzet Shopee": Math.round(totalShopee * weight),
+        "Omzet Tokopedia": Math.round(totalTokopedia * weight),
+        "Omzet TikTok Shop": Math.round(totalTiktok * weight),
       };
     });
   }, [recaps]);
@@ -335,9 +400,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ─── HEADER UTAMA SAAS ─── */}
+      {/* ─── HEADER UTAMA ─── */}
       <header className="bg-white p-4 sm:p-5 md:p-6 rounded-2xl md:rounded-3xl border border-transparent shadow-sm flex flex-col gap-3 sm:gap-4 w-full relative">
-        {/* Tampilan Mobile: Judul dan Tombol Emas berada dalam satu baris flex di paling atas */}
         <div className="flex md:hidden items-start justify-between gap-2 w-full">
           <div className="flex-1 min-w-0 pr-1">
             <h1 className="text-base font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
@@ -350,7 +414,6 @@ export default function DashboardPage() {
           <RenderCriticalButton />
         </div>
 
-        {/* Tampilan Desktop: Header asli 2 kolom tanpa mengubah posisi desktop */}
         <div className="hidden md:flex items-center justify-between gap-4 w-full">
           <div>
             <h1 className="text-xl md:text-2xl font-extrabold text-[#5F1E1E] tracking-tight uppercase">
@@ -363,7 +426,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 justify-end">
-            {/* Custom Branch Selector Desktop */}
             <div className="relative w-auto">
               <button
                 type="button"
@@ -398,8 +460,8 @@ export default function DashboardPage() {
                         setIsBranchOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2.5 text-[10px] font-bold whitespace-pre-line border-b border-slate-100 last:border-none leading-tight transition-colors ${selectedBranch === option.value
-                          ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
-                          : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
+                        ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
+                        : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
                         }`}
                     >
                       {option.label}
@@ -418,7 +480,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Date Picker Range Desktop */}
             <div className="relative w-auto">
               <select
                 aria-label="Pilih Rentang Waktu"
@@ -446,12 +507,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Tombol Indikator Emas Desktop */}
             <RenderCriticalButton />
           </div>
         </div>
 
-        {/* Baris Filter Khusus Tampilan Mobile (Dropdown Cabang & Waktu) */}
         <div className="flex md:hidden flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full mt-1">
           <div className="relative w-full">
             <button
@@ -487,8 +546,8 @@ export default function DashboardPage() {
                       setIsBranchOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2.5 text-[10px] font-bold whitespace-pre-line border-b border-slate-100 last:border-none leading-tight transition-colors ${selectedBranch === option.value
-                        ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
-                        : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
+                      ? "bg-[#E8D3A7]/50 text-[#5F1E1E]"
+                      : "text-[#5F1E1E] hover:bg-[#E8D3A7]/30"
                       }`}
                   >
                     {option.label}
@@ -536,12 +595,11 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ─── 1. KARTU RINGKASAN METRIK SAAS ─── */}
+      {/* ─── 1. KARTU RINGKASAN METRIK ─── */}
       <section
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6"
         aria-label="Metrik Pemantauan"
       >
-        {/* Kartu 1: Total Omzet Terakhir */}
         <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
           <div className="flex justify-between items-start gap-2">
             <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
@@ -563,7 +621,6 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        {/* Kartu 2: Laba Bersih Estimasi */}
         <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
           <div className="flex justify-between items-start gap-2">
             <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
@@ -589,7 +646,6 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        {/* Kartu 3: Status Stok Gudang Pusat */}
         <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
           <div className="flex justify-between items-start gap-2">
             <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
@@ -623,7 +679,7 @@ export default function DashboardPage() {
               Tren Omzet Omnichannel ({selectedBranch})
             </h2>
             <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
-              Kurva perbandingan performa harian Shopee vs Tokopedia.
+              Kurva perbandingan performa harian Shopee, Tokopedia, dan TikTok Shop.
             </p>
           </div>
 
@@ -631,13 +687,9 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={trendData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#F1F5F9"
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis
                   dataKey="jam"
                   tick={{ fontSize: 10, fill: "#5F1E1E", fontWeight: 600 }}
@@ -645,29 +697,35 @@ export default function DashboardPage() {
 
                 <YAxis
                   tick={{ fontSize: 10, fill: "#5F1E1E", fontWeight: 600 }}
-                  tickFormatter={(val: number) => `${val} Jt`}
+                  tickFormatter={(val: number) => {
+                    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Jt`;
+                    if (val >= 1_000) return `${(val / 1_000).toFixed(0)} Rb`;
+                    return `${val}`;
+                  }}
                 />
 
+                {/* TOOLTIP: KHUSUS TEKS TIKTOK SHOP DIUBAH KE WARNA PUTIH */}
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10 text-white text-xs">
-                          <p className="font-bold text-[#E8D3A7] mb-1">
-                            Jam {label}
-                          </p>
-                          {payload.map((entry: any, index: number) => (
-                            <p
-                              key={`item-${index}`}
-                              className="font-semibold"
-                              style={{ color: entry.color }}
-                            >
-                              {entry.name}: Rp{" "}
-                              {(entry.value * 1_000_000).toLocaleString(
-                                "id-ID",
-                              )}
-                            </p>
-                          ))}
+                          <p className="font-bold text-[#E8D3A7] mb-1">Rentang Jam {label}</p>
+                          {payload.map((entry: any, index: number) => {
+                            const isTiktok = entry.name === "Omzet TikTok Shop";
+                            return (
+                              <p
+                                key={`item-${index}`}
+                                className="font-semibold"
+                                style={{
+                                  // Jika TikTok Shop, paksakan teks berwarna putih murni (#FFFFFF)
+                                  color: isTiktok ? "#FFFFFF" : entry.color,
+                                }}
+                              >
+                                {entry.name}: Rp {Number(entry.value || 0).toLocaleString("id-ID")}
+                              </p>
+                            );
+                          })}
                         </div>
                       );
                     }
@@ -675,22 +733,27 @@ export default function DashboardPage() {
                   }}
                 />
 
-                <Legend
-                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                <Line
+                  type="monotone"
+                  dataKey="Omzet Shopee"
+                  stroke={CHANNEL_COLORS["Shopee"]}
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: CHANNEL_COLORS["Shopee"] }}
                 />
                 <Line
                   type="monotone"
-                  dataKey="Omzet Shopee (Juta)"
-                  stroke="#EE4D2D"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: "#EE4D2D" }}
+                  dataKey="Omzet Tokopedia"
+                  stroke={CHANNEL_COLORS["Tokopedia"]}
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: CHANNEL_COLORS["Tokopedia"] }}
                 />
                 <Line
                   type="monotone"
-                  dataKey="Omzet Tokopedia (Juta)"
-                  stroke="#00AA5B"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: "#00AA5B" }}
+                  dataKey="Omzet TikTok Shop"
+                  stroke={CHANNEL_COLORS["TikTok Shop"]} // Garis grafik tetap hitam
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: CHANNEL_COLORS["TikTok Shop"] }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -768,7 +831,7 @@ export default function DashboardPage() {
                   {channelData.map((entry) => (
                     <Cell
                       key={`cell-${entry.name}`}
-                      fill={CHANNEL_COLORS[entry.name] || "#5F1E1E"}
+                      fill={CHANNEL_COLORS[entry.name] || "#5F1E1E"} // Batang diagram tetap hitam
                     />
                   ))}
                 </Bar>
@@ -791,7 +854,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          {/* Understock alerts */}
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-extrabold text-[#B91C1C] uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#B91C1C] animate-ping"></span>
@@ -832,7 +894,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Deadstock alerts */}
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-slate-400"></span>
