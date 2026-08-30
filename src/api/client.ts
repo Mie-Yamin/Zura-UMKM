@@ -96,7 +96,15 @@ export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
   const uid = getCurrentUserId();
   if (!uid) throw new Error("User belum login");
 
-  const payload = { ...recap, userId: uid };
+  const now = new Date();
+
+  // Menambahkan timestamp presisi (ISO string) jika belum tersedia di payload
+  const payload = {
+    ...recap,
+    createdAt: recap.createdAt || now.toISOString(),
+    userId: uid,
+  };
+
   const docRef = await addDoc(recapsRef, payload);
   return { id: docRef.id, ...payload };
 }

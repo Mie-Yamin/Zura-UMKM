@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingDown, Users, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { auth } from '../config/firebase';
 
 export default function AntiGravityLandingPage() {
@@ -10,18 +10,27 @@ export default function AntiGravityLandingPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  const products = [
+  // Menggunakan file SVG dari folder public/preview/
+  const slideScreenshots = [
     {
-      name: 'TEH BOTOL',
-      image: 'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/11/17/572cbf08-f40b-4dc1-beea-2ef83c8ffbf8.png',
+      image: '/preview/PageDashboard.svg',
+      alt: 'Dashboard Overview',
     },
     {
-      name: 'MIE GORENG',
-      image: 'https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png',
+      image: '/preview/PageRecap.svg',
+      alt: 'Rekap Penjualan',
     },
     {
-      name: 'BENG - BENG',
-      image: 'https://images.tokopedia.net/img/cache/700/VqbcmM/2021/4/27/c887201c-6d87-43ca-a387-9556ee252fdf.png',
+      image: '/preview/PageStok.svg',
+      alt: 'Manajemen Stok',
+    },
+    {
+      image: '/preview/PageFinance.svg',
+      alt: 'Laporan Keuangan',
+    },
+    {
+      image: '/preview/PageAi.svg',
+      alt: 'AI Insight & Prediksi',
     },
   ];
 
@@ -74,6 +83,46 @@ export default function AntiGravityLandingPage() {
       navigate('/login');
     }
   };
+
+  // Komponen Bingkai Gambar Berhias Emas
+  const ImageFrame = ({ src, alt }: { src: string; alt: string }) => (
+    <div className="relative w-full max-w-xs sm:max-w-md lg:max-w-xl mx-auto flex items-center justify-center p-4">
+
+      {/* Glow Effect / Cahaya Emas Belakang Bingkai */}
+      <div className="absolute inset-2 bg-[#E8D3A7]/20 rounded-3xl blur-2xl pointer-events-none" />
+
+      {/* Outer Decorative Container */}
+      <div className="relative w-full bg-gradient-to-b from-[#702424] to-[#4A1717] rounded-2xl p-3 sm:p-4 border-2 border-[#E8D3A7]/60 shadow-[0_0_30px_rgba(232,211,167,0.2)] group transition-all duration-500 hover:shadow-[0_0_40px_rgba(232,211,167,0.35)]">
+
+        {/* Hiasan Ornamen Klasik di 4 Sudut Bingkai */}
+        <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-[#E8D3A7] rounded-tl-lg pointer-events-none" />
+        <div className="absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 border-[#E8D3A7] rounded-tr-lg pointer-events-none" />
+        <div className="absolute -bottom-2 -left-2 w-6 h-6 border-b-2 border-l-2 border-[#E8D3A7] rounded-bl-lg pointer-events-none" />
+        <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-[#E8D3A7] rounded-br-lg pointer-events-none" />
+
+        {/* Top Window Bar (Gaya Mockup Aplikasi) */}
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E8D3A7]/20 px-1">
+          <div className="flex space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E8D3A7]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E8D3A7]/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E8D3A7]/30" />
+          </div>
+          <span className="text-[10px] tracking-widest text-[#E8D3A7]/70 font-dmsans uppercase">
+            Preview Interface
+          </span>
+        </div>
+
+        {/* Container Gambar Utama */}
+        <div className="relative w-full aspect-[16/10] bg-black/40 rounded-xl overflow-hidden border border-[#E8D3A7]/30">
+          <img
+            src={src}
+            alt={alt}
+            className="w-full h-full object-contain rounded-xl transition-transform duration-500 group-hover:scale-[1.02]"
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-[#5F1E1E] text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500">
@@ -243,74 +292,7 @@ export default function AntiGravityLandingPage() {
               </div>
             </div>
 
-            <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-              <div className="absolute top-0 left-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-4 shadow-2xl z-10">
-                <div className="grid grid-cols-3 gap-1.5 md:gap-2 mb-3 md:mb-4">
-                  <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-300">Today's Revenue</p>
-                    <p className="text-[10px] md:text-xs font-bold text-red-400 flex items-center justify-center gap-0.5 md:gap-1">
-                      <TrendingDown className="w-2.5 h-2.5 md:w-3 md:h-3" /> Rp 6.700.000
-                    </p>
-                  </div>
-                  <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-300">Transaction</p>
-                    <p className="text-[10px] md:text-xs font-bold flex items-center justify-center gap-0.5 md:gap-1">
-                      <Users className="w-2.5 h-2.5 md:w-3 md:h-3" /> 2902
-                    </p>
-                  </div>
-                  <div className="bg-neutral-800 text-white p-1.5 md:p-2 rounded-md text-center flex flex-col justify-center items-center">
-                    <p className="text-[8px] md:text-[10px] text-gray-300">Best Seller</p>
-                    <img
-                      src="https://images.tokopedia.net/img/cache/700/OALuTo/2020/12/3/c88746c8-53e3-4b68-ab68-3d207399432f.png"
-                      alt="Best Seller"
-                      className="w-4 h-4 md:w-5 md:h-5 object-contain mt-0.5 md:mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div className="h-20 md:h-32 border-b border-l border-gray-400 relative flex items-end p-1.5 md:p-2">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 50">
-                    <path
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M 0 35 L 25 20 L 50 40 L 75 10"
-                    />
-                    <path
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M 75 10 L 100 25"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              <div className="absolute bottom-1 md:bottom-2 right-0 w-4/5 bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl z-20">
-                <h2 className="text-sm md:text-lg font-black text-center mb-2 md:mb-4 tracking-wider">DAFTAR PRODUK</h2>
-                <div className="grid grid-cols-3 gap-2 md:gap-3">
-                  {products.map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center group">
-                      <div className="bg-[#8E24AA] w-full aspect-square rounded-lg md:rounded-xl p-1.5 md:p-2 flex items-center justify-center mb-1.5 md:mb-2 shadow-md">
-                        <img src={item.image} alt={item.name} className="max-h-full object-contain" />
-                      </div>
-                      <span className="text-[8px] md:text-[10px] font-bold text-center leading-tight mb-0.5 md:mb-1">{item.name}</span>
-                      <button
-                        type="button"
-                        onClick={handleLoginClick}
-                        className="bg-black text-white text-[7px] md:text-[8px] px-1.5 md:px-2 py-0.5 rounded-full hover:bg-gray-800 transition cursor-pointer"
-                      >
-                        Cek Rincian →
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <ImageFrame src={slideScreenshots[0].image} alt={slideScreenshots[0].alt} />
           </div>
         </section>
 
@@ -331,62 +313,7 @@ export default function AntiGravityLandingPage() {
               </p>
             </div>
 
-            <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-              <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
-                <div className="grid grid-cols-2 gap-2 md:gap-4 mb-2 md:mb-4">
-                  <div className="bg-neutral-800 text-white p-2 md:p-3 rounded-lg text-center shadow-md">
-                    <p className="text-[8px] md:text-[10px] text-gray-300 font-medium">Total Penjualan</p>
-                    <p className="text-xs md:text-sm font-black text-emerald-400 mt-0.5 md:mt-1">Rp 24.500.000</p>
-                    <span className="text-[8px] md:text-[9px] text-emerald-300 font-semibold block mt-0.5">+12.4% vs last week</span>
-                  </div>
-                  <div className="bg-neutral-800 text-white p-2 md:p-3 rounded-lg text-center shadow-md">
-                    <p className="text-[8px] md:text-[10px] text-gray-300 font-medium">Total Transaksi</p>
-                    <p className="text-xs md:text-sm font-black text-yellow-400 mt-0.5 md:mt-1">1,240 Transaksi</p>
-                    <span className="text-[8px] md:text-[9px] text-yellow-300 font-semibold block mt-0.5">+8.1% vs last week</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 min-h-[80px] md:min-h-[140px] border-b border-l border-gray-300 relative flex items-end justify-around px-2 md:px-4 pt-2 md:pt-4 pb-1 bg-gray-50/50 rounded-lg mb-2 md:mb-4">
-                  <div className="flex flex-col items-center w-6 md:w-8">
-                    <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-8 md:h-12" />
-                    <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Sen</span>
-                  </div>
-                  <div className="flex flex-col items-center w-6 md:w-8">
-                    <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-12 md:h-20" />
-                    <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Sel</span>
-                  </div>
-                  <div className="flex flex-col items-center w-6 md:w-8">
-                    <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-10 md:h-16" />
-                    <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Rab</span>
-                  </div>
-                  <div className="flex flex-col items-center w-6 md:w-8">
-                    <div className="w-3 md:w-4 bg-emerald-500 rounded-t-sm h-16 md:h-28" />
-                    <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Kam</span>
-                  </div>
-                  <div className="flex flex-col items-center w-6 md:w-8">
-                    <div className="w-3 md:w-4 bg-emerald-600 rounded-t-sm h-14 md:h-24" />
-                    <span className="text-[7px] md:text-[9px] font-bold text-gray-500 mt-0.5 md:mt-1">Jum</span>
-                  </div>
-                </div>
-
-                <div className="bg-neutral-800 text-white rounded-lg p-2 md:p-3">
-                  <div className="flex justify-between items-center border-b border-neutral-700 pb-1 md:pb-1.5 mb-1 md:mb-1.5">
-                    <span className="text-[8px] md:text-[10px] font-black text-amber-400">TRANSAKSI TERBARU</span>
-                    <span className="text-[7px] md:text-[9px] text-gray-400">Live POS</span>
-                  </div>
-                  <div className="space-y-0.5 md:space-y-1 text-[8px] md:text-[10px]">
-                    <div className="flex justify-between">
-                      <span>Teh Botol (3 pcs)</span>
-                      <span className="font-bold text-emerald-400">Rp 15.000</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Mie Goreng (2 pcs)</span>
-                      <span className="font-bold text-emerald-400">Rp 7.000</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ImageFrame src={slideScreenshots[1].image} alt={slideScreenshots[1].alt} />
           </div>
         </section>
 
@@ -407,76 +334,7 @@ export default function AntiGravityLandingPage() {
               </p>
             </div>
 
-            <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-[280px] sm:h-[340px] md:h-[380px] lg:h-[440px]">
-              <div className="w-full bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-3 md:p-5 shadow-2xl border border-gray-100 flex flex-col justify-between h-full">
-                <div className="flex justify-between items-center mb-2 md:mb-4 border-b border-gray-200 pb-2 md:pb-3">
-                  <div>
-                    <h3 className="text-xs md:text-sm font-black tracking-wider text-neutral-700">STATUS INVENTORY</h3>
-                    <p className="text-[8px] md:text-[10px] text-gray-500 font-medium">Auto-Sync Zura Cloud</p>
-                  </div>
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <span className="bg-red-100 text-red-700 text-[8px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 rounded-full">4 Menipis</span>
-                    <span className="bg-neutral-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 rounded-full">158 SKU</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-hidden mb-2 md:mb-4">
-                  <table className="w-full text-left border-collapse text-[8px] md:text-[10px]">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-gray-400 font-bold">
-                        <th className="pb-1 md:pb-1.5 font-bold">Produk</th>
-                        <th className="pb-1 md:pb-1.5 font-bold hidden sm:table-cell">SKU</th>
-                        <th className="pb-1 md:pb-1.5 font-bold">Stok</th>
-                        <th className="pb-1 md:pb-1.5 font-bold">Status</th>
-                        <th className="pb-1 md:pb-1.5 font-bold hidden sm:table-cell">AI Forecast</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 font-semibold text-neutral-800">
-                      <tr>
-                        <td className="py-1.5 md:py-2 flex items-center gap-1 md:gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                          Teh Botol
-                        </td>
-                        <td className="py-1.5 md:py-2 text-gray-500 hidden sm:table-cell">TB-250ML</td>
-                        <td className="py-1.5 md:py-2">120 Pcs</td>
-                        <td className="py-1.5 md:py-2 text-emerald-600">Aman</td>
-                        <td className="py-1.5 md:py-2 text-neutral-700 font-bold hidden sm:table-cell">Restock +50</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 md:py-2 flex items-center gap-1 md:gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                          Mie Goreng
-                        </td>
-                        <td className="py-1.5 md:py-2 text-gray-500 hidden sm:table-cell">MG-IND</td>
-                        <td className="py-1.5 md:py-2 font-bold text-red-600">8 Pcs</td>
-                        <td className="py-1.5 md:py-2 text-red-600 font-bold">Menipis</td>
-                        <td className="py-1.5 md:py-2 text-amber-600 font-extrabold hidden sm:table-cell">Restock +200!</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 md:py-2 flex items-center gap-1 md:gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                          Beng-Beng
-                        </td>
-                        <td className="py-1.5 md:py-2 text-gray-500 hidden sm:table-cell">BB-20G</td>
-                        <td className="py-1.5 md:py-2">45 Pcs</td>
-                        <td className="py-1.5 md:py-2 text-emerald-600">Aman</td>
-                        <td className="py-1.5 md:py-2 text-gray-400 font-normal hidden sm:table-cell">Aman</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 md:p-3 text-neutral-800">
-                  <div className="flex items-center space-x-1.5 md:space-x-2 mb-0.5 md:mb-1">
-                    <span className="text-[8px] md:text-[10px] font-bold text-amber-700">Rekomendasi Restock AI</span>
-                    <span className="bg-amber-100 text-amber-800 text-[7px] md:text-[8px] px-1 md:px-1.5 py-0.5 rounded font-black">PENTING</span>
-                  </div>
-                  <p className="text-[8px] md:text-[9px] leading-relaxed text-neutral-600">
-                    Lakukan pemesanan <strong>Mie Goreng (200 pcs)</strong> sebelum akhir pekan untuk menghindari kekosongan stok.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ImageFrame src={slideScreenshots[2].image} alt={slideScreenshots[2].alt} />
           </div>
         </section>
 
@@ -496,12 +354,8 @@ export default function AntiGravityLandingPage() {
                 Pantau laba rugi, arus kas, dan margin keuntungan harian secara otomatis tanpa perhitungan manual.
               </p>
             </div>
-            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl">
-              <h3 className="font-bold text-xl mb-2 text-neutral-800">Ringkasan Keuangan Toko</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Setiap transaksi terhubung langsung dengan catatan arus kas untuk memastikan keuangan ritel kamu selalu transparan.
-              </p>
-            </div>
+
+            <ImageFrame src={slideScreenshots[3].image} alt={slideScreenshots[3].alt} />
           </div>
         </section>
 
@@ -521,25 +375,14 @@ export default function AntiGravityLandingPage() {
                 Gunakan rekomendasi bertenaga AI untuk memprediksi tren penjualan dan kelola toko kamu dengan lebih efisien.
               </p>
             </div>
-            <div className="bg-white/95 backdrop-blur-md text-gray-800 rounded-xl p-6 shadow-2xl flex flex-col items-center text-center">
-              <h3 className="font-bold text-xl mb-2 text-neutral-800">Siap Mengembangkan Usaha?</h3>
-              <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                Akses dashboard manajemen Zura Retail langsung dari browser kamu.
-              </p>
-              <button
-                type="button"
-                onClick={handleLoginClick}
-                className="bg-[#5F1E1E] text-white font-bold px-6 py-3 rounded-xl hover:bg-[#4A1717] transition-all cursor-pointer"
-              >
-                Masuk Sekarang
-              </button>
-            </div>
+
+            <ImageFrame src={slideScreenshots[4].image} alt={slideScreenshots[4].alt} />
           </div>
         </section>
 
       </div>
 
-      {/* Carousel Dots - DIBUAT 5 TITIK */}
+      {/* Carousel Dots - 5 TITIK */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-end items-center space-x-2 md:space-x-3 py-4 md:py-6 px-8 md:px-16 lg:px-24 max-w-7xl mx-auto bg-gradient-to-t from-[#5F1E1E]/80 to-transparent transition-colors duration-500">
         {[0, 1, 2, 3, 4].map((index) => (
           <button
