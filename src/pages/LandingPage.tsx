@@ -84,24 +84,24 @@ export default function AntiGravityLandingPage() {
     }
   };
 
-  // Komponen Bingkai Gambar Berhias Emas (Presisi Rasio 16:9)
+  // Komponen Bingkai Gambar Berhias Emas
   const ImageFrame = ({ src, alt }: { src: string; alt: string }) => (
     <div className="relative w-full max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto flex items-center justify-center p-2 sm:p-4">
 
-      {/* Glow Effect / Cahaya Emas Belakang Bingkai */}
+      {/* Glow Effect */}
       <div className="absolute inset-2 bg-[#E8D3A7]/20 rounded-3xl blur-2xl pointer-events-none" />
 
-      {/* Outer Decorative Container dengan Rasio Terkunci 16:9 */}
-      <div className="relative w-full aspect-[16/9] bg-gradient-to-b from-[#702424] to-[#4A1717] rounded-2xl p-2.5 sm:p-3.5 border-2 border-[#E8D3A7]/60 shadow-[0_0_30px_rgba(232,211,167,0.2)] group transition-all duration-500 hover:shadow-[0_0_40px_rgba(232,211,167,0.35)] flex flex-col">
+      {/* Outer Decorative Container */}
+      <div className="relative w-full aspect-[16/9] bg-gradient-to-b from-[#702424] to-[#4A1717] rounded-2xl p-2.5 sm:p-3.5 border-2 border-[#E8D3A7]/60 shadow-[0_0_30px_rgba(232,211,167,0.2)] group transition-all duration-500 hover:shadow-[0_0_40px_rgba(232,211,167,0.35)] flex flex-col overflow-hidden">
 
-        {/* Hiasan Ornamen Klasik di 4 Sudut Bingkai */}
-        <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-[#E8D3A7] rounded-tl-lg pointer-events-none" />
-        <div className="absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 border-[#E8D3A7] rounded-tr-lg pointer-events-none" />
-        <div className="absolute -bottom-2 -left-2 w-6 h-6 border-b-2 border-l-2 border-[#E8D3A7] rounded-bl-lg pointer-events-none" />
-        <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-[#E8D3A7] rounded-br-lg pointer-events-none" />
+        {/* Hiasan Ornamen Klasik */}
+        <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-[#E8D3A7] rounded-tl-lg pointer-events-none z-10" />
+        <div className="absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 border-[#E8D3A7] rounded-tr-lg pointer-events-none z-10" />
+        <div className="absolute -bottom-2 -left-2 w-6 h-6 border-b-2 border-l-2 border-[#E8D3A7] rounded-bl-lg pointer-events-none z-10" />
+        <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-[#E8D3A7] rounded-br-lg pointer-events-none z-10" />
 
-        {/* Top Window Bar (Gaya Mockup Aplikasi) */}
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E8D3A7]/20 px-1 shrink-0">
+        {/* Top Window Bar */}
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E8D3A7]/20 px-1 shrink-0 z-10">
           <div className="flex space-x-1.5">
             <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#E8D3A7]" />
             <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#E8D3A7]/60" />
@@ -112,12 +112,13 @@ export default function AntiGravityLandingPage() {
           </span>
         </div>
 
-        {/* Container Gambar Utama (Mengisi Penuh Seluruh Sisa Ruang Bingkai) */}
+        {/* Container Gambar Utama */}
         <div className="relative flex-1 w-full bg-black/40 rounded-xl overflow-hidden border border-[#E8D3A7]/30">
           <img
             src={src}
             alt={alt}
-            className="w-full h-full object-cover object-top rounded-xl transition-transform duration-500 group-hover:scale-[1.02]"
+            className="w-full h-auto transform -translate-y-6 sm:-translate-y-10 scale-105 transition-transform duration-500 group-hover:scale-110"
+          /* 👆 -translate-y-6 memaksa gambar bergeser naik ke atas! Ubah nilainya (-translate-y-8 / -translate-y-12) jika kurang naik */
           />
         </div>
       </div>
