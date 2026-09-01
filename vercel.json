@@ -20,8 +20,12 @@
                     "value": "camera=(), microphone=(), geolocation=()"
                 },
                 {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "https://zura-umkm.vercel.app"
+                },
+                {
                     "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.x.ai https://api.groq.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://zura-umkm.vercel.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://zura-umkm.vercel.app; connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.x.ai https://api.groq.com https://zura-umkm.vercel.app; object-src 'none'; media-src 'none'; worker-src 'self' blob:; frame-src 'self' https://*.firebaseapp.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; manifest-src 'self';"
                 }
             ]
         }
