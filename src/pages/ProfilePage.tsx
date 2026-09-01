@@ -14,6 +14,7 @@ import {
 } from "firebase/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../config/firebase";
+import { fetchUserSettings, updateUserSettings } from "../api/client";
 
 interface UserProfile {
   name: string;
@@ -158,10 +159,20 @@ export default function ProfilePage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  useEffect(() => {
+    fetchUserSettings().then((settings) => {
+      if (settings && Array.isArray(settings.sopTasks) && settings.sopTasks.length > 0) {
+        setSopTasks(settings.sopTasks);
+        localStorage.setItem("zura_sop_checklist", JSON.stringify(settings.sopTasks));
+      }
+    });
+  }, []);
+
   const saveSopTasks = (tasks: SopTask[]) => {
     setSopTasks(tasks);
     try {
       localStorage.setItem("zura_sop_checklist", JSON.stringify(tasks));
+      updateUserSettings({ sopTasks: tasks });
     } catch (e) {
       console.error("Gagal simpan SOP", e);
     }

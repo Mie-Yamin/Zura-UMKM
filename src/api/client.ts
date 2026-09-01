@@ -205,6 +205,42 @@ export async function fetchKpiSummary() {
 
 export const getKpiSummary = fetchKpiSummary;
 
+// ─── USER SETTINGS (CUSTOM CATEGORIES & SOP CHECKLIST) ────────────────────────
+const settingsRef = collection(db, 'user_settings');
+
+export async function fetchUserSettings() {
+  try {
+    const uid = getCurrentUserId();
+    if (!uid) return null;
+
+    const q = query(settingsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return snapshot.docs[0].data();
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return null;
+  }
+}
+
+export async function updateUserSettings(settingsData: Record<string, any>) {
+  const uid = getCurrentUserId();
+  if (!uid) return;
+
+  try {
+    const q = query(settingsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      await addDoc(settingsRef, { ...settingsData, userId: uid });
+    } else {
+      const docRef = doc(db, 'user_settings', snapshot.docs[0].id);
+      await updateDoc(docRef, settingsData);
+    }
+  } catch (error) {
+    console.error("Error updating user settings:", error);
+  }
+}
+
 // ─── INITIALIZATION ───────────────────────────────────────────────────────────
 
-export function initializeDatabase() { }
+export function initializeDatabase() { }
