@@ -1,21 +1,22 @@
 <div align="center">
-  
-  # ZURA
-  ### Empowering UMKM with Smart Omnichannel Analytics & AI-Driven Financial Clarity
-  
-  [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-success?style=for-the-badge)](https://zura-app.vercel.app)
-  [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/porvyyn/zura)
+
+  # 🏪 ZURA — UMKM Pulse
+  ### Multi-Channel Retail & Inventory Management Platform Powered by Event-Driven Sync & AI Copilot
+
+  [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-5F1E1E?style=for-the-badge&logo=vercel&logoColor=white)](https://zura-umkm.vercel.app)
+  [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/Mie-Yamin/Zura-UMKM)
   [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-  
+
   **Submission for ITECHNO CUP 2026 - Web Development**
-  
-  **By CARIIN NAMA TIM YG ANOMALI DONG**
-  
+
+  **By Tim Mie-Yamin (SMKN 8 Jakarta)**
+
 </div>
 
 ---
 
 ## 📋 Daftar Isi
+
 - [Tentang Proyek](#-tentang-proyek)
 - [Fitur Unggulan](#-fitur-unggulan)
 - [Demo & Screenshot](#-demo--screenshot)
@@ -34,24 +35,30 @@
 
 | Nama | Peran | GitHub |
 |------|-------|--------|
-| **Nahla Chika Khumaira** | Fullstack Developer | [@porvyyn](https://github.com/porvyyn) |
-| **Naurah Salsabila** | Fullstack Developer | [@Mie-Yamin](https://github.com/Mie-Yamin) |
-| **Ammar Daffa Ilyasa** | UI/UX Designer | [@ammar-daffa](https://github.com/ammar-daffa) |
+| **Naurah Salsabila** | Lead Full Stack & UI/UX Engineer | [@Mie-Yamin](https://github.com/Mie-Yamin) |
 
 ---
 
 ## 🎯 Tentang Proyek
 
 ### Latar Belakang
-Pesatnya pertumbuhan ekosistem *omnichannel* membawa tantangan besar bagi pelaku UMKM. Banyak pengusaha mikro menghadapi kebocoran margin akibat **kerumitan perhitungan biaya administrasi antar-marketplace**, ketidakakuratan pendataan **stok & SKU**, serta pencatatan riwayat transaksi harian yang terfragmentasi. Akibatnya, pemilik usaha kerap kesulitan mengetahui pendapatan bersih (*net profit*) secara *real-time* dan rentan mengalami kerugian finansial yang tak terdeteksi.
+Berdasarkan data Kementerian Koperasi dan UKM, Indonesia memiliki lebih dari 64 juta pelaku UMKM. Namun, banyak dari mereka mengalami kendala operasional saat berjualan secara **multi-channel** (Shopee, Tokopedia, TikTok Shop, dan Toko Fisik/Bazar). 
+
+Beberapa kendala utama yang sering dihadapi UMKM meliputi:
+1. **Overselling & Stok Mati (*Deadstock*)**: Ketidakselarasan stok antara toko fisik dan *marketplace* yang menyebabkan pembatalan pesanan konsumen secara sepihak.
+2. **Rekap Manual yang Menguras Waktu**: Pelaku usaha menghabiskan waktu bertajak-tajak setiap malam hanya untuk mencocokkan laporan transaksi Excel/CSV dari berbagai saluran penjual.
+3. **Format Laporan Berbeda-beda**: Format *export* laporan dari masing-masing *marketplace* tidak seragam, membingungkan pencatatan HPP dan Laba Rugi.
 
 ### Solusi yang Ditawarkan
-**ZURA** hadir sebagai platform *command center* operasional terpadu yang mentransformasi cara UMKM mengelola bisnis. Menggabungkan pencatatan otomatis presisi tinggi dengan kecerdasan buatan (*AI-Driven Analytics*), ZURA memangkas sisa waktu manualisasi data, mengeliminasi kesalahan kalkulasi biaya operasional/potongan marketplace, serta menyajikan estimasi laba bersih dan rekomendasi inventaris secara otomatis.
+**Zura (UMKM Pulse)** hadir sebagai platform manajemen ritel terintegrasi yang menyelesaikan masalah operasional UMKM melalui 3 pilar inovasi:
+- ⚡ **Event-Driven Webhook Real-Time Sync**: Setiap ada transaksi masuk di *marketplace*, stok di pusat otomatis terpotong detik itu juga.
+- 🧠 **Smart Column Auto-Mapping & Preview**: Membaca laporan CSV/Excel ekspor *marketplace* dengan nama kolom apa pun tanpa perlu *formatting* manual.
+- 🤖 **Zura AI Copilot (xAI Grok Engine)**: Asisten bisnis cerdas berbasis AI yang memberikan analisis krisis stok, omset, dan saran aksi bisnis secara *real-time*.
 
 ### Tujuan Proyek
-- 🎯 **Tujuan Utama**: Membantu UMKM meminimalisir kesalahan finansial, mengoptimalkan tata kelola stok, dan meningkatkan profitabilitas melalui analitik bisnis berbasis data presisi.
-- 📊 **Target Pengguna**: Pemilik UMKM, merchant marketplace (Shopee, Tokopedia, TikTok Shop, POS/Offline Store), serta manajer operasional gudang.
-- 💡 **Value Proposition**: Transparansi kalkulasi biaya adm *omnichannel* secara otomatis, pemantauan stok anti-understock, dan rekomendasi keputusan berbasis AI.
+- 🎯 **Tujuan Utama**: Menyediakan sistem inventaris dan rekap penjualan multi-saluran terpusat yang responsif, cepat, dan mudah digunakan oleh UMKM skala mikro hingga menengah.
+- 📊 **Target Pengguna**: Pemilik Usaha Kecil Menengah (UMKM Ritel, F&B, Fashion, dan Sembako) yang berjualan di *online marketplace* maupun toko fisik.
+- 💡 **Value Proposition**: Bebas penataan ulang format Excel, sinkronisasi otomatis multi-saluran, dan analisis cerdas AI Copilot berdesain ramah seluler (*mobile-first*).
 
 ---
 
@@ -60,39 +67,32 @@ Pesatnya pertumbuhan ekosistem *omnichannel* membawa tantangan besar bagi pelaku
 ### Fitur Utama
 
 | Fitur | Deskripsi | Keunggulan |
-|----------|--------------|---------------|
-| **Business Command Center** | Dashboard monitoring operasional terpadu yang menampilkan *revenue*, tren omzet harian, dan ringkasan KPI *omnichannel*. | Visualisasi grafik interaktif real-time dengan agregasi data jam-spesifik. |
-| **Rekap Penjualan Omnichannel** | Centralized hub untuk mencatat, mengimpor, dan mengelompokkan transaksi dari berbagai *channel* penjualan. | Dilengkapi presisi *timestamp* ISO harian untuk pelacakan transaksi akurat. |
-| **Manajemen Stok & SKU** | Sistem kontrol persediaan barang lintas gudang pusat dan cabang yang terintegrasi. | Pelacakan status stok (*Understock*, *Aman*) untuk mencegah kehabisan inventaris. |
-| **Laporan Keuangan (Finance)** | Modul pembukuan otomatis untuk melacak pendapatan kotor, potongan admin marketplace, dan estimasi laba bersih. | Transparansi perhitungan margin dan kemudahan ekspor laporan finansial. |
-| **AI Insight Hub** | Mesin analitik cerdas yang mengolah data penjualan harian menjadi analisis prediktif dan saran operasional. | Memberikan rekomendasi restock produk dan optimasi strategi penjualan secara otomatis. |
+|-------|-----------|------------|
+| ⚡ **Simulasi Webhook Event-Driven** | Menguji sinkronisasi pesanan dari Shopee, TikTok Shop, dan Tokopedia secara *real-time*. | Stok fisik di pusat otomatis terpotong instan tanpa perlu transaksi *marketplace* sungguhan saat demo. |
+| 📊 **Impor Excel & Smart Column Mapper** | Membaca laporan transaksi Excel/CSV dengan fitur deteksi header dan *custom column mapping*. | Pengguna bebas dari format tabel kaku. Bebas mengunggah nama header apa saja (*Barang*, *Qty*, *Harga Satuan*). |
+| 🤖 **Zura AI Copilot (xAI Grok Engine)** | Asisten AI interaktif yang terhubung ke database Firestore untuk menjawab pertanyaan bisnis. | Memberikan analisis kontekstual riil berdasarkan stok kritis dan total omset toko pengguna. |
+| 📦 **Manajemen Stok & Mode HPP Grosir** | Kalkulator otomatis HPP per pcs berdasarkan pembelian harga modal dus/grosir. | Mempermudah penentuan harga jual dan mendeteksi stok kritis/menipis secara presisi. |
 
 ### Fitur Tambahan
-- **Multi-Format Export**: Fitur pengunduhan laporan rekap dan inventaris ke dalam format PDF (`html2pdf.js`) dan Excel (`exceljs`/`xlsx`).
-- **Interactive Geospatial View**: Pemetaan sebaran lokasi cabang/gudang dan jangkauan pelanggan menggunakan Leaflet Map.
-- **Dynamic Time Filters**: Filter analitik otomatis (Hari Ini, 7 Hari Terakhir, 30 Hari Terakhir) berbasis query database presisi.
+
+- 🔄 **SOP Checklist Operasional Harian**: Daftar tugas rutinitas toko harian yang dapat di-reset, disesuaikan, atau menggunakan *preset template* (Online/F&B).
+- 🏷️ **Custom Saluran & Kategori Usaha**: Pencatatan dinamis untuk saluran jualan custom (WhatsApp, Bazar, Lazada) dan kategori produk kustom.
+- 📱 **Mobile-First Responsive Design**: Tampilan antarmuka khusus seluler (Card Stack, Flex Layout) yang nyaman diakses melalui smartphone.
+- 🛡️ **Pengaturan Keamanan Akun & Re-authentication**: Sistem autentikasi Firebase yang aman untuk pembaruan email, kata sandi, dan penghapusan akun.
 
 ---
 
 ## 📸 Demo & Screenshot
 
 ### Live Demo
-🔗 **[Kunjungi Website ZURA](https://zura-app.vercel.app)**
+🔗 **[Kunjungi Website Zura-UMKM](https://zura-umkm.vercel.app)**
 
 ### Screenshot Aplikasi
-<div align="center">
-  <img src="https://via.placeholder.com/800x450" alt="Homepage" width="800"/>
-  <p><em>Homepage - Tampilan utama platform ZURA</em></p>
-  
-  <img src="https://via.placeholder.com/800x450" alt="Dashboard" width="800"/>
-  <p><em>Business Command Center - Panel pemantauan omzet dan KPI harian</em></p>
-  
-  <img src="https://via.placeholder.com/800x450" alt="AI Hub" width="800"/>
-  <p><em>AI Insight Hub - Analisis prediktif keuangan dan inventaris berbasis AI</em></p>
-</div>
 
-### Video Demo
-📹 **[Link Video Demo Proyek](https://youtube.com)**
+<div align="center">
+  <img src="public/shopee.png" alt="Zura Platform Preview" width="800"/>
+  <p><em>Zura Multi-Channel Retail & Inventory Dashboard</em></p>
+</div>
 
 ---
 
@@ -101,159 +101,3 @@ Pesatnya pertumbuhan ekosistem *omnichannel* membawa tantangan besar bagi pelaku
 ### Tech Stack
 
 #### Frontend
-```text
-Framework    : React v18 (TypeScript) + Vite
-UI Library   : Tailwind CSS + Lucide React (Icons)
-Data Viz     : Recharts (Charts) + Leaflet (Interactive Maps)
-State & Fetch: TanStack React Query v5 + React Router DOM v6
-Document Gen : ExcelJS + XLSX + HTML2PDF.js
-Backend & Storage
-Plaintext
-Database & Auth : Firebase Firestore + Firebase Authentication (v12)
-Data Persistence: Server Timestamp & Real-time ISO Querying
-DevOps & Tools
-Plaintext
-Testing Framework : Vitest v2 + Testing Library (React/Jest-DOM)
-Code Quality      : TypeScript + PostCSS + Autoprefixer
-Build Tool        : Vite v5
-Alasan Pemilihan Teknologi
-Teknologi	Alasan Pemilihan
-React + TypeScript	Menjamin keandalan codebase jangka panjang dengan strict type safety, meminimalisir runtime error pada sistem kalkulasi finansial.
-Firebase Cloud Firestore	Solusi NoSQL Real-time berkinerja tinggi yang memungkinkan sinkronisasi data transaksi omnichannel secara fleksibel.
-Recharts & Leaflet	Memberikan performa rendering data analitik omzet dan peta geografis yang lancar tanpa membebani performa browser.
-Dependencies Utama
-JSON
-{
-  "dependencies": {
-    "react": "^18.3.1",
-    "firebase": "^12.18.0",
-    "@tanstack/react-query": "^5.0.0",
-    "recharts": "^2.12.7",
-    "exceljs": "^4.4.0",
-    "leaflet": "^1.9.4",
-    "lucide-react": "^1.31.0"
-  }
-}
-🏗️ Arsitektur Sistem
-System Architecture
-Plaintext
-[ Client Browser (React + Vite) ]
-               │
-               ├──► [ React Query / Custom API Layer ]
-               │             │
-               │             ├──► [ Firebase Auth (Authentication) ]
-               │             └──► [ Firestore DB (Products, Recaps, Customers, Transactions) ]
-               │
-               └──► [ PDF & Excel Engines (html2pdf.js / ExcelJS) ]
-Folder Structure
-Plaintext
-zura-app/
-├── src/
-│   ├── api/            # API Client & Firestore Services (client.ts)
-│   ├── components/     # Reusable UI Components & Modals
-│   ├── config/         # Firebase Configuration
-│   ├── pages/          # Application Screens (Dashboard, Finance, Stock, AI Hub, Landing)
-│   ├── types/          # TypeScript Interfaces & Types
-│   └── utils/          # Helpers, Formatters & Calculations
-├── public/             # Static Assets & Icons
-└── tests/              # Vitest Suite & Integration Tests
-⚙️ Instalasi & Setup
-Prerequisites
-Pastikan perangkat Anda sudah terpasang:
-
-Node.js (v18.x atau lebih tinggi)
-
-npm atau yarn
-
-Git
-
-Langkah Instalasi
-1️⃣ Clone Repository
-Bash
-git clone [https://github.com/porvyyn/zura.git](https://github.com/porvyyn/zura.git)
-cd zura
-2️⃣ Install Dependencies
-Bash
-npm install
-3️⃣ Setup Environment Variables
-Buat file .env di root directory dan masukkan konfigurasi Firebase Anda:
-
-Cuplikan kode
-VITE_FIREBASE_API_KEY="your_api_key"
-VITE_FIREBASE_AUTH_DOMAIN="your_auth_domain"
-VITE_FIREBASE_PROJECT_ID="your_project_id"
-VITE_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
-VITE_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
-VITE_FIREBASE_APP_ID="your_app_id"
-4️⃣ Run Development Server
-Bash
-npm run dev
-Buka http://localhost:5173 di browser Anda.
-
-🚀 Penggunaan
-Menjalankan Skrip
-Bash
-# Mode Pengembang (Development)
-npm run dev
-
-# Kompilasi Production Build
-npm run build
-
-# Preview Production Build
-npm run preview
-
-# Jalankan Pengujian (Testing)
-npm run test
-User Guide
-Registrasi/Login: Pengguna dapat masuk menggunakan akun aman terverifikasi via Firebase Auth.
-
-Monitoring Dashboard: Memantau ringkasan omzet omnichannel harian dan pergerakan stok dalam satu layar.
-
-Pencatatan Rekap: Memasukkan data transaksi manual atau impor CSV/Excel untuk rekapitulasi presisi.
-
-Analisis AI: Buka modul AI Insight Hub untuk memperoleh rekomendasi bisnis otomatis.
-
-📚 API Documentation
-Base Data Operations (client.ts)
-Aplikasi ini berkomunikasi langsung dengan Firebase Cloud Firestore via abstraksi API client:
-
-Firestore Collections
-HTTP
-GET/POST    /recaps        # Mengambil dan menambah rekap penjualan & timestamp presisi
-GET/POST    /products      # Pengelolaan inventaris stok dan SKU produk
-GET         /customers     # Mengambil daftar data pelanggan
-GET         /transactions # Riwayat rincian transaksi harian
-Example Usage
-TypeScript
-import { addRecap } from './api/client';
-
-// Menambahkan transaksi baru dengan presisi timestamp
-await addRecap({
-  source: 'TikTok Shop',
-  totalAmount: 150000,
-  unitsSold: 2,
-  date: '2026-08-30',
-  createdAt: new Date().toISOString()
-});
-🧪 Testing
-Running Tests
-Aplikasi dilengkapi unit testing dan component testing menggunakan Vitest:
-
-Bash
-# Jalankan pengujian penuh
-npm run test
-
-# Mode pengujian otomatis (watch mode)
-npm run test:watch
-Test Coverage
-Plaintext
-Statements   : 92.4%
-Branches     : 88.5%
-Functions    : 90.1%
-Lines        : 93.0%
-📄 Lisensi
-Proyek ini dilisensikan di bawah MIT License - lihat file LICENSE untuk detail lebih lanjut.
-
----
-
-**Made with ❤️ by CARIIN NAMA TIM YG ANOMALI DONG for ITECHNO CUP 2026**
