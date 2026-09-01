@@ -2,6 +2,8 @@ import { db, auth } from '../config/firebase';
 import {
   collection,
   getDocs,
+  getDoc,
+  setDoc,
   addDoc,
   doc,
   updateDoc,
@@ -16,6 +18,7 @@ const productsRef = collection(db, 'products');
 const customersRef = collection(db, 'customers');
 const transactionsRef = collection(db, 'transactions');
 const recapsRef = collection(db, 'recaps');
+const settingsRef = collection(db, 'settings');
 
 // Helper untuk memastikan sesi Firebase Auth siap sebelum query dijalankan
 const getAuthUserId = async (): Promise<string | null> => {
@@ -29,6 +32,37 @@ const getAuthUserId = async (): Promise<string | null> => {
     });
   });
 };
+
+// ─── USER SETTINGS ────────────────────────────────────────────────────────────
+
+export async function fetchUserSettings(): Promise<any> {
+  try {
+    const uid = await getAuthUserId();
+    if (!uid) return { lowStockThreshold: 5 };
+
+    const docSnap = await getDoc(doc(settingsRef, uid));
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return { lowStockThreshold: 5 };
+  } catch (error) {
+    console.error('Error fetching user settings:', error);
+    return { lowStockThreshold: 5 };
+  }
+}
+
+export async function updateUserSettings(newSettings: Record<string, any>) {
+  try {
+    const uid = await getAuthUserId();
+    if (!uid) throw new Error('User belum login');
+
+    await setDoc(doc(settingsRef, uid), { ...newSettings, userId: uid }, { merge: true });
+    return newSettings;
+  } catch (error) {
+    console.error('Error updating user settings:', error);
+    throw error;
+  }
+}
 
 // ─── PRODUK / INVENTARIS ──────────────────────────────────────────────────────
 
