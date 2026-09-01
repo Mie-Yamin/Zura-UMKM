@@ -220,92 +220,113 @@ export default function DashboardPage() {
     ];
   }, [recaps, selectedBranch]);
 
-  // ─── TREN OMZET OMNICHANNEL ───
+  // ─── TREN OMZET OMNICHANNEL (MEMBACA TANGGAL INPUT USER) ───
   const trendData = useMemo(() => {
-    const timeSlots = [
-      "08:00",
-      "10:00",
-      "12:00",
-      "14:00",
-      "16:00",
-      "18:00",
-      "20:00",
-    ];
+    const now = new Date();
 
-    const parseHour = (item: any): number | null => {
-      const field = item.createdAt || item.timestamp || item.time;
+    // Helper: Prioritaskan tanggal yang DIINPUT USER terlebih dahulu daripada time device (createdAt)
+    const getTxDate = (item: any): Date | null => {
+      // 1. Cek field input manual dari form rekap (misal: date, recapDate, tanggal, transactionDate)
+      const manualDate = item.date || item.recapDate || item.tanggal || item.transactionDate;
+      const field = manualDate || item.createdAt || item.timestamp || item.time;
+
       if (!field) return null;
 
-      if (field instanceof Date) return field.getHours();
+      // Format Firestore Timestamp
       if (typeof field === "object" && typeof field.toDate === "function") {
-        return field.toDate().getHours();
+        return field.toDate();
       }
 
-      const parsedDate = new Date(field);
-      if (!isNaN(parsedDate.getTime()) && String(field).includes("T")) {
-        return parsedDate.getHours();
+      // Format JavaScript Date Object
+      if (field instanceof Date) {
+        return field;
       }
 
-      if (typeof field === "string" && field.includes(":")) {
-        const parts = field.split(":");
-        const h = parseInt(parts[0].replace(/\D/g, ""), 10);
-        return isNaN(h) ? null : h;
+      // Format String (YYYY-MM-DD atau ISO String)
+      if (typeof field === "string") {
+        // Mencegah selisih timezone jam 00:00 UTC pada string "YYYY-MM-DD"
+        if (field.length === 10 && field.includes("-")) {
+          const [year, month, day] = field.split("-").map(Number);
+          return new Date(year, month - 1, day);
+        }
+        const parsed = new Date(field);
+        return isNaN(parsed.getTime()) ? null : parsed;
       }
 
       return null;
     };
 
-    const hasAnyTime = recaps.some((r) => parseHour(r) !== null);
+    // Filter transaksi berdasarkan Cabang yang dipilih
+    const filteredRecaps = selectedBranch === "Semua Cabang"
+      ? recaps
+      : recaps.filter((r) =>
+        r?.source?.toLowerCase().includes(selectedBranch.toLowerCase()) ||
+        selectedBranch.toLowerCase().includes(r?.source?.toLowerCase() || "")
+      );
 
-    if (hasAnyTime) {
-      return timeSlots.map((jamSlot) => {
-        const slotHour = parseInt(jamSlot.split(":")[0], 10);
-        let shopeeSum = 0;
-        let tokoSum = 0;
-        let tiktokSum = 0;
+    // MODE 1: PER MINGGU (Hari Ini / 7 Hari Terakhir)
+    if (dateRange === "Hari Ini" || dateRange === "7 Hari Terakhir") {
+      const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
-        recaps.forEach((r) => {
-          const itemHour = parseHour(r);
-          if (itemHour !== null && itemHour >= slotHour && itemHour < slotHour + 2) {
-            const amount = Number(r.totalAmount) || 0;
-            if (r.source === "Shopee") shopeeSum += amount;
-            else if (r.source === "Tokopedia") tokoSum += amount;
-            else if (r.source === "TikTok Shop") tiktokSum += amount;
-          }
-        });
-
+      // Membuat 7 slot hari ke belakang berdasarkan tanggal hari ini
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(now.getDate() - (6 - i));
+        // Reset waktu ke 00:00:00 agar perbandingan tanggal presisi
+        d.setHours(0, 0, 0, 0);
         return {
-          jam: jamSlot,
-          "Omzet Shopee": shopeeSum,
-          "Omzet Tokopedia": tokoSum,
-          "Omzet TikTok Shop": tiktokSum,
+          jam: days[d.getDay()],
+          dateStr: d.toDateString(),
+          "Omzet Shopee": 0,
+          "Omzet Tokopedia": 0,
+          "Omzet TikTok Shop": 0,
         };
       });
+
+      filteredRecaps.forEach((r) => {
+        const txDate = getTxDate(r);
+        if (txDate) {
+          // Normalisasi tanggal transaksi user ke 00:00:00
+          const normalizedTxDate = new Date(txDate);
+          normalizedTxDate.setHours(0, 0, 0, 0);
+
+          const match = last7Days.find((d) => d.dateStr === normalizedTxDate.toDateString());
+          if (match) {
+            const amount = Number(r.totalAmount) || 0;
+            if (r.source === "Shopee") match["Omzet Shopee"] += amount;
+            else if (r.source === "Tokopedia") match["Omzet Tokopedia"] += amount;
+            else if (r.source === "TikTok Shop") match["Omzet TikTok Shop"] += amount;
+          }
+        }
+      });
+
+      return last7Days;
     }
 
-    let totalShopee = 0;
-    let totalTokopedia = 0;
-    let totalTiktok = 0;
+    // MODE 2: PER BULAN (30 Hari Terakhir / Kuartal Berjalan)
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    const monthlySlots = months.map((m, idx) => ({
+      jam: m,
+      monthIdx: idx,
+      "Omzet Shopee": 0,
+      "Omzet Tokopedia": 0,
+      "Omzet TikTok Shop": 0,
+    }));
 
-    recaps.forEach((r) => {
-      const amount = Number(r.totalAmount) || 0;
-      if (r.source === "Shopee") totalShopee += amount;
-      else if (r.source === "Tokopedia") totalTokopedia += amount;
-      else if (r.source === "TikTok Shop") totalTiktok += amount;
+    filteredRecaps.forEach((r) => {
+      const txDate = getTxDate(r);
+      // Membaca tahun dan bulan dari tanggal yang diinput user
+      if (txDate && txDate.getFullYear() === now.getFullYear()) {
+        const mIdx = txDate.getMonth();
+        const amount = Number(r.totalAmount) || 0;
+        if (r.source === "Shopee") monthlySlots[mIdx]["Omzet Shopee"] += amount;
+        else if (r.source === "Tokopedia") monthlySlots[mIdx]["Omzet Tokopedia"] += amount;
+        else if (r.source === "TikTok Shop") monthlySlots[mIdx]["Omzet TikTok Shop"] += amount;
+      }
     });
 
-    const weights = [0.05, 0.15, 0.25, 0.2, 0.15, 0.1, 0.1];
-
-    return timeSlots.map((jamSlot, index) => {
-      const weight = weights[index];
-      return {
-        jam: jamSlot,
-        "Omzet Shopee": Math.round(totalShopee * weight),
-        "Omzet Tokopedia": Math.round(totalTokopedia * weight),
-        "Omzet TikTok Shop": Math.round(totalTiktok * weight),
-      };
-    });
-  }, [recaps]);
+    return monthlySlots;
+  }, [recaps, dateRange, selectedBranch]);
 
   // Quick restock submit handler
   const handleQuickRestockSubmit = async (e: React.FormEvent) => {
@@ -710,7 +731,7 @@ export default function DashboardPage() {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10 text-white text-xs">
-                          <p className="font-bold text-[#E8D3A7] mb-1">Rentang Jam {label}</p>
+                          <p className="font-bold text-[#E8D3A7] mb-1">Rentang Grafik {label}</p>
                           {payload.map((entry: any, index: number) => {
                             const isTiktok = entry.name === "Omzet TikTok Shop";
                             return (
