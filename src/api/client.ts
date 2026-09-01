@@ -17,16 +17,24 @@ const customersRef = collection(db, 'customers');
 const transactionsRef = collection(db, 'transactions');
 const recapsRef = collection(db, 'recaps');
 
-// Helper untuk mendapatkan User ID aktif
-const getCurrentUserId = () => {
-  return auth.currentUser?.uid || null;
+// Helper untuk memastikan sesi Firebase Auth siap sebelum query dijalankan
+const getAuthUserId = async (): Promise<string | null> => {
+  if (auth.currentUser) {
+    return auth.currentUser.uid;
+  }
+  return new Promise((resolve) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      resolve(user ? user.uid : null);
+    });
+  });
 };
 
 // ─── PRODUK / INVENTARIS ──────────────────────────────────────────────────────
 
 export async function fetchInventory(): Promise<Product[]> {
   try {
-    const uid = getCurrentUserId();
+    const uid = await getAuthUserId();
     if (!uid) return [];
 
     const q = query(productsRef, where('userId', '==', uid));
@@ -37,16 +45,15 @@ export async function fetchInventory(): Promise<Product[]> {
       id: doc.id,
     })) as Product[];
   } catch (error) {
-    console.error("Error fetching inventory:", error);
+    console.error('Error fetching inventory:', error);
     return [];
   }
 }
 
 export async function addProduct(product: Omit<Product, 'id'>) {
-  const uid = getCurrentUserId();
-  if (!uid) throw new Error("User belum login");
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
 
-  // Memastikan field 'id' tidak ikut tersimpan dan menambahkan userId
   const { id, ...cleanProduct } = product as any;
   const payload = { ...cleanProduct, userId: uid };
 
@@ -55,14 +62,13 @@ export async function addProduct(product: Omit<Product, 'id'>) {
 }
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
-  if (!id) throw new Error("ID Produk tidak valid untuk pembaruan");
+  if (!id) throw new Error('ID Produk tidak valid untuk pembaruan');
   const productDoc = doc(db, 'products', id);
   await updateDoc(productDoc, updatedData);
 }
 
 export async function deleteProduct(id: string) {
-  if (!id) throw new Error("ID Produk tidak valid untuk penghapusan");
-
+  if (!id) throw new Error('ID Produk tidak valid untuk penghapusan');
   const productDoc = doc(db, 'products', id);
   await deleteDoc(productDoc);
 }
@@ -77,7 +83,7 @@ export const updateFirestoreProduct = updateProduct;
 
 export async function fetchRecaps(): Promise<SalesRecap[]> {
   try {
-    const uid = getCurrentUserId();
+    const uid = await getAuthUserId();
     if (!uid) return [];
 
     const q = query(recapsRef, where('userId', '==', uid));
@@ -87,18 +93,16 @@ export async function fetchRecaps(): Promise<SalesRecap[]> {
       id: doc.id,
     })) as SalesRecap[];
   } catch (error) {
-    console.error("Error fetching recaps:", error);
+    console.error('Error fetching recaps:', error);
     return [];
   }
 }
 
 export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
-  const uid = getCurrentUserId();
-  if (!uid) throw new Error("User belum login");
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
 
   const now = new Date();
-
-  // Menambahkan timestamp presisi (ISO string) jika belum tersedia di payload
   const payload = {
     ...recap,
     createdAt: recap.createdAt || now.toISOString(),
@@ -110,8 +114,7 @@ export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
 }
 
 export async function deleteRecap(id: string) {
-  if (!id) throw new Error("ID Rekap tidak valid untuk penghapusan");
-
+  if (!id) throw new Error('ID Rekap tidak valid untuk penghapusan');
   const recapDoc = doc(db, 'recaps', id);
   await deleteDoc(recapDoc);
 }
@@ -131,7 +134,7 @@ export const deleteFirestoreRecap = deleteRecap;
 
 export async function fetchCustomers(): Promise<Customer[]> {
   try {
-    const uid = getCurrentUserId();
+    const uid = await getAuthUserId();
     if (!uid) return [];
 
     const q = query(customersRef, where('userId', '==', uid));
@@ -141,7 +144,7 @@ export async function fetchCustomers(): Promise<Customer[]> {
       id: doc.id,
     })) as Customer[];
   } catch (error) {
-    console.error("Error fetching customers:", error);
+    console.error('Error fetching customers:', error);
     return [];
   }
 }
@@ -152,7 +155,7 @@ export const getLocalCustomers = fetchCustomers;
 
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
-    const uid = getCurrentUserId();
+    const uid = await getAuthUserId();
     if (!uid) return [];
 
     const q = query(transactionsRef, where('userId', '==', uid));
@@ -162,7 +165,7 @@ export async function fetchTransactions(): Promise<Transaction[]> {
       id: doc.id,
     })) as Transaction[];
   } catch (error) {
-    console.error("Error fetching transactions:", error);
+    console.error('Error fetching transactions:', error);
     return [];
   }
 }
@@ -183,8 +186,14 @@ export async function fetchKpiSummary() {
     const safeProducts = Array.isArray(products) ? products : [];
     const safeCustomers = Array.isArray(customers) ? customers : [];
 
-    const totalRevenue = safeRecaps.reduce((acc, item) => acc + (item.totalAmount || item.revenue || 0), 0);
-    const totalOrders = safeRecaps.reduce((acc, item) => acc + (item.unitsSold || item.totalTransactions || 0), 0);
+    const totalRevenue = safeRecaps.reduce(
+      (acc, item) => acc + (item.totalAmount || item.revenue || 0),
+      0
+    );
+    const totalOrders = safeRecaps.reduce(
+      (acc, item) => acc + (item.unitsSold || item.totalTransactions || 0),
+      0
+    );
 
     return {
       totalRevenue,
@@ -193,7 +202,7 @@ export async function fetchKpiSummary() {
       activeProducts: safeProducts.length,
     };
   } catch (error) {
-    console.error("Error fetching KPI summary:", error);
+    console.error('Error fetching KPI summary:', error);
     return {
       totalRevenue: 0,
       totalOrders: 0,
