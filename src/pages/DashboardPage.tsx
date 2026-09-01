@@ -954,7 +954,7 @@ export default function DashboardPage() {
 
       {/* ─── MODAL: TAMBAH CABANG BARU ─── */}
       {isAddBranchOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp font-dmsans">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">
@@ -1009,7 +1009,7 @@ export default function DashboardPage() {
 
       {/* ─── MODAL: QUICK RESTOCK ─── */}
       {restockItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-base font-bold text-[#5F1E1E]">

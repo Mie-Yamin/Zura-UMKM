@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchInventory, addProduct, updateProduct, deleteProduct } from '../api/client';
+import { fetchInventory, addProduct, updateProduct, deleteProduct, fetchUserSettings, updateUserSettings } from '../api/client';
 import type { Product } from '../types';
 
 const formatRupiah = (val?: number) => {
@@ -8,17 +8,26 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
-// HELPER FORMAT FORMATTING RUPIAH UNTUK INPUT FIELD
+// HELPER FORMAT FORMATTING RUPIAH/ANGKA DENGAN DUKUNGAN DESIMAL UNTUK INPUT FIELD
 const formatRupiahInput = (val: string | number) => {
   if (!val && val !== 0) return '';
-  const cleanNumber = val.toString().replace(/\D/g, '');
-  if (!cleanNumber) return '';
-  return Number(cleanNumber).toLocaleString('id-ID');
+  const str = val.toString();
+  const parts = str.split(/[.,]/);
+  const integerPart = parts[0].replace(/\D/g, '');
+  if (!integerPart && parts.length === 1) return '';
+  const formattedInteger = integerPart ? Number(integerPart).toLocaleString('id-ID') : '0';
+  if (parts.length > 1) {
+    const decimalPart = parts[1].replace(/\D/g, '');
+    return `${formattedInteger},${decimalPart}`;
+  }
+  return formattedInteger;
 };
 
 const parseRawNumber = (formattedVal: string) => {
-  const cleanNumber = formattedVal.replace(/\D/g, '');
-  return cleanNumber ? Number(cleanNumber) : 0;
+  if (!formattedVal) return 0;
+  const normalized = formattedVal.replace(/\./g, '').replace(',', '.');
+  const num = parseFloat(normalized);
+  return isNaN(num) ? 0 : num;
 };
 
 // Kategori Bawaan Sistem
@@ -50,7 +59,7 @@ export default function InventoryPage() {
   const [selectedStatus, setSelectedStatus] = useState('SEMUA STATUS');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // STATE KATEGORI CUSTOM (TERSIMPAN DI LOCALSTORAGE)
+  // STATE KATEGORI CUSTOM (TERSIMPAN DI LOCALSTORAGE & FIRESTORE)
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('zura_custom_categories');
@@ -61,7 +70,21 @@ export default function InventoryPage() {
   });
 
   useEffect(() => {
+    // Sinkronkan kategori custom dari Firestore cloud
+    fetchUserSettings().then((settings) => {
+      if (settings && Array.isArray(settings.customCategories)) {
+        setCustomCategories((prev) => {
+          const merged = Array.from(new Set([...prev, ...settings.customCategories]));
+          localStorage.setItem('zura_custom_categories', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('zura_custom_categories', JSON.stringify(customCategories));
+    updateUserSettings({ customCategories });
   }, [customCategories]);
 
   // Modals
@@ -597,7 +620,7 @@ export default function InventoryPage() {
 
       {/* ─── MODAL TAMBAH / EDIT PRODUK (DISESUAIKAN MOBILE) ─── */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase">
@@ -835,7 +858,7 @@ export default function InventoryPage() {
 
       {/* ─── MODAL KELOLA KATEGORI ─── */}
       {showCategoryManager && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-xs p-5 shadow-2xl flex flex-col gap-3 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <h3 className="text-xs font-black text-[#5F1E1E] uppercase">Kelola Kategori Custom</h3>
@@ -880,7 +903,7 @@ export default function InventoryPage() {
 
       {/* ─── MODAL RESTOCK ─── */}
       {restockProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-xs p-5 shadow-2xl flex flex-col gap-4 animate-scaleUp">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase">Tambah Stok Barcode</h2>
