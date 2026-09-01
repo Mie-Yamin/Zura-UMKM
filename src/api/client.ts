@@ -19,6 +19,7 @@ const customersRef = collection(db, 'customers');
 const transactionsRef = collection(db, 'transactions');
 const recapsRef = collection(db, 'recaps');
 const settingsRef = collection(db, 'settings');
+const usersRef = collection(db, 'users');
 
 // Helper untuk memastikan sesi Firebase Auth siap sebelum query dijalankan
 const getAuthUserId = async (): Promise<string | null> => {
@@ -32,6 +33,52 @@ const getAuthUserId = async (): Promise<string | null> => {
     });
   });
 };
+
+// ─── USER PROFILE ─────────────────────────────────────────────────────────────
+
+export async function fetchUserProfile() {
+  try {
+    const uid = await getAuthUserId();
+    if (!uid) return null;
+
+    const docSnap = await getDoc(doc(usersRef, uid));
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() };
+    }
+
+    // Fallback default jika data belum pernah disimpan di Firestore
+    const user = auth.currentUser;
+    return {
+      name: user?.displayName || 'Pemilik Toko',
+      email: user?.email || '',
+      phone: user?.phoneNumber || '',
+      storeName: 'Zura Store',
+      address: '',
+    };
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+}
+
+export async function updateUserProfile(profileData: Record<string, any>) {
+  try {
+    const uid = await getAuthUserId();
+    if (!uid) throw new Error('User belum login');
+
+    const payload = {
+      ...profileData,
+      userId: uid,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setDoc(doc(usersRef, uid), payload, { merge: true });
+    return payload;
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
 
 // ─── USER SETTINGS ────────────────────────────────────────────────────────────
 

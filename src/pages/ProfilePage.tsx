@@ -14,7 +14,12 @@ import {
 } from "firebase/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../config/firebase";
-import { fetchUserSettings, updateUserSettings } from "../api/client";
+import {
+  fetchUserSettings,
+  updateUserSettings,
+  fetchUserProfile,
+  updateUserProfile
+} from "../api/client";
 
 interface UserProfile {
   name: string;
@@ -121,26 +126,31 @@ export default function ProfilePage() {
     "email" | "password" | "delete" | null
   >(null);
 
+  // 1. Ambil Profil dari Firestore saat Auth siap
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userEmail = user.email || "";
         const emailIsVerified = user.emailVerified;
         const autoName =
           user.displayName || userEmail.split("@")[0] || "Pengguna Zura";
 
-        setProfile((prev) => {
-          const isDefaultName =
-            !prev.name ||
-            prev.name === "ckhyy23" ||
-            prev.name === "Pengguna Zura";
+        // Tarik data profil dari Firestore
+        const remoteProfile = await fetchUserProfile();
 
-          const updated = {
-            ...prev,
-            name: isDefaultName ? autoName : prev.name,
+        setProfile((prev) => {
+          const finalName = remoteProfile?.name || prev.name || autoName;
+          const finalPhone = remoteProfile?.phone || prev.phone || "";
+          const finalCategory = remoteProfile?.category || prev.category || "Lainnya";
+
+          const updated: UserProfile = {
+            name: finalName,
             email: userEmail,
+            phone: finalPhone,
+            category: finalCategory,
             isEmailVerified: emailIsVerified,
           };
+
           try {
             localStorage.setItem("user_profile_data", JSON.stringify(updated));
           } catch (e) {
@@ -159,6 +169,7 @@ export default function ProfilePage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // 2. Ambil Checklist SOP dari Cloud Settings
   useEffect(() => {
     fetchUserSettings().then((settings) => {
       if (settings && Array.isArray(settings.sopTasks) && settings.sopTasks.length > 0) {
@@ -361,7 +372,8 @@ export default function ProfilePage() {
     setIsEditOpen(true);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // 3. Simpan Profil ke Firestore & Local Cache
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let finalCategory = formData.category;
@@ -375,13 +387,24 @@ export default function ProfilePage() {
     };
 
     setProfile(updatedProfile);
+
     try {
+      // Simpan ke Firestore
+      await updateUserProfile({
+        name: updatedProfile.name,
+        phone: updatedProfile.phone,
+        category: updatedProfile.category,
+      });
+
+      // Simpan ke cache lokal
       localStorage.setItem("user_profile_data", JSON.stringify(updatedProfile));
+      showToast("Profil berhasil diperbarui dan disinkronkan!");
     } catch (err) {
-      console.error("Gagal simpan local", err);
+      console.error("Gagal simpan profil ke Firestore:", err);
+      showToast("Profil tersimpan lokal, gagal sinkron ke cloud.");
     }
+
     setIsEditOpen(false);
-    showToast("Profil berhasil diperbarui!");
   };
 
   return (
@@ -409,7 +432,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleOpenEditModal}
-            className="flex-1 md:flex-none bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            className="flex-1 md:flex-none bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
           >
             EDIT PROFIL
           </button>
@@ -417,7 +440,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+            className="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>LOGOUT</span>
           </button>
@@ -457,7 +480,7 @@ export default function ProfilePage() {
                     ) : (
                       <button
                         onClick={handleSendEmailVerification}
-                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all"
+                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer"
                       >
                         Verifikasi
                       </button>
@@ -505,7 +528,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={handleResetChecklist}
-                  className="text-[10px] sm:text-[11px] font-bold text-slate-500 hover:text-[#5F1E1E] bg-slate-100 px-2.5 py-1.5 rounded-xl transition-all"
+                  className="text-[10px] sm:text-[11px] font-bold text-slate-500 hover:text-[#5F1E1E] bg-slate-100 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer"
                   title="Kosongkan semua centang"
                 >
                   🔄 Reset
@@ -514,7 +537,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowTemplates(!showTemplates)}
-                  className="text-[10px] sm:text-[11px] font-bold text-[#B48328] hover:text-[#5F1E1E] bg-[#E8D3A7]/30 px-3 py-1.5 rounded-xl transition-all border border-[#B48328]/30 flex items-center gap-1"
+                  className="text-[10px] sm:text-[11px] font-bold text-[#B48328] hover:text-[#5F1E1E] bg-[#E8D3A7]/30 px-3 py-1.5 rounded-xl transition-all border border-[#B48328]/30 flex items-center gap-1 cursor-pointer"
                 >
                   <span>💡 Rekomendasi SOP</span>
                   <span>{showTemplates ? "▲" : "▼"}</span>
@@ -532,7 +555,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate("online")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
                   >
                     🛒 Toko Online
                     <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
@@ -543,7 +566,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate("fnb")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
                   >
                     🍵 F&B / Toko Fisik
                     <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
@@ -554,7 +577,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate("monthly")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm"
+                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
                   >
                     📅 Rutin / Akhir Bulan
                     <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
@@ -576,7 +599,7 @@ export default function ProfilePage() {
               />
               <button
                 type="submit"
-                className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold text-xs px-4 py-2.5 sm:py-2 rounded-xl transition-all shadow-sm active:scale-95 shrink-0"
+                className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold text-xs px-4 py-2.5 sm:py-2 rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer"
               >
                 + Tambah
               </button>
@@ -617,7 +640,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={(e) => handleDeleteTask(task.id, e)}
-                        className="text-slate-300 hover:text-red-600 transition-colors p-1 text-sm font-bold"
+                        className="text-slate-300 hover:text-red-600 transition-colors p-1 text-sm font-bold cursor-pointer"
                         title="Hapus Tugas"
                       >
                         ✕
@@ -659,7 +682,7 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-1 sm:mt-0"
+            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-1 sm:mt-0 cursor-pointer"
           >
             <span>{isSecurityOpen ? "Tutup Pengaturan ▲" : "Kelola Keamanan ▼"}</span>
           </button>
@@ -671,7 +694,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("email")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "email"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "email"
                     ? "bg-[#5F1E1E] text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
@@ -682,7 +705,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("password")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "password"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "password"
                     ? "bg-[#5F1E1E] text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
@@ -693,7 +716,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveSecurityTab("danger")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${activeSecurityTab === "danger"
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "danger"
                     ? "bg-red-600 text-white shadow-sm"
                     : "bg-red-50 text-red-600 hover:bg-red-100"
                   }`}
@@ -729,7 +752,7 @@ export default function ProfilePage() {
                 <div className="flex justify-start">
                   <button
                     type="submit"
-                    className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
                   >
                     Simpan Email Baru
                   </button>
@@ -783,7 +806,7 @@ export default function ProfilePage() {
                     <div className="flex justify-start">
                       <button
                         type="submit"
-                        className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                        className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
                       >
                         Ubah Kata Sandi
                       </button>
@@ -809,7 +832,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={triggerAccountDelete}
                     disabled={isDeleting}
-                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
                   >
                     {isDeleting ? "Memproses Hapus..." : "Hapus Akun Permanen"}
                   </button>
@@ -846,13 +869,13 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowReauthModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm"
+                  className="px-5 py-2 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
                 >
                   Konfirmasi & Lanjutkan
                 </button>
@@ -862,7 +885,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ─── 💥 MODAL EDIT PROFIL (KATEGORI CUSTOM & TANPA ALAMAT) 💥 ─── */}
+      {/* MODAL EDIT PROFIL */}
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-all">
           <div className="bg-white w-full max-w-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto flex flex-col gap-6">
@@ -878,7 +901,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -913,7 +936,7 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* KATEGORI USAHA BISA DICUSTOM */}
+              {/* KATEGORI USAHA */}
               <div>
                 <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-2">
                   Kategori Usaha
@@ -942,7 +965,6 @@ export default function ProfilePage() {
                     </label>
                   ))}
 
-                  {/* OPSI KATEGORI CUSTOM (LAINNYA) */}
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${isCustomCategoryMode
                         ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
@@ -963,7 +985,6 @@ export default function ProfilePage() {
                   </label>
                 </div>
 
-                {/* INPUT TEXT UNTUK KATEGORI CUSTOM */}
                 {isCustomCategoryMode && (
                   <div className="mt-3 animate-scaleUp">
                     <label className="block text-[10px] font-bold text-[#B48328] uppercase mb-1">
@@ -985,13 +1006,13 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl"
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm"
+                  className="px-5 py-2.5 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
                 >
                   Simpan Perubahan
                 </button>
