@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { auth } from '../config/firebase';
 
 export default function AntiGravityLandingPage() {
   const navigate = useNavigate();
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const [activeSection, setActiveSection] = React.useState<'home' | 'menu'>('home');
-  const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState<'home' | 'menu'>('home');
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // State untuk mengontrol pop-up modal video
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   // Menggunakan file SVG dari folder public/preview/
   const slideScreenshots = [
@@ -35,7 +38,7 @@ export default function AntiGravityLandingPage() {
   ];
 
   // Capture vertical mouse wheel scroll and convert it to horizontal scroll
-  React.useEffect(() => {
+  useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -87,13 +90,11 @@ export default function AntiGravityLandingPage() {
   // Komponen Bingkai Gambar Berhias Emas
   const ImageFrame = ({ src, alt }: { src: string; alt: string }) => (
     <div className="relative w-full max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto flex items-center justify-center p-2 sm:p-4">
-
       {/* Glow Effect */}
       <div className="absolute inset-2 bg-[#E8D3A7]/20 rounded-3xl blur-2xl pointer-events-none" />
 
       {/* Outer Decorative Container */}
       <div className="relative w-full aspect-[16/9] bg-gradient-to-b from-[#702424] to-[#4A1717] rounded-2xl p-2.5 sm:p-3.5 border-2 border-[#E8D3A7]/60 shadow-[0_0_30px_rgba(232,211,167,0.2)] group transition-all duration-500 hover:shadow-[0_0_40px_rgba(232,211,167,0.35)] flex flex-col overflow-hidden">
-
         {/* Hiasan Ornamen Klasik */}
         <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-[#E8D3A7] rounded-tl-lg pointer-events-none z-10" />
         <div className="absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 border-[#E8D3A7] rounded-tr-lg pointer-events-none z-10" />
@@ -118,7 +119,6 @@ export default function AntiGravityLandingPage() {
             src={src}
             alt={alt}
             className="w-full h-auto transform -translate-y-6 sm:-translate-y-10 scale-105 transition-transform duration-500 group-hover:scale-110"
-          /* 👆 -translate-y-6 memaksa gambar bergeser naik ke atas! Ubah nilainya (-translate-y-8 / -translate-y-12) jika kurang naik */
           />
         </div>
       </div>
@@ -127,7 +127,6 @@ export default function AntiGravityLandingPage() {
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-[#5F1E1E] text-white font-sans overflow-hidden flex flex-col justify-between select-none transition-colors duration-500">
-
       {/* Hide Scrollbar style */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
@@ -162,7 +161,6 @@ export default function AntiGravityLandingPage() {
 
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 md:py-4 md:px-12 bg-gradient-to-b from-[#5F1E1E]/90 to-transparent backdrop-blur-[2px] transition-colors duration-500">
-
         {/* Logo */}
         <div className="flex items-center space-x-2">
           <img
@@ -180,8 +178,8 @@ export default function AntiGravityLandingPage() {
             onClick={() => scrollToSlide(0)}
             className={
               activeSection === 'home'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer"
+                ? 'border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer'
+                : 'text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer'
             }
           >
             Home
@@ -195,8 +193,8 @@ export default function AntiGravityLandingPage() {
             }}
             className={
               activeSection === 'menu'
-                ? "border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer"
-                : "text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer"
+                ? 'border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 bg-transparent font-medium cursor-pointer'
+                : 'text-white/80 hover:text-[#E8D3A7] py-1 px-5 md:py-1.5 md:px-6 rounded-full transition-all duration-300 font-medium cursor-pointer'
             }
           >
             Menu
@@ -210,7 +208,7 @@ export default function AntiGravityLandingPage() {
             onClick={handleLoginClick}
             className="relative z-50 border-2 md:border-[3px] border-[#E8D3A7] text-[#E8D3A7] hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-xs md:text-sm font-bold font-dmsans px-5 py-1.5 md:px-8 md:py-2 rounded-full transition-all duration-300 bg-transparent tracking-wider cursor-pointer active:scale-95"
           >
-            {auth.currentUser ? 'LOGIN' : 'LOGIN'}
+            LOGIN
           </button>
 
           <button
@@ -231,7 +229,9 @@ export default function AntiGravityLandingPage() {
             <button
               type="button"
               onClick={() => scrollToSlide(0)}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'home' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'home'
+                ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
+                : 'text-white hover:bg-white/10'
                 }`}
             >
               Home
@@ -243,7 +243,9 @@ export default function AntiGravityLandingPage() {
                 navigate('/menu');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'menu' ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold' : 'text-white hover:bg-white/10'
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'menu'
+                ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
+                : 'text-white hover:bg-white/10'
                 }`}
             >
               Menu
@@ -283,12 +285,15 @@ export default function AntiGravityLandingPage() {
                 >
                   Cek Selengkapnya
                 </button>
+
+                {/* 🎬 Tombol Play Video */}
                 <button
                   type="button"
-                  onClick={handleLoginClick}
+                  onClick={() => setIsVideoModalOpen(true)}
                   className="w-9 h-9 md:w-11 md:h-11 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center p-0 cursor-pointer"
+                  title="Tonton Video Demo"
                 >
-                  <img src="/playButton.png" alt="Play" className="w-full h-full object-contain" />
+                  <img src="/playButton.png" alt="Play Video" className="w-full h-full object-contain" />
                 </button>
               </div>
             </div>
@@ -380,7 +385,6 @@ export default function AntiGravityLandingPage() {
             <ImageFrame src={slideScreenshots[4].image} alt={slideScreenshots[4].alt} />
           </div>
         </section>
-
       </div>
 
       {/* Carousel Dots - 5 TITIK */}
@@ -403,6 +407,39 @@ export default function AntiGravityLandingPage() {
         ))}
       </div>
 
+      {/* ─── MODAL PEMUTAR VIDEO ─── */}
+      {isVideoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10 bg-black/80 backdrop-blur-md transition-all">
+          <div className="relative w-full max-w-4xl bg-[#4A1717] rounded-3xl p-3 sm:p-4 border-2 border-[#E8D3A7]/70 shadow-[0_0_50px_rgba(232,211,167,0.3)] flex flex-col">
+            {/* Header Pop-up Modal */}
+            <div className="flex items-center justify-between pb-3 px-2 border-b border-[#E8D3A7]/20">
+              <span className="text-xs sm:text-sm font-bold tracking-wider text-[#E8D3A7] uppercase">
+                Video Demo Aplikasi Zura
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsVideoModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#E8D3A7]/20 hover:bg-[#E8D3A7] hover:text-[#5F1E1E] text-[#E8D3A7] flex items-center justify-center transition-all cursor-pointer"
+                title="Tutup Video"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Pemutar Video */}
+            <div className="relative w-full aspect-video mt-3 rounded-2xl overflow-hidden bg-black flex items-center justify-center border border-[#E8D3A7]/30">
+              <video
+                src="/demo.mp4"
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+              >
+                Browser Anda tidak mendukung tag video.
+              </video>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
