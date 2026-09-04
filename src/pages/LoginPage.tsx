@@ -126,7 +126,6 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-[#5F1E1E] text-[#0F172A] p-4 flex items-center justify-center font-dmsans">
-
             {/* Toast Alert */}
             {toastMessage && (
                 <div className="fixed bottom-6 right-6 z-50 flex items-center bg-white text-[#5F1E1E] px-4 py-3 rounded-xl shadow-xl border border-red-200 text-xs gap-2 animate-bounce font-bold">
@@ -137,11 +136,14 @@ export default function LoginPage() {
 
             {/* Card Form Putih */}
             <div className="bg-white rounded-[28px] p-8 sm:p-10 shadow-2xl w-full max-w-[430px] flex flex-col gap-6">
-
                 {/* Header Logo Dalam Kotak Maroon */}
                 <div className="flex flex-col items-center text-center">
                     <div className="w-16 h-16 bg-[#5F1E1E] rounded-2xl flex items-center justify-center mb-4 shadow-md">
-                        <img src="/logo.png" alt="Zura Logo" className="w-10 h-10 object-contain" />
+                        <img
+                            src="/logo.png"
+                            alt="Zura Logo"
+                            className="w-10 h-10 object-contain"
+                        />
                     </div>
 
                     <h1 className="text-xl font-extrabold text-[#5F1E1E] tracking-tight uppercase">
@@ -197,7 +199,11 @@ export default function LoginPage() {
                             {!isRegisterMode && (
                                 <button
                                     type="button"
-                                    onClick={() => showToast("Gunakan opsi login Google jika Anda lupa password.")}
+                                    onClick={() =>
+                                        showToast(
+                                            "Gunakan opsi login Google jika Anda lupa password."
+                                        )
+                                    }
                                     className="text-[11px] font-bold text-[#B48328] hover:underline"
                                 >
                                     Lupa Password?
@@ -217,9 +223,12 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                className="absolute right-3.5 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
                             >
-                                <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                                <svg
+                                    className="w-4 h-4 fill-none stroke-current stroke-2"
+                                    viewBox="0 0 24 24"
+                                >
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                                     <circle cx="12" cy="12" r="3" />
                                 </svg>
@@ -247,7 +256,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="mt-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-white font-extrabold py-3.5 px-4 rounded-xl text-xs transition-all shadow-md active:scale-95 flex justify-center items-center min-h-[44px]"
+                        className="mt-2 bg-[#5F1E1E] hover:bg-[#4a1717] text-white font-extrabold py-3.5 px-4 rounded-xl text-xs transition-all shadow-md active:scale-95 flex justify-center items-center min-h-[44px] cursor-pointer"
                     >
                         {isLoading ? (
                             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -259,26 +268,41 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                {/* Opsi Login Google (MUNCUL HANYA SAAT MODE LOGIN) */}
+                {/* Opsi Login Google */}
                 {!isRegisterMode && (
                     <>
                         <div className="flex items-center gap-3">
                             <div className="h-[1px] bg-slate-200 flex-1"></div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ATAU</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                ATAU
+                            </span>
                             <div className="h-[1px] bg-slate-200 flex-1"></div>
                         </div>
 
                         <button
                             type="button"
                             onClick={handleGoogleAuth}
-                            className="flex items-center justify-center gap-2.5 bg-white border border-slate-300 hover:border-slate-400 py-3 px-4 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all min-h-[44px] shadow-sm"
+                            className="flex items-center justify-center gap-2.5 bg-white border border-slate-300 hover:border-slate-400 py-3 px-4 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all min-h-[44px] shadow-sm cursor-pointer"
                         >
-                            <img
-                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                                alt="Google Logo"
-                                className="w-4 h-4"
-                            />
-                            Masuk dengan Google
+                            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                                <path
+                                    fill="#4285F4"
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                />
+                                <path
+                                    fill="#34A853"
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                />
+                                <path
+                                    fill="#FBBC05"
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                                />
+                                <path
+                                    fill="#EA4335"
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                                />
+                            </svg>
+                            <span>Masuk dengan Google</span>
                         </button>
                     </>
                 )}
@@ -291,7 +315,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setIsRegisterMode(false)}
-                                className="text-[#B48328] font-bold hover:underline"
+                                className="text-[#B48328] font-bold hover:underline cursor-pointer"
                             >
                                 Masuk di sini
                             </button>
@@ -302,14 +326,13 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setIsRegisterMode(true)}
-                                className="text-[#B48328] font-bold hover:underline"
+                                className="text-[#B48328] font-bold hover:underline cursor-pointer"
                             >
                                 Daftar akun baru
                             </button>
                         </p>
                     )}
                 </div>
-
             </div>
         </div>
     );
