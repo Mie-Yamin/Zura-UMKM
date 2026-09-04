@@ -7,10 +7,10 @@ import {
   Target,
   Sparkles,
   ArrowRight,
-  CheckCircle2,
   Check,
   ShieldCheck,
-  Zap
+  Zap,
+  Wallet
 } from 'lucide-react';
 import { getLocalRecaps, getLocalProducts, fetchCustomers } from '../api/client';
 import type { SalesRecap, Product, Customer } from '../types';
@@ -21,17 +21,19 @@ const formatRupiah = (val?: number) => {
   return `Rp ${val.toLocaleString('id-ID')}`;
 };
 
+// Parser inline markdown yang aman dari crash
 const renderFormattedInline = (text: string) => {
+  if (!text || typeof text !== 'string') return null;
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={idx} className="font-extrabold text-[#5F1E1E]">
           {part.slice(2, -2)}
         </strong>
       );
     }
-    return part;
+    return <span key={idx}>{part}</span>;
   });
 };
 
@@ -99,7 +101,7 @@ export default function AiInsightsPage() {
 
   // Robust Parser untuk 3 Kolom Eksekutif
   const executiveSummary = useMemo(() => {
-    if (!aiInsightsText) return null;
+    if (!aiInsightsText || typeof aiInsightsText !== 'string') return null;
 
     const lines = aiInsightsText.split('\n').map((l) => l.trim()).filter(Boolean);
 
@@ -111,15 +113,15 @@ export default function AiInsightsPage() {
 
     lines.forEach((line) => {
       // Deteksi pergantian section
-      if (/1\.\s+|finansial|saluran|omzet|keuangan/i.test(line) && line.length < 60) {
+      if (/1\.\s+|finansial|saluran|omzet|keuangan/i.test(line) && line.length < 80) {
         currentSection = 'fin';
         return;
       }
-      if (/2\.\s+|manajemen stok|risiko inventaris|inventaris/i.test(line) && line.length < 60) {
+      if (/2\.\s+|manajemen stok|risiko inventaris|inventaris/i.test(line) && line.length < 80) {
         currentSection = 'inv';
         return;
       }
-      if (/3\.\s+|rekomendasi aksi|taktis|prioritas|langkah/i.test(line) && line.length < 60) {
+      if (/3\.\s+|rekomendasi aksi|taktis|prioritas|langkah/i.test(line) && line.length < 80) {
         currentSection = 'act';
         return;
       }
@@ -132,7 +134,7 @@ export default function AiInsightsPage() {
         else if (currentSection === 'inv') inventory.push(clean);
         else if (currentSection === 'act') action.push(clean);
         else {
-          // Fallback cerdas berdasarkan kata kunci isi kalimat
+          // Fallback deteksi berdasarkan kata kunci
           if (/omzet|jual|transaksi|harga|rp|margin/i.test(clean)) financial.push(clean);
           else if (/stok|restock|deadstock|sku|unit/i.test(clean)) inventory.push(clean);
           else action.push(clean);
@@ -237,7 +239,7 @@ export default function AiInsightsPage() {
             </button>
           </div>
 
-          {/* 3 PILAR KARTU DENGAN PANJANG MENYESUAIKAN ISI (items-start) */}
+          {/* 3 PILAR KARTU: PANJANG MENYESUAIKAN ISI (items-start) */}
           {executiveSummary ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
