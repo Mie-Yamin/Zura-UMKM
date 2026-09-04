@@ -230,8 +230,8 @@ export default function AntiGravityLandingPage() {
               type="button"
               onClick={() => scrollToSlide(0)}
               className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'home'
-                ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
-                : 'text-white hover:bg-white/10'
+                  ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
+                  : 'text-white hover:bg-white/10'
                 }`}
             >
               Home
@@ -244,8 +244,8 @@ export default function AntiGravityLandingPage() {
                 setMobileMenuOpen(false);
               }}
               className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all font-dmsans cursor-pointer ${activeSection === 'menu'
-                ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
-                : 'text-white hover:bg-white/10'
+                  ? 'border border-[#E8D3A7] text-[#E8D3A7] font-semibold'
+                  : 'text-white hover:bg-white/10'
                 }`}
             >
               Menu
@@ -286,7 +286,7 @@ export default function AntiGravityLandingPage() {
                   Cek Selengkapnya
                 </button>
 
-                {/* 🎬 Tombol Play Video */}
+                {/* Tombol Play Video */}
                 <button
                   type="button"
                   onClick={() => setIsVideoModalOpen(true)}
@@ -398,8 +398,8 @@ export default function AntiGravityLandingPage() {
           >
             <div
               className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full transition-all duration-300 ${currentSlideIndex === index
-                ? 'bg-[#ECDFC4] scale-110 shadow-md'
-                : 'bg-[#E5C88B] hover:opacity-80'
+                  ? 'bg-[#ECDFC4] scale-110 shadow-md'
+                  : 'bg-[#E5C88B] hover:opacity-80'
                 }`}
             />
             <span className="sr-only">Slide {index + 1}</span>
@@ -407,7 +407,7 @@ export default function AntiGravityLandingPage() {
         ))}
       </div>
 
-      {/* ─── MODAL PEMUTAR VIDEO ─── */}
+      {/* MODAL PEMUTAR VIDEO */}
       {isVideoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10 bg-black/80 backdrop-blur-md transition-all">
           <div className="relative w-full max-w-4xl bg-[#4A1717] rounded-3xl p-3 sm:p-4 border-2 border-[#E8D3A7]/70 shadow-[0_0_50px_rgba(232,211,167,0.3)] flex flex-col">
@@ -432,6 +432,8 @@ export default function AntiGravityLandingPage() {
                 src="/demo.mp4"
                 controls
                 autoPlay
+                muted
+                playsInline
                 className="w-full h-full object-contain"
               >
                 Browser Anda tidak mendukung tag video.
