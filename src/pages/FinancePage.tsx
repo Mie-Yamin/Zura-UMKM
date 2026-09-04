@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getLocalRecaps, getLocalProducts } from "../api/client";
+import { getLocalRecaps, getLocalProducts, fetchUserSettings, updateUserSettings } from "../api/client";
 import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";
 import { generateFinanceInsights } from "../api/grokService";
 
@@ -67,6 +67,70 @@ export default function FinancePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
+  // State Beban Operasional (Sewa, Gaji, Listrik/Utilitas)
+  const [operationalExpenses, setOperationalExpenses] = useState({
+    sewa: 0,
+    gaji: 0,
+    listrik: 0,
+  });
+  const [showOpsModal, setShowOpsModal] = useState(false);
+  const [inputSewa, setInputSewa] = useState("0");
+  const [inputGaji, setInputGaji] = useState("0");
+  const [inputListrik, setInputListrik] = useState("0");
+  const [isSavingOps, setIsSavingOps] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedOps = localStorage.getItem("zura_operational_expenses");
+      if (savedOps) {
+        setOperationalExpenses(JSON.parse(savedOps));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    fetchUserSettings().then((settings) => {
+      if (settings && settings.operationalExpenses) {
+        setOperationalExpenses(settings.operationalExpenses);
+        localStorage.setItem(
+          "zura_operational_expenses",
+          JSON.stringify(settings.operationalExpenses)
+        );
+      }
+    });
+  }, []);
+
+  const handleOpenOpsModal = () => {
+    setInputSewa(operationalExpenses.sewa.toString());
+    setInputGaji(operationalExpenses.gaji.toString());
+    setInputListrik(operationalExpenses.listrik.toString());
+    setShowOpsModal(true);
+  };
+
+  const handleSaveOps = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingOps(true);
+
+    const newOps = {
+      sewa: Number(inputSewa.replace(/\D/g, "")) || 0,
+      gaji: Number(inputGaji.replace(/\D/g, "")) || 0,
+      listrik: Number(inputListrik.replace(/\D/g, "")) || 0,
+    };
+
+    setOperationalExpenses(newOps);
+    try {
+      localStorage.setItem("zura_operational_expenses", JSON.stringify(newOps));
+      await updateUserSettings({ operationalExpenses: newOps });
+      showToast("Beban operasional bulanan berhasil diperbarui!");
+      setShowOpsModal(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Gagal menyimpan beban operasional!");
+    } finally {
+      setIsSavingOps(false);
+    }
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -94,10 +158,9 @@ export default function FinancePage() {
       }
     });
 
-    // Beban operasional bulanan default 0 (diisi sesuai input pengguna nanti)
-    const sewa = 0;
-    const gaji = 0;
-    const listrik = 0;
+    const sewa = operationalExpenses.sewa || 0;
+    const gaji = operationalExpenses.gaji || 0;
+    const listrik = operationalExpenses.listrik || 0;
     const baseOperational = sewa + gaji + listrik;
 
     const totalRevenue = recapRevenue;
@@ -234,6 +297,15 @@ export default function FinancePage() {
             marketplace, dan visualisasi arus kas.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={handleOpenOpsModal}
+          className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px] cursor-pointer shrink-0"
+        >
+          <span>⚙️</span>
+          <span>Atur Beban Operasional</span>
+        </button>
       </header>
 
       {/* ─── KARTU METRIK UTAMA ─── */}
@@ -324,8 +396,8 @@ export default function FinancePage() {
                   type="button"
                   onClick={() => setSelectedPeriod(period)}
                   className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${selectedPeriod === period
-                      ? "bg-[#5F1E1E] text-[#E8D3A7] shadow-sm"
-                      : "text-[#5F1E1E] hover:bg-[#E8D3A7]/50"
+                    ? "bg-[#5F1E1E] text-[#E8D3A7] shadow-sm"
+                    : "text-[#5F1E1E] hover:bg-[#E8D3A7]/50"
                     }`}
                 >
                   {period === "3_bulan"
@@ -595,8 +667,15 @@ export default function FinancePage() {
 
               {/* 4. Beban Operasional */}
               <tr>
-                <td className="py-3 font-extrabold text-sm text-[#5F1E1E]">
-                  4. Beban Operasional Bulanan
+                <td className="py-3 font-extrabold text-sm text-[#5F1E1E] flex items-center gap-2">
+                  <span>4. Beban Operasional Bulanan</span>
+                  <button
+                    type="button"
+                    onClick={handleOpenOpsModal}
+                    className="text-[10px] text-[#B48328] hover:underline font-extrabold bg-[#E8D3A7]/40 px-2 py-0.5 rounded-md cursor-pointer"
+                  >
+                    Edit
+                  </button>
                 </td>
                 <td className="py-3 text-right font-black text-sm text-[#5F1E1E]">
                   {formatRupiah(finances.operational)}
@@ -638,6 +717,99 @@ export default function FinancePage() {
           </table>
         </div>
       </section>
+
+      {/* ─── MODAL EDIT BEBAN OPERASIONAL ─── */}
+      {showOpsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp font-dmsans">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h2 className="text-base font-black text-[#5F1E1E] uppercase">
+                ATUR BEBAN OPERASIONAL BULANAN
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowOpsModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOps} className="flex flex-col gap-4 text-xs">
+              <div className="flex flex-col gap-1.5">
+                <label className="font-extrabold text-[#5F1E1E] uppercase">
+                  Beban Sewa Toko / Gudang (Rp/Bulan)
+                </label>
+                <input
+                  type="text"
+                  className="border-2 border-[#B48328] rounded-xl p-3 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                  placeholder="Contoh: 1.500.000"
+                  value={inputSewa ? Number(inputSewa).toLocaleString("id-ID") : ""}
+                  onChange={(e) => setInputSewa(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="font-extrabold text-[#5F1E1E] uppercase">
+                  Beban Gaji Karyawan (Rp/Bulan)
+                </label>
+                <input
+                  type="text"
+                  className="border-2 border-[#B48328] rounded-xl p-3 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                  placeholder="Contoh: 3.000.000"
+                  value={inputGaji ? Number(inputGaji).toLocaleString("id-ID") : ""}
+                  onChange={(e) => setInputGaji(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="font-extrabold text-[#5F1E1E] uppercase">
+                  Tagihan Utilitas Listrik & Air (Rp/Bulan)
+                </label>
+                <input
+                  type="text"
+                  className="border-2 border-[#B48328] rounded-xl p-3 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
+                  placeholder="Contoh: 500.000"
+                  value={inputListrik ? Number(inputListrik).toLocaleString("id-ID") : ""}
+                  onChange={(e) => setInputListrik(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+
+              <div className="bg-[#E8D3A7]/30 border border-[#B48328]/30 p-3 rounded-xl flex justify-between items-center font-extrabold text-[#5F1E1E]">
+                <span>Total Beban Operasional:</span>
+                <span className="text-[#B48328] text-sm font-black">
+                  {formatRupiah(
+                    (Number(inputSewa) || 0) +
+                    (Number(inputGaji) || 0) +
+                    (Number(inputListrik) || 0)
+                  )}
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOpsModal(false)}
+                  className="bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingOps}
+                  className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold px-5 py-2.5 rounded-xl text-xs shadow transition-all active:scale-95 flex items-center justify-center min-w-[100px]"
+                >
+                  {isSavingOps ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    "Simpan Beban"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

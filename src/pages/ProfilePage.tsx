@@ -506,7 +506,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            💡 Untuk mengubah nama pemilik, telepon, dan kategori usaha klik tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
+            Untuk mengubah nama pemilik, telepon, dan kategori usaha klik tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
           </div>
         </div>
 
@@ -531,7 +531,7 @@ export default function ProfilePage() {
                   className="text-[10px] sm:text-[11px] font-bold text-slate-500 hover:text-[#5F1E1E] bg-slate-100 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer"
                   title="Kosongkan semua centang"
                 >
-                  🔄 Reset
+                  Reset
                 </button>
 
                 <button
@@ -539,7 +539,7 @@ export default function ProfilePage() {
                   onClick={() => setShowTemplates(!showTemplates)}
                   className="text-[10px] sm:text-[11px] font-bold text-[#B48328] hover:text-[#5F1E1E] bg-[#E8D3A7]/30 px-3 py-1.5 rounded-xl transition-all border border-[#B48328]/30 flex items-center gap-1 cursor-pointer"
                 >
-                  <span>💡 Rekomendasi SOP</span>
+                  <span>Rekomendasi SOP</span>
                   <span>{showTemplates ? "▲" : "▼"}</span>
                 </button>
               </div>
@@ -617,15 +617,15 @@ export default function ProfilePage() {
                     key={task.id}
                     onClick={() => toggleSopTask(task.id)}
                     className={`p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 text-xs font-semibold ${task.completed
-                        ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
-                        : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
+                      ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                      : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
                       }`}
                   >
                     <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
                       <span
                         className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] font-extrabold shrink-0 mt-0.5 sm:mt-0 ${task.completed
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-[#B48328] bg-white text-transparent"
+                          ? "bg-emerald-500 border-emerald-500 text-white"
+                          : "border-[#B48328] bg-white text-transparent"
                           }`}
                       >
                         ✓
@@ -654,8 +654,8 @@ export default function ProfilePage() {
 
           {/* Catatan Kaki SOP */}
           <div className="bg-[#E8D3A7]/20 p-3 rounded-xl border border-[#B48328]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-[11px] mt-2">
-            <span className="text-[#5F1E1E] font-bold shrink-0">📋 SOP Usaha Mandiri</span>
-            <span className="text-slate-600">Gunakan tombol "🔄 Reset" untuk mengulang daftar centang harian.</span>
+            <span className="text-[#5F1E1E] font-bold shrink-0">SOP Usaha Mandiri</span>
+            <span className="text-slate-600">Gunakan tombol "Reset" untuk mengulang daftar centang harian.</span>
           </div>
         </div>
       </div>
@@ -695,8 +695,8 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setActiveSecurityTab("email")}
                 className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "email"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#5F1E1E] text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 Ganti Email
@@ -706,8 +706,8 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setActiveSecurityTab("password")}
                 className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "password"
-                    ? "bg-[#5F1E1E] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#5F1E1E] text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 Ubah Kata Sandi
@@ -717,8 +717,8 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setActiveSecurityTab("danger")}
                 className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "danger"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "bg-red-50 text-red-600 hover:bg-red-100"
                   }`}
               >
                 Zona Bahaya (Hapus Akun)
@@ -946,8 +946,8 @@ export default function ProfilePage() {
                     <label
                       key={cat}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${!isCustomCategoryMode && formData.category === cat
-                          ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       <input
@@ -967,8 +967,8 @@ export default function ProfilePage() {
 
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${isCustomCategoryMode
-                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                       }`}
                   >
                     <input

@@ -199,15 +199,27 @@ export default function SalesRecapPage() {
       const importedItems: { id: string; name: string; qty: number; price: number }[] = [];
 
       parsedRawRows.forEach((row, index) => {
-        const nameVal = row[selectedNameHeader] ? String(row[selectedNameHeader]) : `Produk Impor #${index + 1}`;
+        const nameVal = row[selectedNameHeader] ? String(row[selectedNameHeader]).trim() : `Produk Impor #${index + 1}`;
         const qtyVal = Number(String(row[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
-        const priceVal = Number(String(row[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+
+        // Pencocokan cerdas dengan katalog inventaris jika harga di berkas kosong
+        const matchedProduct = products.find(
+          (p) => p.name.toLowerCase().trim() === nameVal.toLowerCase()
+        );
+
+        const rawPrice = row[selectedPriceHeader] !== undefined && row[selectedPriceHeader] !== ''
+          ? Number(String(row[selectedPriceHeader]).replace(/\D/g, ''))
+          : NaN;
+
+        const priceVal = !isNaN(rawPrice) && rawPrice > 0
+          ? rawPrice
+          : (matchedProduct?.sellPrice || 0);
 
         calculatedUnits += qtyVal;
         calculatedTotalNominal += priceVal * qtyVal;
 
         importedItems.push({
-          id: `PRD-IMP-${index + 1}`,
+          id: matchedProduct?.id || `PRD-IMP-${index + 1}`,
           name: nameVal,
           qty: qtyVal,
           price: priceVal,
@@ -260,7 +272,7 @@ export default function SalesRecapPage() {
 
     const randomProduct = availableProducts[Math.floor(Math.random() * availableProducts.length)];
     const orderQty = Math.min(Math.floor(1 + Math.random() * 3), randomProduct.stockCount);
-    const itemPrice = randomProduct.sellPrice || 15000;
+    const itemPrice = randomProduct.sellPrice || 0;
     const totalAmount = itemPrice * orderQty;
     const adminFee = Math.round(totalAmount * 0.05);
 
@@ -546,7 +558,7 @@ export default function SalesRecapPage() {
 
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
 
-            {/* 💥 DROPDOWN FILTER DENGAN DAFTAR DINAMIS TERMASUK CUSTOM 💥 */}
+            {/* DROPDOWN FILTER DENGAN DAFTAR DINAMIS TERMASUK CUSTOM */}
             <select
               className="w-full sm:w-auto bg-white border-2 border-[#B48328] text-[#5F1E1E] font-bold rounded-xl px-3 py-2.5 text-xs focus:outline-none uppercase min-h-[44px] cursor-pointer"
               value={selectedSourceFilter}
@@ -854,7 +866,7 @@ export default function SalesRecapPage() {
                   </p>
 
                   <p className="text-[10px] text-slate-500 italic">
-                    *Catatan: Nama header kolom di file kamu bebas (misal: "Barang", "Banyaknya", "Harga"). Di langkah berikutnya kamu bisa mencocokkan kolom secara visual.
+                    *Catatan: Jika berkas tidak memiliki kolom harga, sistem otomatis menggunakan harga dari katalog inventaris yang cocok.
                   </p>
                 </div>
 
@@ -992,14 +1004,28 @@ export default function SalesRecapPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-200 font-semibold">
                         {parsedRawRows.slice(0, 3).map((r, i) => {
-                          const pName = r[selectedNameHeader] || '-';
+                          const pName = r[selectedNameHeader] ? String(r[selectedNameHeader]).trim() : '-';
                           const pQty = Number(String(r[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
-                          const pPrice = Number(String(r[selectedPriceHeader] || 15000).replace(/\D/g, '')) || 15000;
+
+                          const matchedProduct = products.find(
+                            (p) => p.name.toLowerCase().trim() === pName.toLowerCase()
+                          );
+
+                          const rawPrice = r[selectedPriceHeader] !== undefined && r[selectedPriceHeader] !== ''
+                            ? Number(String(r[selectedPriceHeader]).replace(/\D/g, ''))
+                            : NaN;
+
+                          const pPrice = !isNaN(rawPrice) && rawPrice > 0
+                            ? rawPrice
+                            : (matchedProduct?.sellPrice || 0);
+
                           return (
                             <tr key={i}>
                               <td className="p-1 truncate max-w-[150px]">{pName}</td>
                               <td className="p-1 text-center">{pQty}</td>
-                              <td className="p-1 text-right">{formatRupiah(pPrice)}</td>
+                              <td className={`p-1 text-right ${pPrice === 0 ? 'text-amber-600 font-bold' : ''}`}>
+                                {formatRupiah(pPrice)}
+                              </td>
                             </tr>
                           );
                         })}

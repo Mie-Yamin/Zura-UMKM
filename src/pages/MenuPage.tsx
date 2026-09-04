@@ -9,10 +9,10 @@ export default function MenuPage() {
     // Daftar Menu Utama
     const menuItems = [
         { title: "DASHBOARD", image: "/landingPage/dashboard.svg", path: "/dashboard" },
-        { title: "REKAP PENJUALAN", image: "/landingPage/rekapPenjualan.svg", path: "/sales" },
+        { title: "REKAP PENJUALAN", image: "/landingPage/rekapPenjualan.svg", path: "/rekap" },
         { title: "MANAJEMEN STOK", image: "/landingPage/manajemenStok.svg", path: "/inventory" },
         { title: "LAPORAN KEUANGAN", image: "/landingPage/laporanKeuangan.svg", path: "/finance" },
-        { title: "AI Insight Hub", image: "/landingPage/aiInsight.svg", path: "/ai-insight" },
+        { title: "AI Insight Hub", image: "/landingPage/aiInsight.svg", path: "/ai-insights" },
     ];
 
     return (
