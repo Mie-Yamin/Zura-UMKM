@@ -31,12 +31,6 @@ export const NAV_ITEMS: NavItem[] = [
     image: "/sideBar/manajemenStok.svg",
   },
   {
-    id: "customers",
-    label: "Pelanggan",
-    path: "/customers",
-    image: "/sideBar/pelanggan.svg",
-  },
-  {
     id: "finance",
     label: "Laporan Keuangan &\nLaba Rugi",
     path: "/finance",

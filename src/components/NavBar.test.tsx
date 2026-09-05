@@ -19,25 +19,23 @@ function renderNavBar(initialPath = '/') {
 }
 
 describe('NavBar', () => {
-  it('renders all seven module links with correct labels', () => {
+  it('renders all six module links with correct labels', () => {
     renderNavBar();
 
     expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /penjualan/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /stok/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /pelanggan/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /keuangan/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /insight/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /profil/i })).toBeInTheDocument();
   });
 
-  it('exports NAV_ITEMS with seven entries covering all required paths', () => {
+  it('exports NAV_ITEMS with six entries covering all required paths', () => {
     const paths = NAV_ITEMS.map((item) => item.path);
-    expect(NAV_ITEMS).toHaveLength(7);
+    expect(NAV_ITEMS).toHaveLength(6);
     expect(paths).toContain('/dashboard');
     expect(paths).toContain('/rekap');
     expect(paths).toContain('/inventory');
-    expect(paths).toContain('/customers');
     expect(paths).toContain('/finance');
     expect(paths).toContain('/ai-insights');
     expect(paths).toContain('/profile');
@@ -86,8 +84,8 @@ describe('NavBar', () => {
     renderNavBar();
 
     const links = screen.getAllByRole('link');
-    // There should be 7 nav links
-    expect(links).toHaveLength(7);
+    // There should be 6 nav links
+    expect(links).toHaveLength(6);
 
     // Start with body focused; tabbing should move into the links
     links[0].focus();

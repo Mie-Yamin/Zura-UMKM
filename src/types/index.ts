@@ -155,7 +155,7 @@ export interface RestockPlanResponse {
 // Utility types
 // ─────────────────────────────────────────────
 
-export type ModuleId = 'dashboard' | 'pos' | 'inventory' | 'customers' | 'finance';
+export type ModuleId = 'dashboard' | 'pos' | 'inventory' | 'finance';
 
 export interface QueryResult<T> {
   data: T | undefined;
@@ -168,17 +168,6 @@ export interface QueryResult<T> {
 // CRM & POS Transaction Types
 // ─────────────────────────────────────────────
 
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  points: number;
-  totalTransactions: number;
-  lastTxDate: string;
-  tier: 'Gold' | 'Silver' | 'Bronze';
-}
-
 export interface TransactionItem {
   id: string;
   name: string;
@@ -190,8 +179,6 @@ export interface Transaction {
   id: string;
   time: string;
   date: string;
-  customer: string;
-  customerId?: string;
   amount: number;
   discountApplied: number;
   paymentStatus: 'Lunas' | 'Pending';

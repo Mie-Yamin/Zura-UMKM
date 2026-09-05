@@ -12,7 +12,6 @@ const AiInsightsPage = lazy(() => import("./pages/AiInsightsPage"));
 const SalesRecapPage = lazy(() => import("./pages/SalesRecapPage"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
-const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
 function RouteFallback() {
@@ -40,7 +39,6 @@ export default function App() {
               <Route path="/ai-insights" element={<AiInsightsPage />} />
               <Route path="/rekap" element={<SalesRecapPage />} />
               <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/customers" element={<CustomersPage />} />
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               {/* Fallback Route */}

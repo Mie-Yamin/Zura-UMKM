@@ -13,7 +13,6 @@ import {
 } from 'firebase/firestore';
 import type {
   Product,
-  Customer,
   SalesRecap,
   Transaction,
   KpiSummaryResponse,
@@ -25,7 +24,6 @@ import type {
 
 // ─── FIRESTORE COLLECTIONS ────────────────────────────────────────────────────
 const productsRef = collection(db, 'products');
-const customersRef = collection(db, 'customers');
 const transactionsRef = collection(db, 'transactions');
 const recapsRef = collection(db, 'recaps');
 const settingsRef = collection(db, 'settings');
@@ -255,27 +253,6 @@ export const getFirestoreRecaps = fetchRecaps;
 export const getLocalRecaps = fetchRecaps;
 export const addFirestoreRecap = addRecap;
 export const deleteFirestoreRecap = deleteRecap;
-
-// ─── PELANGGAN ────────────────────────────────────────────────────────────────
-
-export async function fetchCustomers(): Promise<Customer[]> {
-  try {
-    const uid = await getAuthUserId();
-    if (!uid) return [];
-
-    const q = query(customersRef, where('userId', '==', uid));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
-    })) as Customer[];
-  } catch (error) {
-    console.error('Error fetching customers:', error);
-    return [];
-  }
-}
-
-export const getLocalCustomers = fetchCustomers;
 
 // ─── TRANSAKSI ────────────────────────────────────────────────────────────────
 
