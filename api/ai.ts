@@ -4,10 +4,10 @@ import { verify as cryptoVerify, createPublicKey } from 'crypto';
 // ─── KONFIGURASI KEAMANAN ────────────────────────────────────────────────────
 // Hanya model yang diizinkan (allow-list) untuk mencegah abuse model mahal
 const ALLOWED_MODELS = new Set([
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'grok-2-latest',
-  'grok-3',
+  'openai/gpt-oss-20b',
+  'openai/gpt-oss-120b',
+  'qwen/qwen3.6-27b',
+  'qwen/qwen3.8-27b',
 ]);
 
 // Batas maksimum ukuran body request (bytes) ~ 1MB
@@ -159,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { messages, model = 'llama-3.3-70b-versatile' } = req.body ?? {};
+    const { messages, model = 'openai/gpt-oss-20b' } = req.body ?? {};
 
     // Validasi messages
     if (!Array.isArray(messages) || messages.length === 0) {
