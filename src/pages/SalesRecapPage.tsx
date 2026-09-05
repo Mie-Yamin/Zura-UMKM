@@ -1,7 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
-import { getLocalRecaps, addRecap, importRecapsFromFile, getLocalProducts, updateProduct, deleteRecap } from '../api/client';
+import { addRecap, importRecapsFromFile, updateProduct, deleteRecap } from '../api/client';
+import { useRecaps, useProducts } from '../hooks/useBusinessData';
+import ChannelSummaryGrid from '../components/sales/ChannelSummaryGrid';
+import WebhookDemoModal from '../components/sales/WebhookDemoModal';
+import ImportModal from '../components/sales/ImportModal';
+import ManualEntryModal from '../components/sales/ManualEntryModal';
+import RecapDetailModal from '../components/sales/RecapDetailModal';
 import type { SalesRecap, Product } from '../types';
 
 const formatRupiah = (val?: number) => {
@@ -18,25 +24,10 @@ interface DynamicItemRow {
 export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
-  // ─── AMBIL DATA FIRESTORE VIA USEQUERY ───
-  const { data: rawRecaps = [], isLoading: isLoadingRecaps } = useQuery({
-    queryKey: ['recaps'],
-    queryFn: async () => {
-      const res = await getLocalRecaps();
-      return Array.isArray(res) ? res : [];
-    },
-  });
+  // ─── AMBIL DATA FIRESTORE (SHARED HOOKS) ───
+  const { data: recaps = [], isLoading: isLoadingRecaps } = useRecaps();
 
-  const { data: rawProducts = [] } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: async () => {
-      const res = await getLocalProducts();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
-  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
+  const { data: products = [] } = useProducts();
 
   // States Utama
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,9 +71,9 @@ export default function SalesRecapPage() {
     const defaultSources = ['Shopee', 'TikTok Shop', 'Tokopedia', 'Manual'];
     const customSourcesFromRecaps = recaps
       .map((r) => r.source)
-      .filter((src): src is string => Boolean(src) && !defaultSources.includes(src));
+      .filter((src) => Boolean(src) && !defaultSources.includes(src));
 
-    const uniqueCustom = Array.from(new Set(customSourcesFromRecaps));
+    const uniqueCustom = Array.from(new Set<string>(customSourcesFromRecaps));
     return ['Semua', ...defaultSources, ...uniqueCustom];
   }, [recaps]);
 
@@ -523,33 +514,7 @@ export default function SalesRecapPage() {
       </header>
 
       {/* RINGKASAN SALURAN */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-        {['Shopee', 'Tokopedia', 'TikTok Shop', 'Manual'].map((src) => {
-          const matchingRecaps = recaps.filter((r) => r.source === src);
-          const totalUnits = matchingRecaps.reduce((sum, r) => sum + (r.unitsSold || 0), 0);
-          const totalNominal = matchingRecaps.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
-          const counts = matchingRecaps.length;
-
-          return (
-            <article key={src} className="bg-white rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase ${src === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
-                  src === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                    src === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
-                      'bg-[#5F1E1E] text-[#E8D3A7]'
-                  }`}>
-                  {src}
-                </span>
-                <h3 className="text-xl font-extrabold text-[#B48328] mt-3">{formatRupiah(totalNominal)}</h3>
-              </div>
-              <p className="text-[10px] font-bold text-[#5F1E1E] mt-2 flex justify-between">
-                <span>{totalUnits} Unit Terjual</span>
-                <span>{counts} Berkas Rekap</span>
-              </p>
-            </article>
-          );
-        })}
-      </section>
+      <ChannelSummaryGrid recaps={recaps} />
 
       {/* TABEL REKAP */}
       <section className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-3 md:gap-4 w-full">
@@ -728,606 +693,67 @@ export default function SalesRecapPage() {
 
       {/* ─── MODAL SIMULASI WEBHOOK EVENT-DRIVEN ─── */}
       {showWebhookDemoModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-sm sm:text-base font-black text-[#5F1E1E] uppercase tracking-wide flex items-center gap-1.5">
-                <span>⚡</span>
-                <span>PENGUJI SIMULASI WEBHOOK (DEMO MODE)</span>
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowWebhookDemoModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
-              <span className="font-extrabold uppercase text-[10px] text-[#B48328]">
-                📢 Catatan Pengujian Lomba:
-              </span>
-              <p className="text-[11px] leading-relaxed font-semibold text-slate-700">
-                Fitur ini disediakan khusus untuk <strong className="text-[#5F1E1E]">Pengujian Penjurian / Lomba</strong> untuk mendemonstrasikan integrasi <strong className="text-[#5F1E1E]">Event-Driven Multi-Channel Sync</strong> secara <em>real-time</em> tanpa harus melakukan transaksi pembelian sungguhan di aplikasi marketplace.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
-                PILIH SALURAN E-COMMERCE UNTUK DISIMULASIKAN:
-              </span>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <button
-                  type="button"
-                  disabled={isSimulating}
-                  onClick={() => handleExecuteWebhookDemo('Shopee')}
-                  className="bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#EE4D2D] font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
-                >
-                  <div className="h-10 flex items-center justify-center">
-                    <img
-                      src="/shopee.png"
-                      alt="Shopee Logo"
-                      className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  </div>
-                  <span className="text-[11px]">Shopee</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isSimulating}
-                  onClick={() => handleExecuteWebhookDemo('TikTok Shop')}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-neutral-900 font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
-                >
-                  <div className="h-10 flex items-center justify-center w-full px-1">
-                    <img
-                      src="/tiktok.png"
-                      alt="TikTok Logo"
-                      className="w-full max-w-[80px] h-9 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  </div>
-                  <span className="text-[11px]">TikTok Shop</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isSimulating}
-                  onClick={() => handleExecuteWebhookDemo('Tokopedia')}
-                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#00AA5B] font-black p-3 rounded-2xl text-xs transition-all shadow-sm active:scale-95 flex flex-col items-center justify-center gap-2 group h-28"
-                >
-                  <div className="h-10 flex items-center justify-center">
-                    <img
-                      src="/tokopedia.png"
-                      alt="Tokopedia Logo"
-                      className="w-8 h-8 object-contain group-hover:scale-110 transition-transform"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  </div>
-                  <span className="text-[11px]">Tokopedia</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowWebhookDemoModal(false)}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors mt-2"
-            >
-              Tutup Penguji
-            </button>
-          </div>
-        </div>
+        <WebhookDemoModal
+          open={showWebhookDemoModal}
+          isSimulating={isSimulating}
+          onSimulate={handleExecuteWebhookDemo}
+          onClose={() => setShowWebhookDemoModal(false)}
+        />
       )}
 
       {/* ─── MODAL IMPOR REKAP DENGAN TEKS PETUNJUK INFORMASI & SMART COLUMN MAPPING ─── */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">
-                {showMappingStep ? 'PRATINJAU & PENYESUAIAN KOLOM' : 'IMPOR REKAP MARKETPLACE'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowImportModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* STEP 1: PILIH FILE & TANGGAL DENGAN PETUNJUK USER-FRIENDLY */}
-            {!showMappingStep ? (
-              <div className="flex flex-col gap-3.5 text-xs">
-
-                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl flex flex-col gap-2 text-xs text-[#5F1E1E]">
-                  <div className="flex justify-between items-center border-b border-[#B48328]/20 pb-1.5">
-                    <span className="font-extrabold uppercase text-[10px] text-[#B48328] flex items-center gap-1">
-                      <span>💡</span> PETUNJUK IMPOR BERKAS EXCEL / CSV:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleDownloadTemplate}
-                      className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-2 py-1 rounded-lg text-[9px] transition-colors flex items-center gap-1 shadow-sm"
-                    >
-                      <span>📥</span> Unduh Contoh Template
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] leading-relaxed font-semibold text-slate-700">
-                    Pastikan berkas Excel/CSV kamu memiliki setidaknya 3 informasi utama:
-                    <strong className="text-[#5F1E1E]"> Nama Produk</strong>,
-                    <strong className="text-[#5F1E1E]"> Jumlah Terjual (Qty)</strong>, dan
-                    <strong className="text-[#5F1E1E]"> Harga Satuan</strong>.
-                  </p>
-
-                  <p className="text-[10px] text-slate-500 italic">
-                    *Catatan: Jika berkas tidak memiliki kolom harga, sistem otomatis menggunakan harga dari katalog inventaris yang cocok.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
-                  <input
-                    type="date"
-                    required
-                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                    value={importDate}
-                    onChange={(e) => setImportDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-extrabold text-[#5F1E1E] uppercase">PILIH SALURAN ASAL BERKAS</label>
-                  <select
-                    className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] bg-[#FFFDF9] focus:outline-none cursor-pointer"
-                    value={importSource}
-                    onChange={(e) => setImportSource(e.target.value)}
-                  >
-                    <option value="Shopee">Shopee Seller Center</option>
-                    <option value="TikTok Shop">TikTok Shop Seller Center</option>
-                    <option value="Tokopedia">Tokopedia Seller Center</option>
-                    <option value="Custom">➕ Lainnya / Tambah Custom...</option>
-                  </select>
-
-                  {importSource === 'Custom' && (
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Lazada, WhatsApp, atau Bazar"
-                      className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9] animate-scaleUp mt-1"
-                      value={customImportSource}
-                      onChange={(e) => setCustomImportSource(e.target.value)}
-                    />
-                  )}
-                </div>
-
-                {/* FILE UPLOAD BOX */}
-                <div className="border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 cursor-pointer bg-[#FFFDF9] relative transition-colors">
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls"
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileChange(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <span className="font-bold text-[#5F1E1E] truncate max-w-full text-center">
-                    {importFile ? importFile.name : 'Pilih file ekspor laporan marketplace (.xlsx / .csv)'}
-                  </span>
-                  <span className="text-[9px] text-slate-500 font-semibold">Sistem akan otomatis mendeteksi kolom file</span>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowImportModal(false)}
-                    className="px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-600 text-xs"
-                  >
-                    Batal
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* STEP 2: PENYESUAIAN MAPPING KOLOM & PRATINJAU HASIL BACA */
-              <div className="flex flex-col gap-3.5 text-xs">
-                <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-[11px] text-emerald-800 font-bold">
-                  ✓ Berhasil membaca {parsedRawRows.length} baris dari file: <span className="underline">{importFile?.name}</span>
-                </div>
-
-                <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3 rounded-2xl flex flex-col gap-2">
-                  <span className="font-black text-[#5F1E1E] text-[10px] uppercase">
-                    SAMAKAN KOLOM FILE EXCEL KAMU DENGAN SISTEM:
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-600">Kolom Nama Produk:</label>
-                      <select
-                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
-                        value={selectedNameHeader}
-                        onChange={(e) => setSelectedNameHeader(e.target.value)}
-                      >
-                        {availableHeaders.map((h) => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-600">Kolom Jumlah (Qty):</label>
-                      <select
-                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
-                        value={selectedQtyHeader}
-                        onChange={(e) => setSelectedQtyHeader(e.target.value)}
-                      >
-                        {availableHeaders.map((h) => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-600">Kolom Harga Jual:</label>
-                      <select
-                        className="border border-[#B48328] rounded-lg p-1.5 text-[10px] font-bold text-[#5F1E1E] bg-white cursor-pointer truncate"
-                        value={selectedPriceHeader}
-                        onChange={(e) => setSelectedPriceHeader(e.target.value)}
-                      >
-                        {availableHeaders.map((h) => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PRATINJAU 3 BARIS DATA PERTAMA */}
-                <div className="flex flex-col gap-1">
-                  <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase">
-                    PRATINJAU CONTOH DATA HASIL MEMBACA:
-                  </span>
-                  <div className="border border-slate-200 rounded-xl overflow-x-auto bg-slate-50 p-2 max-h-32">
-                    <table className="w-full text-[10px] text-left">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-[#5F1E1E] font-black">
-                          <th className="p-1">Produk</th>
-                          <th className="p-1 text-center">Qty</th>
-                          <th className="p-1 text-right">Harga</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 font-semibold">
-                        {parsedRawRows.slice(0, 3).map((r, i) => {
-                          const pName = r[selectedNameHeader] ? String(r[selectedNameHeader]).trim() : '-';
-                          const pQty = Number(String(r[selectedQtyHeader] || 1).replace(/\D/g, '')) || 1;
-
-                          const matchedProduct = products.find(
-                            (p) => p.name.toLowerCase().trim() === pName.toLowerCase()
-                          );
-
-                          const rawPrice = r[selectedPriceHeader] !== undefined && r[selectedPriceHeader] !== ''
-                            ? Number(String(r[selectedPriceHeader]).replace(/\D/g, ''))
-                            : NaN;
-
-                          const pPrice = !isNaN(rawPrice) && rawPrice > 0
-                            ? rawPrice
-                            : (matchedProduct?.sellPrice || 0);
-
-                          return (
-                            <tr key={i}>
-                              <td className="p-1 truncate max-w-[150px]">{pName}</td>
-                              <td className="p-1 text-center">{pQty}</td>
-                              <td className={`p-1 text-right ${pPrice === 0 ? 'text-amber-600 font-bold' : ''}`}>
-                                {formatRupiah(pPrice)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowMappingStep(false)}
-                    className="px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-600 text-xs"
-                  >
-                    ← Pilih File Lain
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isImporting}
-                    onClick={handleConfirmImport}
-                    className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-black px-5 py-2.5 rounded-xl shadow-md text-xs flex items-center gap-1.5 active:scale-95 transition-all"
-                  >
-                    {isImporting ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    ) : (
-                      '✓ Konfirmasi & Impor Data'
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ImportModal
+          open={showImportModal}
+          showMappingStep={showMappingStep}
+          importDate={importDate}
+          setImportDate={setImportDate}
+          importSource={importSource}
+          setImportSource={setImportSource}
+          customImportSource={customImportSource}
+          setCustomImportSource={setCustomImportSource}
+          importFile={importFile}
+          availableHeaders={availableHeaders}
+          selectedNameHeader={selectedNameHeader}
+          setSelectedNameHeader={setSelectedNameHeader}
+          selectedQtyHeader={selectedQtyHeader}
+          setSelectedQtyHeader={setSelectedQtyHeader}
+          selectedPriceHeader={selectedPriceHeader}
+          setSelectedPriceHeader={setSelectedPriceHeader}
+          parsedRawRows={parsedRawRows}
+          products={products}
+          isImporting={isImporting}
+          onDownloadTemplate={handleDownloadTemplate}
+          onFileChange={handleFileChange}
+          onBackToStep1={() => setShowMappingStep(false)}
+          onConfirm={handleConfirmImport}
+          onClose={() => setShowImportModal(false)}
+        />
       )}
 
       {/* MODAL INPUT PENJUALAN DYNAMIC ITEM ROWS */}
       {showManualModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-black text-[#5F1E1E] uppercase tracking-wide">
-                INPUT PENJUALAN / OPNAME MANUAL
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowManualModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                &times;
-              </button>
-            </div>
-
-            <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 text-xs">
-              <div className="flex flex-col gap-1">
-                <label className="font-extrabold text-[#5F1E1E] uppercase">TANGGAL REKAP</label>
-                <input
-                  type="date"
-                  required
-                  className="border-2 border-[#B48328] rounded-2xl p-2.5 font-bold text-[#5F1E1E] focus:outline-none bg-[#FFFDF9]"
-                  value={manualDate}
-                  onChange={(e) => setManualDate(e.target.value)}
-                />
-              </div>
-
-              <div className="border-2 border-[#B48328] p-3.5 rounded-2xl bg-[#E8D3A7]/20 flex flex-col gap-3">
-                <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase tracking-wider block">
-                  POTONG STOK PUSAT (MULTI-ITEM):
-                </span>
-
-                <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
-                  {itemRows.map((row, index) => {
-                    const selectedProd = products.find((p) => p.id === row.productId);
-                    const numericQty = typeof row.qty === 'number' ? row.qty : 0;
-                    const subtotal = (selectedProd?.sellPrice || 0) * numericQty;
-
-                    return (
-                      <div key={index} className="bg-white p-2.5 rounded-xl border border-[#B48328]/40 flex flex-col gap-2 shadow-sm">
-                        <div className="grid grid-cols-12 gap-2 items-center">
-                          <div className="col-span-7 flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-500">Produk Fisik #{index + 1}</label>
-                            <select
-                              required
-                              className="border border-[#B48328] rounded-lg p-1.5 font-bold text-[#5F1E1E] bg-white text-[10px] min-h-[32px] cursor-pointer truncate"
-                              value={row.productId}
-                              onChange={(e) => handleRowChange(index, 'productId', e.target.value)}
-                            >
-                              <option value="">-- Pilih Produk --</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id} disabled={p.stockCount <= 0}>
-                                  {p.name} {p.stockCount <= 0 ? '(HABIS)' : `(Stok: ${p.stockCount})`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="col-span-3 flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-500">Qty</label>
-                            <input
-                              type="number"
-                              min="1"
-                              required
-                              placeholder="0"
-                              className="border border-[#B48328] rounded-lg p-1.5 w-full font-bold text-[#5F1E1E] text-[10px] min-h-[32px]"
-                              value={row.qty}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                handleRowChange(index, 'qty', val === '' ? '' : parseInt(val) || 0);
-                              }}
-                            />
-                          </div>
-
-                          <div className="col-span-2 flex items-end justify-center pt-3">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveRow(index)}
-                              disabled={itemRows.length === 1}
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition-colors ${itemRows.length === 1
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : 'text-red-600 hover:bg-red-50'
-                                }`}
-                              title="Hapus Baris"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-
-                        {selectedProd && (
-                          <div className="flex justify-between items-center text-[10px] border-t border-slate-100 pt-1 text-slate-500 font-bold">
-                            <span>Harga: {formatRupiah(selectedProd.sellPrice)} / unit</span>
-                            <span className="text-[#5F1E1E]">Subtotal: {formatRupiah(subtotal)}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className="w-full py-2 bg-white border-2 border-dashed border-[#B48328] hover:bg-[#E8D3A7]/30 text-[#5F1E1E] font-extrabold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 active:scale-98"
-                >
-                  <span>+</span>
-                  <span>Tambah Produk Lain</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="font-extrabold text-[#5F1E1E] uppercase">UNIT TERJUAL</label>
-                  <input
-                    type="number"
-                    readOnly
-                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-bold text-slate-600 focus:outline-none cursor-not-allowed"
-                    value={calculatedTotals.totalUnits}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="font-extrabold text-[#5F1E1E] uppercase">TOTAL NOMINAL (RP)</label>
-                  <input
-                    type="text"
-                    readOnly
-                    className="border-2 border-[#B48328]/50 bg-slate-100 rounded-xl p-2.5 font-black font-mono text-[#B48328] focus:outline-none cursor-not-allowed"
-                    value={formatRupiah(calculatedTotals.totalNominal)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowManualModal(false)}
-                  className="w-full sm:w-auto bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs min-h-[44px]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingManual || calculatedTotals.totalUnits === 0}
-                  className={`w-full sm:w-auto font-black px-6 py-2.5 rounded-xl text-xs shadow-md min-h-[44px] flex items-center justify-center transition-all ${calculatedTotals.totalUnits === 0
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] active:scale-95'
-                    }`}
-                >
-                  {isSubmittingManual ? (
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  ) : (
-                    'Simpan Transaksi'
-                  )}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
+        <ManualEntryModal
+          open={showManualModal}
+          products={products}
+          manualDate={manualDate}
+          setManualDate={setManualDate}
+          itemRows={itemRows}
+          calculatedTotals={calculatedTotals}
+          isSubmitting={isSubmittingManual}
+          onRowChange={handleRowChange}
+          onAddRow={handleAddRow}
+          onRemoveRow={handleRemoveRow}
+          onSubmit={handleManualSubmit}
+          onClose={() => setShowManualModal(false)}
+        />
       )}
 
       {/* MODAL RINCIAN DETAIL REKAP */}
-      {activeDetailRecap && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-black text-[#5F1E1E] uppercase tracking-wide">RINCIAN DOKUMEN REKAP</h3>
-              <button
-                type="button"
-                onClick={() => setActiveDetailRecap(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3.5 text-xs">
-
-              <div className="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">Kode Rekap</span>
-                  <span className="font-bold font-mono text-[#5F1E1E] truncate">{activeDetailRecap.id}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">Sumber Laporan</span>
-                  <span className={`font-bold self-start mt-0.5 px-2.5 py-0.5 rounded-xl text-[10px] ${activeDetailRecap.source === 'Shopee' ? 'bg-orange-50 text-[#EE4D2D]' :
-                    activeDetailRecap.source === 'Tokopedia' ? 'bg-emerald-50 text-[#00AA5B]' :
-                      activeDetailRecap.source === 'TikTok Shop' ? 'bg-neutral-900 text-white' :
-                        'bg-[#5F1E1E] text-[#E8D3A7]'
-                    }`}>
-                    {activeDetailRecap.source}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center bg-[#E8D3A7]/20 p-2.5 rounded-2xl border border-[#B48328]/30">
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase">Unit Terjual</p>
-                  <p className="font-black text-[#5F1E1E] text-sm mt-0.5">{activeDetailRecap.unitsSold}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase">Bruto</p>
-                  <p className="font-black text-[#B48328] text-sm mt-0.5">{formatRupiah(activeDetailRecap.totalAmount)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-red-600 font-bold uppercase">Potongan Fee</p>
-                  <p className="font-black text-red-600 text-sm mt-0.5">-{formatRupiah(activeDetailRecap.adminFee)}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <span className="font-extrabold text-[10px] text-[#5F1E1E] uppercase tracking-wider">
-                  DETIL ITEM BARANG TERJUAL:
-                </span>
-
-                {activeDetailRecap.items && activeDetailRecap.items.length > 0 ? (
-                  <div className="flex flex-col gap-2 max-h-[190px] overflow-y-auto pr-1">
-                    {activeDetailRecap.items.map((item, idx) => {
-                      const itemSubtotal = (item.price || 0) * (item.qty || 1);
-                      return (
-                        <div key={idx} className="p-3 border-2 border-[#B48328]/30 rounded-2xl flex justify-between items-center bg-[#FFFDF9] shadow-sm">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-black text-[#5F1E1E] text-xs uppercase">{item.name}</span>
-                            <span className="text-[10px] text-slate-500 font-bold">
-                              {item.qty} unit × {formatRupiah(item.price)}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-black text-[#B48328] text-xs block">
-                              {formatRupiah(itemSubtotal)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-3 border-2 border-[#B48328]/30 rounded-2xl bg-[#FFFDF9] flex justify-between items-center shadow-sm">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-black text-[#5F1E1E] text-xs uppercase">Produk Rekap {activeDetailRecap.source}</span>
-                      <span className="text-[10px] text-slate-500 font-bold">
-                        {activeDetailRecap.unitsSold} unit × {formatRupiah(Math.round(activeDetailRecap.totalAmount / (activeDetailRecap.unitsSold || 1)))}
-                      </span>
-                    </div>
-                    <span className="font-black text-[#B48328] text-xs">
-                      {formatRupiah(activeDetailRecap.totalAmount)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setActiveDetailRecap(null)}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors mt-2 min-h-[44px]"
-            >
-              Tutup Rincian
-            </button>
-          </div>
-        </div>
-      )}
+      <RecapDetailModal
+        recap={activeDetailRecap}
+        onClose={() => setActiveDetailRecap(null)}
+      />
 
     </div>
   );

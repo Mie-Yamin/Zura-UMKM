@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: pastikan auth dan cocok dengan userId pada resource
+    function isOwner(resource) {
+      return request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+
+    function incomingOwner() {
+      return request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // ─── USERS ────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ─── SETTINGS ─────────────────────────────────────────────
+    match /settings/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ─── PRODUCTS ─────────────────────────────────────────────
+    match /products/{docId} {
+      allow read: if request.auth != null;
+      allow create: if incomingOwner();
+      allow update, delete: if isOwner(resource);
+    }
+
+    // ─── RECAPS ───────────────────────────────────────────────
+    match /recaps/{docId} {
+      allow read: if request.auth != null;
+      allow create: if incomingOwner();
+      allow update, delete: if isOwner(resource);
+    }
+
+    // ─── CUSTOMERS ────────────────────────────────────────────
+    match /customers/{docId} {
+      allow read: if request.auth != null;
+      allow create: if incomingOwner();
+      allow update, delete: if isOwner(resource);
+    }
+
+    // ─── TRANSACTIONS ─────────────────────────────────────────
+    match /transactions/{docId} {
+      allow read: if request.auth != null;
+      allow create: if incomingOwner();
+      allow update, delete: if isOwner(resource);
+    }
+  }
+}

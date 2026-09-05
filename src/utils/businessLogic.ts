@@ -50,7 +50,7 @@ export function applyRowEmphasis(
 ): (Product & { emphasized: boolean })[] {
   return products.map((p) => ({
     ...p,
-    emphasized: p.aiForecasterDays <= 7,
+    emphasized: (p.aiForecasterDays ?? Number.MAX_SAFE_INTEGER) <= 7,
   }));
 }
 

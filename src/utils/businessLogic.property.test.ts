@@ -93,7 +93,8 @@ describe('Business Logic Properties', () => {
 
           // Each product's emphasis flag matches the threshold rule
           return result.every((p) => {
-            if (p.aiForecasterDays <= 7) return p.emphasized === true;
+            const days = p.aiForecasterDays ?? Number.MAX_SAFE_INTEGER;
+            if (days <= 7) return p.emphasized === true;
             return p.emphasized === false;
           });
         }),

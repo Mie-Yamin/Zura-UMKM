@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Manajemen Stok\nPusat",
     path: "/inventory",
     image: "/sideBar/manajemenStok.svg",
+  },
+  {
+    id: "customers",
+    label: "Pelanggan",
+    path: "/customers",
+    image: "/sideBar/pelanggan.svg",
   },
   {
     id: "finance",
@@ -151,7 +157,7 @@ export default function NavBar() {
                       <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
                         <img
                           src={item.image}
-                          alt={item.id}
+                          alt=""
                           className="max-w-full max-h-full object-contain pointer-events-none"
                         />
                       </div>
@@ -177,7 +183,7 @@ export default function NavBar() {
                 <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
                   <img
                     src="/sideBar/logOut.png"
-                    alt="Logout"
+alt=""
                     className="max-w-full max-h-full object-contain pointer-events-none"
                   />
                 </div>
@@ -222,7 +228,7 @@ export default function NavBar() {
                   <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
                     <img
                       src={item.image}
-                      alt={item.id}
+                      alt=""
                       className="max-w-full max-h-full object-contain pointer-events-none"
                     />
                   </div>
@@ -246,7 +252,7 @@ export default function NavBar() {
             <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
               <img
                 src="/sideBar/logOut.png"
-                alt="Logout"
+                alt=""
                 className="max-w-full max-h-full object-contain pointer-events-none"
               />
             </div>

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getLocalRecaps, getLocalProducts, fetchUserSettings, updateUserSettings } from "../api/client";
+import { fetchUserSettings, updateUserSettings } from "../api/client";
+import { useRecaps, useProducts } from "../hooks/useBusinessData";
 import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";
+import { readStoredJSON, writeStoredJSON, STORAGE_KEYS } from "../utils/storage";
 import { generateFinanceInsights } from "../api/grokService";
 
 const formatMessageText = (text: string) => {
@@ -39,26 +41,10 @@ const formatRupiah = (val?: number) => {
 };
 
 export default function FinancePage() {
-  // ─── AMBIL DATA FIRESTORE SECARA ASYNC VIA USEQUERY (SOLUSI LAYAR PUTIH) ───
-  const { data: rawRecaps = [] } = useQuery({
-    queryKey: ["recaps"],
-    queryFn: async () => {
-      const res = await getLocalRecaps();
-      return Array.isArray(res) ? res : [];
-    },
-  });
+  // ─── AMBIL DATA FIRESTORE SECARA ASYNC (SHARED HOOKS) ───
+  const { data: recaps = [] } = useRecaps();
 
-  const { data: rawProducts = [] } = useQuery({
-    queryKey: ["inventory"],
-    queryFn: async () => {
-      const res = await getLocalProducts();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  // Jaminan bertipe Array murni
-  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
-  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
+  const { data: products = [] } = useProducts();
 
   // States
   const [selectedPeriod, setSelectedPeriod] = useState<
@@ -80,22 +66,18 @@ export default function FinancePage() {
   const [isSavingOps, setIsSavingOps] = useState(false);
 
   useEffect(() => {
-    try {
-      const savedOps = localStorage.getItem("zura_operational_expenses");
-      if (savedOps) {
-        setOperationalExpenses(JSON.parse(savedOps));
-      }
-    } catch (e) {
-      console.error(e);
+    const savedOps = readStoredJSON<{ sewa: number; gaji: number; listrik: number } | null>(
+      STORAGE_KEYS.OPERATIONAL_EXPENSES,
+      null
+    );
+    if (savedOps) {
+      setOperationalExpenses(savedOps);
     }
 
     fetchUserSettings().then((settings) => {
       if (settings && settings.operationalExpenses) {
         setOperationalExpenses(settings.operationalExpenses);
-        localStorage.setItem(
-          "zura_operational_expenses",
-          JSON.stringify(settings.operationalExpenses)
-        );
+        writeStoredJSON(STORAGE_KEYS.OPERATIONAL_EXPENSES, settings.operationalExpenses);
       }
     });
   }, []);
@@ -118,8 +100,8 @@ export default function FinancePage() {
     };
 
     setOperationalExpenses(newOps);
+    writeStoredJSON(STORAGE_KEYS.OPERATIONAL_EXPENSES, newOps);
     try {
-      localStorage.setItem("zura_operational_expenses", JSON.stringify(newOps));
       await updateUserSettings({ operationalExpenses: newOps });
       showToast("Beban operasional bulanan berhasil diperbarui!");
       setShowOpsModal(false);
@@ -229,7 +211,7 @@ export default function FinancePage() {
   const handleExport = (type: "Excel" | "PDF") => {
     setIsExporting(type);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsExporting(null);
 
       if (type === "Excel") {
@@ -247,8 +229,13 @@ export default function FinancePage() {
           ["LABA BERSIH RIIL (NET PROFIT)", finances.netProfit],
         ];
 
-        exportToExcel("Laporan_Laba_Rugi_Zura", "Laba Rugi", headers, rows);
-        showToast("Laporan Keuangan diekspor ke Excel (.xlsx)!");
+        try {
+          await exportToExcel("Laporan_Laba_Rugi_Zura", "Laba Rugi", headers, rows);
+          showToast("Laporan Keuangan diekspor ke Excel (.xlsx)!");
+        } catch (err) {
+          console.error("Export Excel gagal:", err);
+          showToast("Gagal mengekspor Excel. Silakan coba lagi.");
+        }
       } else {
         exportToPdfPrint("Laporan Laba Rugi Omnichannel", "table-laba-rugi");
         showToast("Mengunduh dokumen PDF...");

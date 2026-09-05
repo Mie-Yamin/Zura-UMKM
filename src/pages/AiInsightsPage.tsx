@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -12,9 +12,8 @@ import {
   Zap,
   Wallet
 } from 'lucide-react';
-import { getLocalRecaps, getLocalProducts, fetchCustomers } from '../api/client';
-import type { SalesRecap, Product, Customer } from '../types';
-import { generateGrokInsights } from '../api/grokService';
+import { useRecaps, useProducts } from '../hooks/useBusinessData';
+import { generateGrokInsights, AI_PRIVACY_NOTICE } from '../api/grokService';
 
 const formatRupiah = (val?: number) => {
   if (val === undefined || isNaN(val)) return 'Rp 0';
@@ -40,32 +39,9 @@ const renderFormattedInline = (text: string) => {
 export default function AiInsightsPage() {
   const navigate = useNavigate();
 
-  const { data: rawRecaps = [], isLoading: loadingRecaps } = useQuery({
-    queryKey: ['recaps'],
-    queryFn: async () => {
-      const res = await getLocalRecaps();
-      return Array.isArray(res) ? res : [];
-    },
-  });
+  const { data: recaps = [], isLoading: loadingRecaps } = useRecaps();
 
-  const { data: rawProducts = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: async () => {
-      const res = await getLocalProducts();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  const { data: rawCustomers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: async () => {
-      const res = await fetchCustomers();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
-  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
+  const { data: products = [], isLoading: loadingProducts } = useProducts();
 
   const { data: aiInsightsText, isLoading: loadingInsights } = useQuery({
     queryKey: ['ai-insights-report', products.length, recaps.length],
@@ -174,6 +150,12 @@ export default function AiInsightsPage() {
           <option value="Manual">Manual / POS</option>
         </select>
       </header>
+
+      {/* Privacy Notice AI */}
+      <div className="flex items-start gap-2 rounded-xl border border-[#B48328]/30 bg-[#B48328]/10 px-3 py-2 text-[10px] font-medium text-[#5F1E1E]/80">
+        <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-[#B48328]" />
+        <p>{AI_PRIVACY_NOTICE}</p>
+      </div>
 
       {/* METRICS ROW */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

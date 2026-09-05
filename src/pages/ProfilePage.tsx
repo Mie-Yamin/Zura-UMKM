@@ -20,28 +20,14 @@ import {
   fetchUserProfile,
   updateUserProfile
 } from "../api/client";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  phone: string;
-  category: string;
-  isEmailVerified: boolean;
-}
-
-interface SopTask {
-  id: string;
-  label: string;
-  completed: boolean;
-}
-
-const DEFAULT_BUSINESS_CATEGORIES = [
-  "Makanan & Minuman (F&B)",
-  "Pakaian & Fashion",
-  "Ritel / Toko Kelontong",
-  "Jasa & Pelayanan",
-  "Kecantikan & Kesehatan",
-];
+import { readStoredJSON, writeStoredJSON, STORAGE_KEYS } from "../utils/storage";
+import { DEFAULT_BUSINESS_CATEGORIES } from "../components/profile/types";
+import type { UserProfile, SopTask, SopTemplateKey } from "../components/profile/types";
+import ProfileInfoCard from "../components/profile/ProfileInfoCard";
+import SopChecklistCard from "../components/profile/SopChecklistCard";
+import SecuritySettingsSection from "../components/profile/SecuritySettingsSection";
+import ReauthModal from "../components/profile/ReauthModal";
+import EditProfileModal from "../components/profile/EditProfileModal";
 
 const INITIAL_PROFILE: UserProfile = {
   name: "Pengguna Zura",
@@ -81,24 +67,16 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
 
   const [profile, setProfile] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem("user_profile_data");
-      return saved
-        ? { ...INITIAL_PROFILE, ...JSON.parse(saved) }
-        : INITIAL_PROFILE;
-    } catch {
-      return INITIAL_PROFILE;
-    }
+    const saved = readStoredJSON<Partial<UserProfile> | null>(
+      STORAGE_KEYS.PROFILE,
+      null
+    );
+    return saved ? { ...INITIAL_PROFILE, ...saved } : INITIAL_PROFILE;
   });
 
-  const [sopTasks, setSopTasks] = useState<SopTask[]>(() => {
-    try {
-      const saved = localStorage.getItem("zura_sop_checklist");
-      return saved ? JSON.parse(saved) : DEFAULT_SOP;
-    } catch {
-      return DEFAULT_SOP;
-    }
-  });
+  const [sopTasks, setSopTasks] = useState<SopTask[]>(() =>
+    readStoredJSON(STORAGE_KEYS.SOP_CHECKLIST, DEFAULT_SOP)
+  );
 
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
@@ -151,11 +129,7 @@ export default function ProfilePage() {
             isEmailVerified: emailIsVerified,
           };
 
-          try {
-            localStorage.setItem("user_profile_data", JSON.stringify(updated));
-          } catch (e) {
-            console.error("Gagal simpan local", e);
-          }
+          writeStoredJSON(STORAGE_KEYS.PROFILE, updated);
           return updated;
         });
       }
@@ -174,19 +148,15 @@ export default function ProfilePage() {
     fetchUserSettings().then((settings) => {
       if (settings && Array.isArray(settings.sopTasks) && settings.sopTasks.length > 0) {
         setSopTasks(settings.sopTasks);
-        localStorage.setItem("zura_sop_checklist", JSON.stringify(settings.sopTasks));
+        writeStoredJSON(STORAGE_KEYS.SOP_CHECKLIST, settings.sopTasks);
       }
     });
   }, []);
 
   const saveSopTasks = (tasks: SopTask[]) => {
     setSopTasks(tasks);
-    try {
-      localStorage.setItem("zura_sop_checklist", JSON.stringify(tasks));
-      updateUserSettings({ sopTasks: tasks });
-    } catch (e) {
-      console.error("Gagal simpan SOP", e);
-    }
+    writeStoredJSON(STORAGE_KEYS.SOP_CHECKLIST, tasks);
+    updateUserSettings({ sopTasks: tasks });
   };
 
   const toggleSopTask = (id: string) => {
@@ -224,7 +194,7 @@ export default function ProfilePage() {
     showToast("Tugas berhasil dihapus");
   };
 
-  const handleApplyTemplate = (categoryKey: keyof typeof SOP_TEMPLATES) => {
+  const handleApplyTemplate = (categoryKey: SopTemplateKey) => {
     const templateItems = SOP_TEMPLATES[categoryKey];
     const newItems: SopTask[] = templateItems.map((text, index) => ({
       id: `${Date.now()}-${index}`,
@@ -397,7 +367,7 @@ export default function ProfilePage() {
       });
 
       // Simpan ke cache lokal
-      localStorage.setItem("user_profile_data", JSON.stringify(updatedProfile));
+      writeStoredJSON(STORAGE_KEYS.PROFILE, updatedProfile);
       showToast("Profil berhasil diperbarui dan disinkronkan!");
     } catch (err) {
       console.error("Gagal simpan profil ke Firestore:", err);
@@ -449,578 +419,74 @@ export default function ProfilePage() {
 
       {/* SECTION INFORMASI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
-        <div className="lg:col-span-5 bg-white rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-5 border border-slate-100">
-          <div>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <div>
-                <h2 className="text-base sm:text-lg font-extrabold text-[#5F1E1E]">
-                  {profile.name}
-                </h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Pemilik Toko / Usaha
-                </p>
-              </div>
-              <span className="bg-[#5F1E1E]/10 text-[#5F1E1E] text-[10px] sm:text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider text-right max-w-[150px] truncate">
-                {profile.category}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-3 text-xs">
-              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
-                <span className="text-slate-500 font-medium">Email Akun</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#5F1E1E] truncate max-w-[130px] sm:max-w-none">
-                    {profile.email || "Belum Diatur"}
-                  </span>
-                  {profile.email &&
-                    (profile.isEmailVerified ? (
-                      <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-md font-bold">
-                        ✓ Verified
-                      </span>
-                    ) : (
-                      <button
-                        onClick={handleSendEmailVerification}
-                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer"
-                      >
-                        Verifikasi
-                      </button>
-                    ))}
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
-                <span className="text-slate-500 font-medium">Telepon Toko</span>
-                <span className="font-bold text-[#5F1E1E]">
-                  {profile.phone || "Belum Diisi"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
-                <span className="text-slate-500 font-medium">Status Akun</span>
-                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Aktif
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-[11px] text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            Untuk mengubah nama pemilik, telepon, dan kategori usaha klik tombol <b className="text-[#5F1E1E]">EDIT PROFIL</b>.
-          </div>
-        </div>
+        {/* KARTU INFORMASI PROFIL */}
+        <ProfileInfoCard
+          profile={profile}
+          onSendVerification={handleSendEmailVerification}
+        />
 
         {/* SOP CHECKLIST KUSTOM & REKOMENDASI */}
-        <div className="lg:col-span-7 bg-white rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-4 border border-slate-100">
-          <div>
-            {/* Header Checklist */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3 mb-4">
-              <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-                <h2 className="text-xs sm:text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-                  Checklist Operasional Harian Toko
-                </h2>
-                <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
-                  {sopTasks.filter((t) => t.completed).length} / {sopTasks.length}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={handleResetChecklist}
-                  className="text-[10px] sm:text-[11px] font-bold text-slate-500 hover:text-[#5F1E1E] bg-slate-100 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer"
-                  title="Kosongkan semua centang"
-                >
-                  Reset
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowTemplates(!showTemplates)}
-                  className="text-[10px] sm:text-[11px] font-bold text-[#B48328] hover:text-[#5F1E1E] bg-[#E8D3A7]/30 px-3 py-1.5 rounded-xl transition-all border border-[#B48328]/30 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Rekomendasi SOP</span>
-                  <span>{showTemplates ? "▲" : "▼"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Panel Pilihan Template SOP */}
-            {showTemplates && (
-              <div className="bg-[#FFFDF9] border-2 border-[#B48328]/40 p-3.5 rounded-2xl mb-4 flex flex-col gap-2.5 animate-scaleUp text-xs">
-                <span className="font-extrabold text-[#5F1E1E] text-[10px] uppercase">
-                  PILIH TEMPLATE TUGAS REKOMENDASI:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyTemplate("online")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
-                  >
-                    🛒 Toko Online
-                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
-                      Chat, Resi & Banner
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleApplyTemplate("fnb")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
-                  >
-                    🍵 F&B / Toko Fisik
-                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
-                      Kadaluarsa & Kasir
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleApplyTemplate("monthly")}
-                    className="p-2.5 bg-white border border-slate-200 hover:border-[#5F1E1E] rounded-xl text-left font-bold text-[#5F1E1E] transition-all hover:shadow-sm cursor-pointer"
-                  >
-                    📅 Rutin / Akhir Bulan
-                    <span className="block text-[9px] text-slate-400 font-normal mt-0.5">
-                      Stok Opname & Tagihan
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Form Input Tambah Tugas Kustom */}
-            <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-2 mb-4">
-              <input
-                type="text"
-                placeholder="Tambah tugas operasional baru..."
-                value={newTaskLabel}
-                onChange={(e) => setNewTaskLabel(e.target.value)}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-              />
-              <button
-                type="submit"
-                className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-extrabold text-xs px-4 py-2.5 sm:py-2 rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer"
-              >
-                + Tambah
-              </button>
-            </form>
-
-            {/* List Item Checklist */}
-            <div className="flex flex-col gap-2 max-h-[260px] sm:max-h-[220px] overflow-y-auto pr-1">
-              {sopTasks.length === 0 ? (
-                <div className="text-center py-6 text-slate-400 text-xs font-semibold border border-dashed rounded-xl">
-                  Belum ada tugas operasional. Klik <b>Rekomendasi SOP</b> di atas untuk menambahkan tugas.
-                </div>
-              ) : (
-                sopTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => toggleSopTask(task.id)}
-                    className={`p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 text-xs font-semibold ${task.completed
-                      ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
-                      : "bg-[#FFFDF9] border-[#B48328]/40 text-[#5F1E1E] hover:border-[#B48328]"
-                      }`}
-                  >
-                    <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
-                      <span
-                        className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] font-extrabold shrink-0 mt-0.5 sm:mt-0 ${task.completed
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : "border-[#B48328] bg-white text-transparent"
-                          }`}
-                      >
-                        ✓
-                      </span>
-                      <span className="leading-snug break-words text-[11px] sm:text-xs">{task.label}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 self-center">
-                      <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal">
-                        {task.completed ? "Selesai" : "Pending"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteTask(task.id, e)}
-                        className="text-slate-300 hover:text-red-600 transition-colors p-1 text-sm font-bold cursor-pointer"
-                        title="Hapus Tugas"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Catatan Kaki SOP */}
-          <div className="bg-[#E8D3A7]/20 p-3 rounded-xl border border-[#B48328]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-[11px] mt-2">
-            <span className="text-[#5F1E1E] font-bold shrink-0">SOP Usaha Mandiri</span>
-            <span className="text-slate-600">Gunakan tombol "Reset" untuk mengulang daftar centang harian.</span>
-          </div>
-        </div>
+        <SopChecklistCard
+          sopTasks={sopTasks}
+          showTemplates={showTemplates}
+          newTaskLabel={newTaskLabel}
+          setNewTaskLabel={setNewTaskLabel}
+          onToggleTask={toggleSopTask}
+          onDeleteTask={handleDeleteTask}
+          onResetChecklist={handleResetChecklist}
+          onAddTask={handleAddTask}
+          onApplyTemplate={handleApplyTemplate}
+          onToggleTemplates={() => setShowTemplates(!showTemplates)}
+        />
       </div>
 
       {/* PENGATURAN KEAMANAN AKUN */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex flex-col gap-4 sm:gap-5">
-        <div
-          onClick={() => setIsSecurityOpen(!isSecurityOpen)}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none"
-        >
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#5F1E1E]/10 flex items-center justify-center text-[#5F1E1E] font-extrabold shrink-0 mt-0.5 sm:mt-0">
-              ⚙
-            </div>
-            <div>
-              <h2 className="text-sm font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-                Pengaturan Keamanan Akun
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kelola kata sandi, ganti email terdaftar, atau hapus akun Anda.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#5F1E1E] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-1 sm:mt-0 cursor-pointer"
-          >
-            <span>{isSecurityOpen ? "Tutup Pengaturan ▲" : "Kelola Keamanan ▼"}</span>
-          </button>
-        </div>
-
-        {isSecurityOpen && (
-          <div className="flex flex-col gap-4 sm:gap-5 pt-2 border-t border-slate-100 sm:border-0">
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("email")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "email"
-                  ? "bg-[#5F1E1E] text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-              >
-                Ganti Email
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("password")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "password"
-                  ? "bg-[#5F1E1E] text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-              >
-                Ubah Kata Sandi
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSecurityTab("danger")}
-                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${activeSecurityTab === "danger"
-                  ? "bg-red-600 text-white shadow-sm"
-                  : "bg-red-50 text-red-600 hover:bg-red-100"
-                  }`}
-              >
-                Zona Bahaya (Hapus Akun)
-              </button>
-            </div>
-
-            {activeSecurityTab === "email" && (
-              <form
-                onSubmit={triggerEmailUpdate}
-                className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl w-full"
-              >
-                <div>
-                  <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
-                    Ganti Email Terdaftar
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mb-3 break-all">
-                    Email aktif saat ini:{" "}
-                    <b className="text-slate-700">{profile.email || "Belum Diatur"}</b>
-                  </p>
-
-                  <input
-                    type="email"
-                    placeholder="Masukkan Email Baru"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    required
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                  />
-                </div>
-
-                <div className="flex justify-start">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                  >
-                    Simpan Email Baru
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {activeSecurityTab === "password" && (
-              <div className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col gap-4 max-w-xl w-full">
-                {auth.currentUser?.providerData.some(
-                  (p) => p.providerId === "google.com"
-                ) ? (
-                  <div className="flex flex-col gap-1.5">
-                    <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase">
-                      Kata Sandi Dikelola oleh Google
-                    </h3>
-                    <p className="text-xs text-slate-600">
-                      Akun Anda terhubung via <b>Google Sign-In</b>. Ubah kata sandi langsung di akun Google Anda.
-                    </p>
-                  </div>
-                ) : (
-                  <form onSubmit={triggerPasswordUpdate} className="flex flex-col gap-4">
-                    <div>
-                      <h3 className="text-xs font-extrabold text-[#5F1E1E] uppercase mb-1">
-                        Perbarui Kata Sandi Akun
-                      </h3>
-                      <p className="text-[11px] text-slate-500 mb-3">
-                        Pastikan kata sandi baru minimal 6 karakter.
-                      </p>
-
-                      <div className="flex flex-col gap-2.5">
-                        <input
-                          type="password"
-                          placeholder="Kata Sandi Baru"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Konfirmasi Kata Sandi Baru"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-start">
-                      <button
-                        type="submit"
-                        className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                      >
-                        Ubah Kata Sandi
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
-
-            {activeSecurityTab === "danger" && (
-              <div className="bg-red-50/80 p-4 sm:p-5 rounded-2xl border border-red-100 flex flex-col gap-4 max-w-xl w-full">
-                <div>
-                  <h3 className="text-xs font-extrabold text-red-700 uppercase mb-1">
-                    Tindakan Permanen: Hapus Akun
-                  </h3>
-                  <p className="text-[11px] text-red-600/80 leading-relaxed">
-                    Menghapus akun akan memusnahkan seluruh akses dashboard dan data usaha Anda secara permanen!
-                  </p>
-                </div>
-
-                <div className="flex justify-start">
-                  <button
-                    type="button"
-                    onClick={triggerAccountDelete}
-                    disabled={isDeleting}
-                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                  >
-                    {isDeleting ? "Memproses Hapus..." : "Hapus Akun Permanen"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <SecuritySettingsSection
+        isOpen={isSecurityOpen}
+        onToggleOpen={() => setIsSecurityOpen(!isSecurityOpen)}
+        activeTab={activeSecurityTab}
+        onTabChange={setActiveSecurityTab}
+        profileEmail={profile.email}
+        isGoogleUser={auth.currentUser?.providerData.some(
+          (p) => p.providerId === "google.com"
+        ) ?? false}
+        newEmail={newEmail}
+        setNewEmail={setNewEmail}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        isDeleting={isDeleting}
+        onSubmitEmail={triggerEmailUpdate}
+        onSubmitPassword={triggerPasswordUpdate}
+        onDeleteAccount={triggerAccountDelete}
+      />
 
       {/* MODAL RE-AUTHENTICATION */}
-      {showReauthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-slate-100">
-            <div>
-              <h3 className="text-base font-extrabold text-[#5F1E1E] uppercase">
-                Konfirmasi Kata Sandi
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Masukkan kata sandi Anda saat ini untuk melanjutkan.
-              </p>
-            </div>
-            <form onSubmit={handleReauthenticateAndExecute} className="flex flex-col gap-4">
-              <input
-                type="password"
-                placeholder="Masukkan Kata Sandi Saat Ini"
-                value={currentPasswordInput}
-                onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                required
-                autoFocus
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:border-[#B48328]"
-              />
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowReauthModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
-                >
-                  Konfirmasi & Lanjutkan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ReauthModal
+        open={showReauthModal}
+        value={currentPasswordInput}
+        onChange={setCurrentPasswordInput}
+        onSubmit={handleReauthenticateAndExecute}
+        onClose={() => setShowReauthModal(false)}
+      />
 
       {/* MODAL EDIT PROFIL */}
-      {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-all">
-          <div className="bg-white w-full max-w-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto flex flex-col gap-6">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="text-lg font-extrabold text-[#5F1E1E] uppercase">
-                  Edit Profil & Usaha
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Perbarui detail informasi toko Anda
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProfile} className="flex flex-col gap-5">
-              <div>
-                <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Nama Pemilik / Lengkap
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-1.5">
-                  Nomor Telepon Toko
-                </label>
-                <input
-                  type="text"
-                  name="phone"
-                  placeholder="+62 8xx-xxxx-xxxx"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#B48328]"
-                />
-              </div>
-
-              {/* KATEGORI USAHA */}
-              <div>
-                <label className="block text-xs font-bold text-[#5F1E1E] uppercase mb-2">
-                  Kategori Usaha
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {DEFAULT_BUSINESS_CATEGORIES.map((cat) => (
-                    <label
-                      key={cat}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${!isCustomCategoryMode && formData.category === cat
-                        ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                        }`}
-                    >
-                      <input
-                        type="radio"
-                        name="category_radio"
-                        value={cat}
-                        checked={!isCustomCategoryMode && formData.category === cat}
-                        onChange={() => {
-                          setIsCustomCategoryMode(false);
-                          setFormData((prev) => ({ ...prev, category: cat }));
-                        }}
-                        className="accent-[#5F1E1E]"
-                      />
-                      <span>{cat}</span>
-                    </label>
-                  ))}
-
-                  <label
-                    className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${isCustomCategoryMode
-                      ? "border-[#5F1E1E] bg-[#5F1E1E]/5 text-[#5F1E1E] font-bold"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                      }`}
-                  >
-                    <input
-                      type="radio"
-                      name="category_radio"
-                      value="CUSTOM"
-                      checked={isCustomCategoryMode}
-                      onChange={() => {
-                        setIsCustomCategoryMode(true);
-                      }}
-                      className="accent-[#5F1E1E]"
-                    />
-                    <span>➕ Lainnya / Ketik Custom...</span>
-                  </label>
-                </div>
-
-                {isCustomCategoryMode && (
-                  <div className="mt-3 animate-scaleUp">
-                    <label className="block text-[10px] font-bold text-[#B48328] uppercase mb-1">
-                      Ketik Nama Kategori Usaha Custom:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Kerajinan Tangan / Otomotif"
-                      value={customCategoryInput}
-                      onChange={(e) => setCustomCategoryInput(e.target.value)}
-                      className="w-full bg-[#FFFDF9] border-2 border-[#B48328] rounded-xl px-4 py-2.5 text-xs font-bold text-[#5F1E1E] focus:outline-none"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsEditOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#5F1E1E] text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditProfileModal
+        open={isEditOpen}
+        formData={formData}
+        isCustomCategoryMode={isCustomCategoryMode}
+        customCategoryInput={customCategoryInput}
+        onInputChange={handleInputChange}
+        onSelectStandardCategory={(cat) => {
+          setIsCustomCategoryMode(false);
+          setFormData((prev) => ({ ...prev, category: cat }));
+        }}
+        onSelectCustomMode={() => setIsCustomCategoryMode(true)}
+        setCustomCategoryInput={setCustomCategoryInput}
+        onSubmit={handleSaveProfile}
+        onClose={() => setIsEditOpen(false)}
+      />
     </div>
   );
 }

@@ -1,100 +1,90 @@
 // src/utils/exportHelpers.ts
+import ExcelJS from 'exceljs';
 
-// 1. Fungsi Ekspor Excel
-export const exportToExcel = (
+// ─── SECURITY HELPER ──────────────────────────────────────────────────────────
+// Sanitasi / escape HTML untuk mencegah XSS pada konten yang berisi data user
+export const escapeHtml = (value: unknown): string => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+// Sanitasi nama file download (cegah path traversal / karakter berbahaya)
+export const sanitizeFileName = (filename: string): string => {
+  const cleaned = filename.replace(/[\\/:*?"<>|]/g, '-').trim();
+  return cleaned || 'export';
+};
+
+// 1. Fungsi Ekspor Excel (menggunakan exceljs - aman dari injeksi formula/XML)
+//    format angka mengikuti style Zura (Rp) dengan kolom bernomor
+export const exportToExcel = async (
     filename: string,
     sheetName: string,
     headers: string[],
     rows: (string | number)[][]
 ) => {
-    let xml = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:o="urn:schemas-microsoft-com:office:office"
-  xmlns:x="urn:schemas-microsoft-com:office:excel"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Styles>
-    <Style ss:ID="HeaderStyle">
-      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#E8D3A7"/>
-      <Interior ss:Color="#5F1E1E" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="CellStyle">
-      <Font ss:FontName="Arial" ss:Size="10" ss:Color="#5F1E1E"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="NumberStyle">
-      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#5F1E1E"/>
-      <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-      <NumberFormat ss:Format="&quot;Rp &quot;#,##0"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="NetProfitStyle">
-      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#E8D3A7"/>
-      <Interior ss:Color="#5F1E1E" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="NetProfitNumberStyle">
-      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#E5C88B"/>
-      <Interior ss:Color="#5F1E1E" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-      <NumberFormat ss:Format="&quot;Rp &quot;#,##0"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B48328"/>
-      </Borders>
-    </Style>
-  </Styles>
-  <Worksheet ss:Name="${sheetName}">
-    <Table>
-      <Column ss:Width="300"/>
-      <Column ss:Width="150"/>
-      <Row ss:Height="24">
-        ${headers.map((h) => `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${h}</Data></Cell>`).join('')}
-      </Row>`;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Zura Retail';
+    const sheet = workbook.addWorksheet(sheetName || 'Sheet1');
 
-    rows.forEach((row) => {
-        const isNet = String(row[0]).includes('LABA BERSIH');
-        const labelStyle = isNet ? 'NetProfitStyle' : 'CellStyle';
-        const numStyle = isNet ? 'NetProfitNumberStyle' : 'NumberStyle';
+    // ── STYLE HEADER: maroon #5F1E1E dengan teks emas #E8D3A7 ──
+    const headerRow = sheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFE8D3A7' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5F1E1E' } };
+        cell.alignment = { horizontal: "left", vertical: "middle" };
+        cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFB48328' } },
+            top: { style: 'thin', color: { argb: 'FFB48328' } },
+            left: { style: 'thin', color: { argb: 'FFB48328' } },
+            right: { style: 'thin', color: { argb: 'FFB48328' } },
+        };
+    });
+    headerRow.height = 24;
 
-        xml += `
-      <Row ss:Height="20">
-        <Cell ss:StyleID="${labelStyle}"><Data ss:Type="String">${row[0]}</Data></Cell>
-        <Cell ss:StyleID="${numStyle}"><Data ss:Type="Number">${row[1]}</Data></Cell>
-      </Row>`;
+    // Lebar kolom: kolom pertama lebih lebar (label), sisanya untuk angka
+    headers.forEach((_, idx) => {
+        const col = sheet.getColumn(idx + 1);
+        col.width = idx === 0 ? 40 : 18;
     });
 
-    xml += `
-    </Table>
-  </Worksheet>
-</Workbook>`;
+    // ── DATA ROWS ──
+    rows.forEach((row) => {
+        const isNet = String(row[0]).includes('LABA BERSIH');
+        const labelColor = isNet ? { argb: 'FFE8D3A7' } : { argb: 'FF5F1E1E' };
+        const cellFill = isNet
+            ? { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF5F1E1E' } }
+            : undefined;
 
-    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+        const dataRow = sheet.addRow(row);
+        dataRow.height = 20;
+
+        // Kolom label (teks)
+        const labelCell = dataRow.getCell(1);
+        labelCell.font = { name: 'Arial', size: 10, color: labelColor, bold: isNet };
+        if (cellFill) labelCell.fill = cellFill;
+        labelCell.alignment = { horizontal: "left", vertical: "middle" };
+
+        // Kolom angka (number format Rp)
+        const numCell = dataRow.getCell(2);
+        numCell.font = { name: 'Arial', size: 10, color: labelColor, bold: isNet };
+        if (cellFill) numCell.fill = cellFill;
+        numCell.alignment = { horizontal: "right", vertical: "middle" };
+        numCell.numFmt = '"Rp "#,##0';
+    });
+
+    // ── GENERATE BLOB ──
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([arrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${filename}.xls`;
+    link.download = `${sanitizeFileName(filename)}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -102,6 +92,7 @@ export const exportToExcel = (
 };
 
 // 2. Fungsi Cetak PDF (Pastikan nama fungsi 'exportToPdfPrint' persis seperti ini)
+//    Aman: semua nilai user di-escape sebelum disisipkan ke HTML print window
 export const exportToPdfPrint = (title: string, tableElementId: string) => {
     const tableEl = document.getElementById(tableElementId);
     if (!tableEl) return;
@@ -109,11 +100,14 @@ export const exportToPdfPrint = (title: string, tableElementId: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    printWindow.document.write(`
+    // Escape judul/title untuk mencegah stored-XSS di window print (same-origin)
+    const safeTitle = escapeHtml(title);
+
+    const html = `
     <!DOCTYPE html>
     <html>
       <head>
-        <title>${title}</title>
+        <title>${safeTitle}</title>
         <style>
           @page { size: A4; margin: 15mm; }
           body { font-family: 'Arial', sans-serif; padding: 10px; color: #5F1E1E; }
@@ -125,15 +119,24 @@ export const exportToPdfPrint = (title: string, tableElementId: string) => {
       </head>
       <body>
         <div class="header">
-          <h1>ZURA RETAIL - ${title}</h1>
+          <h1>ZURA RETAIL - ${safeTitle}</h1>
         </div>
-        ${tableEl.outerHTML}
       </body>
     </html>
-  `);
+  `;
 
+    // Gunakan HTML statis untuk struktur, lalu kloning node tabel yang ada
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
+
+    // Salin konten tabel (DOM node asli) ke section tanpa menganalisis ulang teks.
+    // cloneNode(true) mempertahankan struktur DOM sah yang sudah dirender React,
+    // bukan mengembalikan serialisasi string yang berpotensi disuntikkan.
+    const bodyEl = printWindow.document.body;
+    const clonedTable = tableEl.cloneNode(true) as HTMLElement;
+    bodyEl.appendChild(clonedTable);
+
     setTimeout(() => {
         printWindow.print();
         printWindow.close();

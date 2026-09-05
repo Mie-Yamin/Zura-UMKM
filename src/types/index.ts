@@ -66,7 +66,7 @@ export interface Product {
   status: 'healthy' | 'low_stock';
   stockCount: number;
   /** Estimated days until stockout (AI forecast) */
-  aiForecasterDays: number;
+  aiForecasterDays?: number;
   buyPrice?: number;
   sellPrice?: number;
   category?: string;
@@ -205,10 +205,17 @@ export interface Transaction {
 export interface SalesRecap {
   id: string;
   date: string;
-  source: 'Shopee' | 'Tokopedia' | 'TikTok Shop' | 'Manual';
+  /** Sumber marketplace; bisa berisi nilai custom (diizinkan string bebas) */
+  source: 'Shopee' | 'Tokopedia' | 'TikTok Shop' | 'Manual' | 'POS' | (string & {});
   unitsSold: number;
   totalAmount: number;
   adminFee: number;
   status: 'Tersinkronisasi' | 'Draft';
   items?: { id: string; name: string; qty: number; price: number }[];
+  createdAt?: string;
+  recapDate?: string;
+  tanggal?: string;
+  transactionDate?: string;
+  timestamp?: unknown;
+  userId?: string;
 }

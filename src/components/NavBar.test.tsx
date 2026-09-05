@@ -2,69 +2,77 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NavBar, { NAV_ITEMS } from './NavBar';
 
 function renderNavBar(initialPath = '/') {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: 0, staleTime: Infinity } },
+  });
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <NavBar />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <NavBar />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
 describe('NavBar', () => {
-  it('renders all six module links with correct labels', () => {
+  it('renders all seven module links with correct labels', () => {
     renderNavBar();
 
-    expect(screen.getByRole('link', { name: /pemantauan/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /rekap/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /penjualan/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /stok/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /pelanggan/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /keuangan/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ai insights/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /insight/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /profil/i })).toBeInTheDocument();
   });
 
-  it('exports NAV_ITEMS with six entries covering all required paths', () => {
+  it('exports NAV_ITEMS with seven entries covering all required paths', () => {
     const paths = NAV_ITEMS.map((item) => item.path);
-    expect(NAV_ITEMS).toHaveLength(6);
+    expect(NAV_ITEMS).toHaveLength(7);
     expect(paths).toContain('/dashboard');
     expect(paths).toContain('/rekap');
     expect(paths).toContain('/inventory');
     expect(paths).toContain('/customers');
     expect(paths).toContain('/finance');
     expect(paths).toContain('/ai-insights');
+    expect(paths).toContain('/profile');
   });
 
   it('displays the Zura Retail application name at the top', () => {
     renderNavBar();
-    expect(screen.getByText('Zura Retail')).toBeInTheDocument();
+    expect(screen.getByText(/zura retail/i)).toBeInTheDocument();
   });
 
   it('applies active styling class to the Dashboard link when path is "/dashboard"', () => {
     renderNavBar('/dashboard');
-    const dashboardLink = screen.getByRole('link', { name: /pemantauan/i });
-    expect(dashboardLink.className).toContain('bg-[#3B82F6]');
-    expect(dashboardLink.className).toContain('text-white');
+    const dashboardLink = screen.getByRole('link', { name: /dashboard/i });
+    expect(dashboardLink.className).toContain('border-[#E8D3A7]');
+    expect(dashboardLink.className).toContain('text-[#E8D3A7]');
   });
 
   it('applies active styling to the Point of Sale link when path is "/rekap"', () => {
     renderNavBar('/rekap');
-    const posLink = screen.getByRole('link', { name: /rekap/i });
-    expect(posLink.className).toContain('bg-[#3B82F6]');
-    expect(posLink.className).toContain('text-white');
+    const posLink = screen.getByRole('link', { name: /penjualan/i });
+    expect(posLink.className).toContain('border-[#E8D3A7]');
+    expect(posLink.className).toContain('text-[#E8D3A7]');
   });
 
   it('applies active styling to the Inventory link when path is "/inventory"', () => {
     renderNavBar('/inventory');
     const inventoryLink = screen.getByRole('link', { name: /stok/i });
-    expect(inventoryLink.className).toContain('bg-[#3B82F6]');
-    expect(inventoryLink.className).toContain('text-white');
+    expect(inventoryLink.className).toContain('border-[#E8D3A7]');
+    expect(inventoryLink.className).toContain('text-[#E8D3A7]');
   });
 
   it('does not apply active styling to inactive links', () => {
     renderNavBar('/dashboard');
-    const posLink = screen.getByRole('link', { name: /rekap/i });
-    expect(posLink.className).not.toContain('bg-[#3B82F6]');
+    const posLink = screen.getByRole('link', { name: /penjualan/i });
+    expect(posLink.className).not.toContain('border-[#E8D3A7]');
   });
 
   it('has a nav element with role="navigation" and accessible label', () => {
@@ -78,8 +86,8 @@ describe('NavBar', () => {
     renderNavBar();
 
     const links = screen.getAllByRole('link');
-    // There should be 6 nav links
-    expect(links).toHaveLength(6);
+    // There should be 7 nav links
+    expect(links).toHaveLength(7);
 
     // Start with body focused; tabbing should move into the links
     links[0].focus();

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchInventory, addProduct, updateProduct, deleteProduct, fetchUserSettings, updateUserSettings } from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { addProduct, updateProduct, deleteProduct, fetchUserSettings, updateUserSettings } from '../api/client';
+import { useProducts } from '../hooks/useBusinessData';
 import type { Product } from '../types';
+import { readStoredJSON, writeStoredJSON, STORAGE_KEYS } from '../utils/storage';
 
 const formatRupiah = (val?: number) => {
   if (val === undefined || isNaN(val)) return 'Rp 0';
@@ -42,16 +44,8 @@ const DEFAULT_CATEGORIES = [
 export default function InventoryPage() {
   const queryClient = useQueryClient();
 
-  // ─── AMBIL DATA FIRESTORE SECARA ASYNC VIA USEQUERY ───
-  const { data: rawProducts = [], isLoading } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: async () => {
-      const res = await fetchInventory();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
+  // ─── AMBIL DATA FIRESTORE SECARA ASYNC (SHARED HOOK) ───
+  const { data: products = [], isLoading } = useProducts();
 
   // States Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,14 +54,9 @@ export default function InventoryPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // STATE KATEGORI CUSTOM (TERSIMPAN DI LOCALSTORAGE & FIRESTORE)
-  const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('zura_custom_categories');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [customCategories, setCustomCategories] = useState<string[]>(() =>
+    readStoredJSON<string[]>(STORAGE_KEYS.CUSTOM_CATEGORIES, [])
+  );
 
   useEffect(() => {
     // Sinkronkan kategori custom dari Firestore cloud
@@ -75,7 +64,7 @@ export default function InventoryPage() {
       if (settings && Array.isArray(settings.customCategories)) {
         setCustomCategories((prev) => {
           const merged = Array.from(new Set([...prev, ...settings.customCategories]));
-          localStorage.setItem('zura_custom_categories', JSON.stringify(merged));
+          writeStoredJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, merged);
           return merged;
         });
       }
@@ -83,7 +72,7 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('zura_custom_categories', JSON.stringify(customCategories));
+    writeStoredJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, customCategories);
     updateUserSettings({ customCategories });
   }, [customCategories]);
 

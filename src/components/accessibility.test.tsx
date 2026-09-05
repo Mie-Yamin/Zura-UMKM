@@ -119,9 +119,12 @@ const restockData: RestockDataPoint[] = [
 describe('Accessibility — axe-core violations', () => {
   // ── NavBar ────────────────────────────────────────────────────────────────────
   it('NavBar: zero axe violations', async () => {
+    const queryClient = makeQueryClient();
     const { container } = render(
       <MemoryRouter>
-        <NavBar />
+        <QueryClientProvider client={queryClient}>
+          <NavBar />
+        </QueryClientProvider>
       </MemoryRouter>,
     );
     const results = await axe(container, axeOptions);

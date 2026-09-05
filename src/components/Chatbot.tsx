@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, AlertTriangle } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { getLocalProducts, getLocalRecaps } from '../api/client';
-import { askGrokAI } from '../api/grokService';
+import { useRecaps, useProducts } from '../hooks/useBusinessData';
+import { askGrokAI, AI_PRIVACY_NOTICE } from '../api/grokService';
 
 interface Message {
     sender: 'user' | 'bot';
@@ -37,25 +36,10 @@ export default function Chatbot() {
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Ambil data produk & rekap penjualan dari Firestore via React Query
-    const { data: rawProducts = [] } = useQuery({
-        queryKey: ['inventory'],
-        queryFn: async () => {
-            const res = await getLocalProducts();
-            return Array.isArray(res) ? res : [];
-        },
-    });
+    // Ambil data produk & rekap penjualan dari Firestore via shared hooks (React Query)
+    const { data: products = [] } = useProducts();
 
-    const { data: rawRecaps = [] } = useQuery({
-        queryKey: ['recaps'],
-        queryFn: async () => {
-            const res = await getLocalRecaps();
-            return Array.isArray(res) ? res : [];
-        },
-    });
-
-    const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
-    const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
+    const { data: recaps = [] } = useRecaps();
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -127,6 +111,13 @@ export default function Chatbot() {
                             <AlertTriangle className="w-5 h-5 text-[#B26227] shrink-0 mt-0.5" />
                             <p className="text-[11px] leading-snug font-medium">
                                 Saran AI bersifat analitis berdasarkan data input toko dan tidak menggantikan keputusan manajemen penuh bisnis Anda.
+                            </p>
+                        </div>
+
+                        {/* Privacy Notice Data AI */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-start gap-2.5 text-[#E8D3A7]/80">
+                            <p className="text-[9.5px] leading-snug font-medium">
+                                {AI_PRIVACY_NOTICE}
                             </p>
                         </div>
 

@@ -1,187 +1,196 @@
-export const config = {
-    runtime: 'edge', // Berjalan cepat di Edge Network Vercel
-};
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { verify as cryptoVerify, createPublicKey } from 'crypto';
 
-// 1. In-Memory Rate Limiter (10 request per menit per akun)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+// ─── KONFIGURASI KEAMANAN ────────────────────────────────────────────────────
+// Hanya model yang diizinkan (allow-list) untuk mencegah abuse model mahal
+const ALLOWED_MODELS = new Set([
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'grok-2-latest',
+  'grok-3',
+]);
 
-function isRateLimited(uid: string, limit = 10, windowMs = 60_000): boolean {
-    const now = Date.now();
-    const record = rateLimitMap.get(uid);
+// Batas maksimum ukuran body request (bytes) ~ 1MB
+const MAX_BODY_BYTES = 1024 * 1024;
 
-    if (!record || now > record.resetAt) {
-        rateLimitMap.set(uid, { count: 1, resetAt: now + windowMs });
-        return false;
-    }
+// Batas maksimum pesan dalam satu percakapan
+const MAX_MESSAGES = 30;
 
-    if (record.count >= limit) {
-        return true;
-    }
+// Cache public key Firebase (kunci publik untuk verifikasi JWT ID token)
+let certsCache: {
+  expiresAt: number;
+  certs: Record<string, string>; // kid -> PEM public key
+} | null = null;
 
-    record.count += 1;
+const CERT_URL =
+  'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 jam
+
+async function getPublicCerts(): Promise<Record<string, string> | null> {
+  if (certsCache && certsCache.expiresAt > Date.now()) {
+    return certsCache.certs;
+  }
+
+  try {
+    const res = await fetch(CERT_URL, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const certs: Record<string, string> = await res.json();
+    certsCache = { expiresAt: Date.now() + CACHE_TTL_MS, certs };
+    return certs;
+  } catch {
+    return null;
+  }
+}
+
+// Dekode header JWT (base64url) tanpa verifikasi
+function decodeJwtHeader(token: string): { kid?: string; alg?: string } | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const headerJson = Buffer.from(parts[0], 'base64url').toString('utf8');
+    return JSON.parse(headerJson);
+  } catch {
+    return null;
+  }
+}
+
+// Dekode payload JWT (base64url) tanpa verifikasi
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+    return JSON.parse(payloadJson);
+  } catch {
+    return null;
+  }
+}
+
+// Verifikasi tanda tangan JWT RS256 menggunakan public key Firebase
+function verifySignature(
+  token: string,
+  publicKeyPem: string
+): boolean {
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const [, , signatureB64] = parts;
+
+  try {
+    const publicKey = createPublicKey(publicKeyPem);
+    // Re-build signable data "header.payload"
+    const signable = `${parts[0]}.${parts[1]}`;
+    return cryptoVerify(
+      'sha256',
+      Buffer.from(signable, 'utf8'),
+      publicKey,
+      Buffer.from(signatureB64, 'base64url')
+    );
+  } catch {
     return false;
+  }
 }
 
-// 2. Verifikasi Token Pengguna via Google Identity Toolkit
-async function verifyFirebaseToken(idToken: string): Promise<string | null> {
-    try {
-        const firebaseApiKey =
-            process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_WEB_API_KEY;
+// Verifikasi penuh Firebase ID Token (tanpa firebase-admin)
+async function verifyFirebaseIdToken(token: string): Promise<string | null> {
+  const header = decodeJwtHeader(token);
+  const payload = decodeJwtPayload(token);
+  if (!header || !payload || header.alg !== 'RS256' || !header.kid) {
+    return null;
+  }
 
-        if (!firebaseApiKey) {
-            // Fallback decoding dasar jika env key belum termuat
-            const parts = idToken.split('.');
-            if (parts.length !== 3) return null;
-            const payload = JSON.parse(atob(parts[1]));
-            return payload.user_id || payload.sub || null;
-        }
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) return null;
 
-        const res = await fetch(
-            `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken }),
-            }
-        );
+  // Validasi issuer & audience (harus cocok dengan project Firebase)
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
+    return null;
+  }
+  if (payload.aud !== projectId) {
+    return null;
+  }
 
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.users?.[0]?.localId || null;
-    } catch (err) {
-        console.error('Token verification error:', err);
-        return null;
-    }
+  // Cek masa berlaku (exp) - izinkan leeway 5 menit
+  const exp = Number(payload.exp || 0);
+  const leeway = 5 * 60;
+  if (exp === 0 || exp < Math.floor(Date.now() / 1000) - leeway) {
+    return null;
+  }
+
+  // Ambil public key sesuai kid lalu verifikasi tanda tangan
+  const certs = await getPublicCerts();
+  if (!certs || !certs[header.kid]) return null;
+  if (!verifySignature(token, certs[header.kid])) return null;
+
+  // ID pengguna yang sah
+  return typeof payload.sub === 'string' && payload.sub ? payload.sub : null;
 }
 
-// 3. Allow-list Model Resmi (Mencegah penyerang memakai model mahal)
-const ALLOWED_MODELS = [
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant',
-    'mixtral-8x7b-32768',
-];
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Hanya terima POST
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-export default async function handler(req: Request) {
-    // Hanya izinkan method POST
-    if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-            status: 405,
-            headers: { 'Content-Type': 'application/json' },
-        });
+  // Batasi ukuran body untuk mencegah body flooding
+  const rawLength = req.headers['content-length'];
+  if (rawLength && Number(rawLength) > MAX_BODY_BYTES) {
+    return res.status(413).json({ error: 'Request body terlalu besar' });
+  }
+
+  // Ambil & verifikasi Firebase ID Token dari header Authorization
+  const authHeader = req.headers.authorization || '';
+  const idToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  if (!idToken) {
+    return res.status(401).json({ error: 'Tidak terautentikasi' });
+  }
+
+  const verifiedUid = await verifyFirebaseIdToken(idToken);
+  if (!verifiedUid) {
+    return res.status(401).json({ error: 'Token autentikasi tidak valid' });
+  }
+
+  // Ambil API key dari Environment Variable server (tanpa embel-embel VITE_)
+  const apiKey = process.env.GROQ_API_KEY || process.env.XAI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'API key server belum dikonfigurasi' });
+  }
+
+  try {
+    const { messages, model = 'llama-3.3-70b-versatile' } = req.body ?? {};
+
+    // Validasi messages
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Messages tidak valid' });
+    }
+    if (messages.length > MAX_MESSAGES) {
+      return res.status(400).json({ error: 'Terlalu banyak pesan dalam percakapan' });
     }
 
-    // A. Periksa Keberadaan Authorization Header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return new Response(
-            JSON.stringify({ error: 'Unauthorized: Akses ditolak, token tidak ditemukan.' }),
-            {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        );
+    // Allow-list model (cegah abuse model mahal / arbitrary)
+    if (!ALLOWED_MODELS.has(model)) {
+      return res.status(400).json({ error: 'Model tidak diizinkan' });
     }
 
-    // B. Validasi Firebase ID Token
-    const idToken = authHeader.split('Bearer ')[1]?.trim();
-    const uid = await verifyFirebaseToken(idToken);
-    if (!uid) {
-        return new Response(
-            JSON.stringify({ error: 'Unauthorized: Token login tidak valid atau kadaluarsa.' }),
-            {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        );
-    }
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.5,
+      }),
+    });
 
-    // C. Periksa Batas Panggilan (Rate Limit)
-    if (isRateLimited(uid)) {
-        return new Response(
-            JSON.stringify({
-                error: 'Terlalu banyak permintaan (Rate limit tercapai). Harap tunggu 1 menit.',
-            }),
-            {
-                status: 429,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Retry-After': '60',
-                },
-            }
-        );
-    }
-
-    // D. Periksa Konfigurasi Kunci Server
-    const apiKey = process.env.GROQ_API_KEY || process.env.XAI_API_KEY;
-    if (!apiKey) {
-        return new Response(
-            JSON.stringify({ error: 'Konfigurasi AI di server belum lengkap.' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        );
-    }
-
-    try {
-        // E. Batasi Ukuran Body Request (Maks 35 KB)
-        const rawBody = await req.text();
-        if (rawBody.length > 35_000) {
-            return new Response(
-                JSON.stringify({ error: 'Ukuran payload terlalu besar.' }),
-                {
-                    status: 413,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            );
-        }
-
-        const { messages, model = 'llama-3.3-70b-versatile', temperature = 0.3 } =
-            JSON.parse(rawBody);
-
-        if (!Array.isArray(messages) || messages.length === 0) {
-            return new Response(
-                JSON.stringify({ error: 'Format pesan percakapan tidak valid.' }),
-                {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            );
-        }
-
-        // F. Sanitasi Pilihan Model
-        const selectedModel = ALLOWED_MODELS.includes(model)
-            ? model
-            : 'llama-3.3-70b-versatile';
-
-        // G. Teruskan Request ke Provider AI Resmi
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: selectedModel,
-                messages,
-                temperature: Math.min(Math.max(Number(temperature) || 0.3, 0.1), 1.0),
-            }),
-        });
-
-        const data = await response.text();
-        return new Response(data, {
-            status: response.status,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-    } catch (error: any) {
-        return new Response(
-            JSON.stringify({ error: error?.message || 'Terjadi kesalahan internal proxy.' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        );
-    }
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Proxy Error:', error);
+    return res.status(500).json({ error: 'Gagal menghubungi server AI' });
+  }
 }

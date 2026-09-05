@@ -1,91 +1,31 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  fetchInventory,
-  fetchKpiSummary,
-  getLocalRecaps,
-  getLocalCustomers,
   updateProduct,
 } from "../api/client";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import { useRecaps, useProducts } from "../hooks/useBusinessData";
+import MetricCards from "../components/dashboard/MetricCards";
+import SalesCharts from "../components/dashboard/SalesCharts";
+import StockAlerts from "../components/dashboard/StockAlerts";
+import AddBranchModal from "../components/dashboard/AddBranchModal";
+import QuickRestockModal from "../components/dashboard/QuickRestockModal";
 import type { Product } from "../types";
 
-const formatRupiah = (val?: number) => {
-  if (val === undefined || isNaN(val)) return "Rp 0";
-  return `Rp ${val.toLocaleString("id-ID")}`;
-};
-
-// Warna asal TikTok Shop tetap Hitam (#000000) untuk diagram & grafik
-const CHANNEL_COLORS: Record<string, string> = {
-  Shopee: "#EE4D2D",
-  Tokopedia: "#00AA5B",
-  "TikTok Shop": "#000000", // Grafik & Bar tetap hitam
-  Lainnya: "#5F1E1E",
-};
+interface BranchOption {
+  label: string;
+  value: string;
+}
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
 
-  // Load queries
-  const { data: kpiData, isLoading: kpiLoading } = useQuery({
-    queryKey: ["kpi"],
-    queryFn: fetchKpiSummary,
-  });
+  // Load queries terpusat (shared hooks)
+  const { data: products = [] } = useProducts();
 
-  const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["inventory"],
-    queryFn: fetchInventory,
-  });
-
-  // ─── FETCH ASYNC VIA USEQUERY (FIRESTORE & DEBUG LOGGING) ───
-  const { data: rawRecaps = [] } = useQuery({
-    queryKey: ["recaps"],
-    queryFn: async () => {
-      const res = await getLocalRecaps();
-
-      console.log("=== ISI RAW DATA RECAPS ===", res);
-      if (Array.isArray(res) && res.length > 0) {
-        console.log("=== CONTOH ITEM PERTAMA ===", res[0]);
-      }
-
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  const { data: rawCustomers = [] } = useQuery({
-    queryKey: ["customers"],
-    queryFn: async () => {
-      const res = await getLocalCustomers();
-      return Array.isArray(res) ? res : [];
-    },
-  });
-
-  // Pengaman bertipe Array murni
-  const products = useMemo(() => {
-    if (Array.isArray(inventoryData)) return inventoryData;
-    if (inventoryData && Array.isArray((inventoryData as any).products)) {
-      return (inventoryData as any).products;
-    }
-    return [];
-  }, [inventoryData]);
-
-  const recaps = useMemo(() => (Array.isArray(rawRecaps) ? rawRecaps : []), [rawRecaps]);
-  const customers = useMemo(() => (Array.isArray(rawCustomers) ? rawCustomers : []), [rawCustomers]);
+  const { data: recaps = [] } = useRecaps();
 
   // ─── STATE CABANG DINAMIS ──────────────────────────────────────────────────
-  const [branches, setBranches] = useState([
+  const [branches, setBranches] = useState<BranchOption[]>([
     { label: "SEMUA GUDANG/\nCABANG", value: "Semua Cabang" },
     { label: "GUDANG UTAMA", value: "Gudang Utama" },
     { label: "CABANG ONLINE\nSHOPEE", value: "Cabang Shopee" },
@@ -145,12 +85,11 @@ export default function DashboardPage() {
     showToast(`Cabang "${formattedValue}" berhasil ditambahkan!`);
   };
 
-  // 1. Calculations
-  const metrics = useMemo(() => {
-    const filteredRecaps =
-      selectedBranch === "Semua Cabang"
-        ? recaps
-        : recaps.filter(
+  // ─── CALCULATIONS ──────────────────────────────────────────────────────────
+  const filterByBranch = (items: typeof recaps) =>
+    selectedBranch === "Semua Cabang"
+      ? items
+      : items.filter(
           (r) =>
             r?.source?.toLowerCase().includes(selectedBranch.toLowerCase()) ||
             selectedBranch
@@ -158,12 +97,41 @@ export default function DashboardPage() {
               .includes(r?.source?.toLowerCase() || ""),
         );
 
+  // 1. Metrics
+  const metrics = useMemo(() => {
+    const filteredRecaps = filterByBranch(recaps);
+
     const posRevenue = filteredRecaps.reduce(
       (sum, r) => sum + (r.totalAmount || 0),
       0,
     );
     const totalOmzet = posRevenue;
-    const totalProfit = Math.round(totalOmzet * 0.428);
+
+    // HPP (Harga Pokok Penjualan) dihitung dari detail item rekap × harga beli produk.
+    const cogs = filteredRecaps.reduce((sum, r) => {
+      let itemsSum = 0;
+      (r.items || []).forEach((it) => {
+        const product = products.find((p) => p.id === it.id);
+        if (product?.buyPrice && it.qty) {
+          itemsSum += product.buyPrice * it.qty;
+        }
+      });
+      return sum + itemsSum;
+    }, 0);
+
+    // Biaya admin platform marketplace dari rekap
+    const adminFees = filteredRecaps.reduce(
+      (sum, r) => sum + (Number(r.adminFee) || 0),
+      0,
+    );
+
+    // Jika tidak ada detail item (impor tanpa rincian), gunakan estimasi empiris
+    const hasItemDetail = filteredRecaps.some((r) => (r.items?.length ?? 0) > 0);
+    const effectiveCogs = hasItemDetail
+      ? Math.round(cogs + adminFees)
+      : Math.round(totalOmzet * 0.572);
+
+    const totalProfit = Math.max(0, Math.round(totalOmzet - effectiveCogs));
 
     const totalProducts = products.length;
     const lowStockItems = products.filter(
@@ -257,12 +225,7 @@ export default function DashboardPage() {
     };
 
     // Filter transaksi berdasarkan Cabang yang dipilih
-    const filteredRecaps = selectedBranch === "Semua Cabang"
-      ? recaps
-      : recaps.filter((r) =>
-        r?.source?.toLowerCase().includes(selectedBranch.toLowerCase()) ||
-        selectedBranch.toLowerCase().includes(r?.source?.toLowerCase() || "")
-      );
+    const filteredRecaps = filterByBranch(recaps);
 
     // MODE 1: PER MINGGU (Hari Ini / 7 Hari Terakhir)
     if (dateRange === "Hari Ini" || dateRange === "7 Hari Terakhir") {
@@ -617,461 +580,40 @@ export default function DashboardPage() {
       </header>
 
       {/* ─── 1. KARTU RINGKASAN METRIK ─── */}
-      <section
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6"
-        aria-label="Metrik Pemantauan"
-      >
-        <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
-          <div className="flex justify-between items-start gap-2">
-            <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
-              TOTAL OMZET
-              <br />
-              TERAKHIR
-            </h3>
-            <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[9px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider flex-shrink-0">
-              OMNICHANNEL
-            </span>
-          </div>
-          <div className="mt-auto pt-4 flex flex-col gap-0.5">
-            <span className="text-lg sm:text-xl font-extrabold text-[#B48328] leading-none">
-              Rp
-            </span>
-            <span className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#B48328] tracking-tight leading-none">
-              {metrics.totalOmzet.toLocaleString("id-ID")}
-            </span>
-          </div>
-        </article>
-
-        <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
-          <div className="flex justify-between items-start gap-2">
-            <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
-              LABA BERSIH
-              <br />
-              ESTIMASI
-            </h3>
-            <span className="bg-[#5F1E1E] text-[#E8D3A7] text-[9px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider leading-tight text-center flex-shrink-0">
-              {metrics.totalOmzet > 0
-                ? `~${((metrics.totalProfit / metrics.totalOmzet) * 100).toFixed(0)}%`
-                : "0%"}
-              <br />
-              MARGIN
-            </span>
-          </div>
-          <div className="mt-auto pt-4 flex flex-col gap-0.5">
-            <span className="text-lg sm:text-xl font-extrabold text-[#B48328] leading-none">
-              Rp
-            </span>
-            <span className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#B48328] tracking-tight leading-none">
-              {metrics.totalProfit.toLocaleString("id-ID")}
-            </span>
-          </div>
-        </article>
-
-        <article className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-transparent flex flex-col justify-between min-h-[160px]">
-          <div className="flex justify-between items-start gap-2">
-            <h3 className="text-[10px] sm:text-xs font-extrabold text-[#5F1E1E] tracking-tight uppercase leading-tight">
-              STATUS STOK
-              <br />
-              GUDANG PUSAT
-            </h3>
-            <span className="bg-[#E8D3A7] text-[#B91C1C] text-[9px] font-extrabold px-2 py-0.5 rounded-lg uppercase tracking-wider leading-tight text-center flex-shrink-0">
-              {metrics.kritisCount}
-              <br />
-              <span className="text-[7.5px]">KRITIS</span>
-            </span>
-          </div>
-          <div className="mt-auto pt-4 flex items-baseline gap-2">
-            <span className="text-3xl sm:text-4xl font-extrabold text-[#B48328] leading-none">
-              {metrics.amanCount}
-            </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-[#B48328] tracking-tight leading-none">
-              SKU AMAN
-            </span>
-          </div>
-        </article>
-      </section>
+      <MetricCards metrics={metrics} />
 
       {/* ─── 2. GRAFIK KINERJA PENJUALAN ─── */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
-        {/* Kiri: Line chart Tren Omzet Harian */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-              Tren Omzet Omnichannel ({selectedBranch})
-            </h2>
-            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
-              Kurva perbandingan performa harian Shopee, Tokopedia, dan TikTok Shop.
-            </p>
-          </div>
-
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={trendData}
-                margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis
-                  dataKey="jam"
-                  tick={{ fontSize: 10, fill: "#5F1E1E", fontWeight: 600 }}
-                />
-
-                <YAxis
-                  tick={{ fontSize: 10, fill: "#5F1E1E", fontWeight: 600 }}
-                  tickFormatter={(val: number) => {
-                    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Jt`;
-                    if (val >= 1_000) return `${(val / 1_000).toFixed(0)} Rb`;
-                    return `${val}`;
-                  }}
-                />
-
-                {/* TOOLTIP: KHUSUS TEKS TIKTOK SHOP DIUBAH KE WARNA PUTIH */}
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10 text-white text-xs">
-                          <p className="font-bold text-[#E8D3A7] mb-1">Rentang Grafik {label}</p>
-                          {payload.map((entry: any, index: number) => {
-                            const isTiktok = entry.name === "Omzet TikTok Shop";
-                            return (
-                              <p
-                                key={`item-${index}`}
-                                className="font-semibold"
-                                style={{
-                                  // Jika TikTok Shop, paksakan teks berwarna putih murni (#FFFFFF)
-                                  color: isTiktok ? "#FFFFFF" : entry.color,
-                                }}
-                              >
-                                {entry.name}: Rp {Number(entry.value || 0).toLocaleString("id-ID")}
-                              </p>
-                            );
-                          })}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-
-                <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-                <Line
-                  type="monotone"
-                  dataKey="Omzet Shopee"
-                  stroke={CHANNEL_COLORS["Shopee"]}
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: CHANNEL_COLORS["Shopee"] }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Omzet Tokopedia"
-                  stroke={CHANNEL_COLORS["Tokopedia"]}
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: CHANNEL_COLORS["Tokopedia"] }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Omzet TikTok Shop"
-                  stroke={CHANNEL_COLORS["TikTok Shop"]} // Garis grafik tetap hitam
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: CHANNEL_COLORS["TikTok Shop"] }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Kanan: Bar chart Distribusi Saluran Penjualan */}
-        <div className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-              KONTRIBUSI SALURAN MARKETPLACE
-            </h2>
-            <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-0.5">
-              Distribusi nominal omzet berdasarkan asal saluran transaksi.
-            </p>
-          </div>
-
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={channelData}
-                margin={{ top: 15, right: 10, left: -10, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  opacity={0.2}
-                />
-
-                <XAxis
-                  dataKey="name"
-                  stroke="#5F1E1E"
-                  fontSize={11}
-                  fontWeight={700}
-                  tickLine={false}
-                />
-
-                <YAxis
-                  stroke="#5F1E1E"
-                  fontSize={10}
-                  fontWeight={600}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value: number) => {
-                    if (value >= 1_000_000)
-                      return `${(value / 1_000_000).toFixed(0)} Jt`;
-                    if (value >= 1_000)
-                      return `${(value / 1_000).toFixed(0)}rb`;
-                    return `${value}`;
-                  }}
-                />
-
-                <Tooltip
-                  cursor={{ fill: "rgba(0, 0, 0, 0.04)" }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      const val = payload[0].value as number;
-                      return (
-                        <div className="bg-[#5F1E1E] p-3 rounded-xl shadow-xl border border-white/10">
-                          <p className="font-bold text-xs text-[#E8D3A7] mb-1">
-                            {data.name}
-                          </p>
-                          <p className="text-xs font-semibold text-white">
-                            Omzet : {formatRupiah(val)}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-
-                <Bar dataKey="Omzet" radius={[8, 8, 0, 0]} maxBarSize={36}>
-                  {channelData.map((entry) => (
-                    <Cell
-                      key={`cell-${entry.name}`}
-                      fill={CHANNEL_COLORS[entry.name] || "#5F1E1E"} // Batang diagram tetap hitam
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
+      <SalesCharts
+        trendData={trendData}
+        channelData={channelData}
+        selectedBranch={selectedBranch}
+      />
 
       {/* ─── 3. WIDGET STOCK WARNING UNDERSTOCK & DEADSTOCK ─── */}
-      <section className="bg-white rounded-2xl border border-transparent shadow-sm p-4 sm:p-5 flex flex-col gap-3 md:gap-5">
-        <div>
-          <h2 className="text-sm sm:text-base font-extrabold text-[#5F1E1E] uppercase tracking-wide">
-            Pusat Peringatan Pengadaan Stok (Gudang Utama)
-          </h2>
-          <p className="text-[10px] sm:text-xs font-medium text-[#B48328] mt-1">
-            Daftar item berisiko out-of-stock (Understock) dan produk yang
-            mengendap lama di gudang (Deadstock).
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-extrabold text-[#B91C1C] uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#B91C1C] animate-ping"></span>
-              PERINGATAN UNDERSTOCK (BUTUH RESTOCK SEGERA)
-            </h3>
-
-            <div className="flex flex-col gap-2.5 max-h-[250px] overflow-y-auto pr-1">
-              {criticalAlerts.understock.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 border border-dashed rounded-xl">
-                  Tidak ada produk understock.
-                </div>
-              ) : (
-                criticalAlerts.understock.map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-3 sm:p-4 rounded-xl border border-red-100 bg-red-50/20 text-xs flex justify-between items-center hover:border-red-200 transition-colors gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-extrabold text-[#5F1E1E] text-xs sm:text-sm truncate">
-                        {p.name}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium mt-0.5">
-                        Tersisa: {p.stockCount} unit | Sisa ~
-                        {p.aiForecasterDays || 0} hari
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setRestockItem(p)}
-                      className="bg-[#5F1E1E] hover:bg-[#4a1717] text-white font-bold px-3.5 py-2.5 rounded-xl text-[10px] sm:text-[11px] shadow-sm transition-all active:scale-95 flex-shrink-0"
-                    >
-                      Restock
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-              ITEM MENGENDAP (DEADSTOCK / LOW-MOVING)
-            </h3>
-
-            <div className="flex flex-col gap-2.5 max-h-[250px] overflow-y-auto pr-1">
-              {criticalAlerts.deadstock.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 border border-dashed rounded-xl">
-                  Tidak ada produk deadstock.
-                </div>
-              ) : (
-                criticalAlerts.deadstock.map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-3 sm:p-4 rounded-xl border border-slate-100 bg-slate-50/50 text-xs flex justify-between items-center gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-extrabold text-[#5F1E1E] text-xs sm:text-sm truncate">
-                        {p.name}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium mt-0.5">
-                        SKU: {p.sku} | Stok: {p.stockCount} unit
-                      </p>
-                    </div>
-
-                    <span className="bg-[#E5C88B] text-[#5F1E1E] border border-[#5F1E1E]/20 font-bold px-2.5 py-1.5 rounded-xl text-[8px] sm:text-[9px] uppercase tracking-wider text-center flex-shrink-0">
-                      Diskon Promo
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <StockAlerts
+        understock={criticalAlerts.understock}
+        deadstock={criticalAlerts.deadstock}
+        onRestock={setRestockItem}
+      />
 
       {/* ─── MODAL: TAMBAH CABANG BARU ─── */}
-      {isAddBranchOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp font-dmsans">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-extrabold text-[#5F1E1E] uppercase">
-                Tambah Cabang / Gudang
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsAddBranchOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                &times;
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleAddBranchSubmit}
-              className="flex flex-col gap-4 text-xs"
-            >
-              <div className="flex flex-col gap-1.5">
-                <label className="font-bold text-[#5F1E1E] uppercase">
-                  Nama Cabang / Marketplace Baru
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Cabang TikTok Surabaya"
-                  className="border-2 border-[#B48328] rounded-xl p-3 text-xs text-[#5F1E1E] font-bold focus:outline-none"
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddBranchOpen(false)}
-                  className="w-full sm:w-auto bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="w-full sm:w-auto bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow"
-                >
-                  Simpan Cabang
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddBranchModal
+        open={isAddBranchOpen}
+        value={newBranchName}
+        onChange={setNewBranchName}
+        onClose={() => setIsAddBranchOpen(false)}
+        onSubmit={handleAddBranchSubmit}
+      />
 
       {/* ─── MODAL: QUICK RESTOCK ─── */}
       {restockItem && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-[95%] sm:w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 animate-scaleUp">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h2 className="text-base font-bold text-[#5F1E1E]">
-                Restock Item Cepat
-              </h2>
-              <button
-                type="button"
-                onClick={() => setRestockItem(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg"
-              >
-                &times;
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleQuickRestockSubmit}
-              className="flex flex-col gap-4 text-xs"
-            >
-              <div className="bg-slate-50 p-3 rounded-lg flex flex-col gap-1">
-                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                  Produk
-                </span>
-                <span className="font-extrabold text-[#5F1E1E]">
-                  {restockItem.name}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Stok Saat Ini: {restockItem.stockCount} unit
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-bold text-[#5F1E1E] uppercase">
-                  Jumlah Tambah Stok
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  className="border-2 border-[#B48328] rounded-xl p-3 text-xs text-[#5F1E1E] font-bold focus:outline-none"
-                  value={quickRestockQty}
-                  onChange={(e) => setQuickRestockQty(e.target.value)}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setRestockItem(null)}
-                  className="bg-slate-100 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="bg-[#5F1E1E] hover:bg-[#4a1717] text-[#E8D3A7] font-bold px-5 py-2.5 rounded-xl text-xs shadow"
-                >
-                  Tambah Stok
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <QuickRestockModal
+          item={restockItem}
+          qty={quickRestockQty}
+          onQtyChange={setQuickRestockQty}
+          onClose={() => setRestockItem(null)}
+          onSubmit={handleQuickRestockSubmit}
+        />
       )}
     </div>
   );

@@ -11,7 +11,17 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import type { Product, Customer, SalesRecap, Transaction } from '../types';
+import type {
+  Product,
+  Customer,
+  SalesRecap,
+  Transaction,
+  KpiSummaryResponse,
+  SalesChartResponse,
+  SalesDataPoint,
+  RestockPlanResponse,
+  RestockDataPoint,
+} from '../types';
 
 // ─── FIRESTORE COLLECTIONS ────────────────────────────────────────────────────
 const productsRef = collection(db, 'products');
@@ -54,6 +64,7 @@ export async function fetchUserProfile() {
       phone: user?.phoneNumber || '',
       storeName: 'Zura Store',
       address: '',
+      category: '',
     };
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -144,13 +155,37 @@ export async function addProduct(product: Omit<Product, 'id'>) {
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
   if (!id) throw new Error('ID Produk tidak valid untuk pembaruan');
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
+
+  // Pertahanan berlapis (defense-in-depth) terhadap IDOR:
+  // hanya izinkan update jika dokumen memang milik user yang sedang login.
   const productDoc = doc(db, 'products', id);
-  await updateDoc(productDoc, updatedData);
+  const snap = await getDoc(productDoc);
+  if (!snap.exists()) throw new Error('Produk tidak ditemukan');
+  const data = snap.data();
+  if (data.userId !== uid) {
+    throw new Error('Anda tidak memiliki izin untuk mengubah produk ini');
+  }
+
+  // Jangan pernah menimpa kepemilikan (userId) dari payload client
+  const { userId: _ignored, ...safeUpdatedData } = updatedData as any;
+  await updateDoc(productDoc, safeUpdatedData);
 }
 
 export async function deleteProduct(id: string) {
   if (!id) throw new Error('ID Produk tidak valid untuk penghapusan');
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
+
   const productDoc = doc(db, 'products', id);
+  const snap = await getDoc(productDoc);
+  if (!snap.exists()) throw new Error('Produk tidak ditemukan');
+  const data = snap.data();
+  if (data.userId !== uid) {
+    throw new Error('Anda tidak memiliki izin untuk menghapus produk ini');
+  }
+
   await deleteDoc(productDoc);
 }
 
@@ -196,7 +231,17 @@ export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
 
 export async function deleteRecap(id: string) {
   if (!id) throw new Error('ID Rekap tidak valid untuk penghapusan');
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
+
   const recapDoc = doc(db, 'recaps', id);
+  const snap = await getDoc(recapDoc);
+  if (!snap.exists()) throw new Error('Rekap tidak ditemukan');
+  const data = snap.data();
+  if (data.userId !== uid) {
+    throw new Error('Anda tidak memiliki izin untuk menghapus rekap ini');
+  }
+
   await deleteDoc(recapDoc);
 }
 
@@ -255,45 +300,220 @@ export const getLocalTransactions = fetchTransactions;
 
 // ─── KPI SUMMARY (DASHBOARD) ──────────────────────────────────────────────────
 
-export async function fetchKpiSummary() {
+// Normalisasi beragam format tanggal dari rekap agar bisa dibandingkan per hari
+const normalizeRecapDate = (item: SalesRecap): Date | null => {
+  const field =
+    item?.date ||
+    item?.recapDate ||
+    item?.tanggal ||
+    item?.transactionDate ||
+    item?.createdAt ||
+    item?.timestamp;
+  if (!field) return null;
+
+  if (field instanceof Date) return field;
+  if (typeof field === 'object' && typeof (field as any).toDate === 'function') {
+    return (field as any).toDate();
+  }
+  if (typeof field === 'string') {
+    // String "YYYY-MM-DD" → parse lokal tanpa selisih UTC
+    if (field.length === 10 && field.includes('-')) {
+      const [year, month, day] = field.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    const parsed = new Date(field);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const sumAmount = (list: SalesRecap[]) =>
+  list.reduce((acc, r) => acc + (Number(r.totalAmount) || 0), 0);
+
+export async function fetchKpiSummary(): Promise<KpiSummaryResponse> {
   try {
-    const [products, recaps, customers] = await Promise.all([
+    const [products, recaps] = await Promise.all([
       fetchInventory(),
       fetchRecaps(),
-      fetchCustomers(),
     ]);
 
     const safeRecaps = Array.isArray(recaps) ? recaps : [];
     const safeProducts = Array.isArray(products) ? products : [];
-    const safeCustomers = Array.isArray(customers) ? customers : [];
 
-    const totalRevenue = safeRecaps.reduce(
-      (acc, item) => acc + (item.totalAmount || item.revenue || 0),
-      0
-    );
-    const totalOrders = safeRecaps.reduce(
-      (acc, item) => acc + (item.unitsSold || item.totalTransactions || 0),
-      0
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+    const todayRecaps = safeRecaps.filter((r) => {
+      const d = normalizeRecapDate(r);
+      return d !== null && isSameDay(d, now);
+    });
+    const yesterdayRecaps = safeRecaps.filter((r) => {
+      const d = normalizeRecapDate(r);
+      return d !== null && isSameDay(d, yesterday);
+    });
+
+    const todayValue = sumAmount(todayRecaps);
+    const yesterdayValue = sumAmount(yesterdayRecaps);
+
+    let trend: 'up' | 'down' | 'neutral' = 'neutral';
+    let trendPercent = 0;
+    if (yesterdayValue > 0) {
+      trendPercent = Math.round(((todayValue - yesterdayValue) / yesterdayValue) * 1000) / 10;
+      trend = trendPercent > 0 ? 'up' : trendPercent < 0 ? 'down' : 'neutral';
+    } else if (todayValue > 0) {
+      trend = 'up';
+      trendPercent = 100;
+    }
+
+    // Sparkline 7 hari terakhir
+    const sparkline: number[] = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(now.getDate() - (6 - i));
+      return sumAmount(
+        safeRecaps.filter((r) => {
+          const rd = normalizeRecapDate(r);
+          return rd !== null && isSameDay(rd, d);
+        })
+      );
+    });
+
+    // Best seller dari detail item rekap (aggregasi qty per nama produk)
+    const unitByName = new Map<string, number>();
+    safeRecaps.forEach((r) => {
+      (r.items || []).forEach((it) => {
+        if (it?.name) {
+          unitByName.set(it.name, (unitByName.get(it.name) || 0) + (Number(it.qty) || 0));
+        }
+      });
+    });
+    let bestSellerName = '';
+    let bestSellerUnits = 0;
+    unitByName.forEach((qty, name) => {
+      if (qty > bestSellerUnits) {
+        bestSellerUnits = qty;
+        bestSellerName = name;
+      }
+    });
+
+    const lowStock = safeProducts.filter(
+      (p) => (p.stockCount || 0) <= (p.minStock || 10)
     );
 
     return {
-      totalRevenue,
-      totalOrders,
-      totalCustomers: safeCustomers.length,
-      activeProducts: safeProducts.length,
+      todayRevenue: {
+        value: todayValue,
+        currency: 'IDR',
+        trend,
+        trendPercent,
+        sparkline,
+      },
+      todayTransactions: todayRecaps.length,
+      bestSellerProduct: {
+        name: bestSellerName || '-',
+        unitsSold: bestSellerUnits,
+      },
+      stockAlerts: {
+        count: lowStock.length,
+        productIds: lowStock.map((p) => p.id),
+      },
     };
   } catch (error) {
     console.error('Error fetching KPI summary:', error);
     return {
-      totalRevenue: 0,
-      totalOrders: 0,
-      totalCustomers: 0,
-      activeProducts: 0,
+      todayRevenue: { value: 0, currency: 'IDR', trend: 'neutral', trendPercent: 0, sparkline: [] },
+      todayTransactions: 0,
+      bestSellerProduct: { name: '-', unitsSold: 0 },
+      stockAlerts: { count: 0, productIds: [] },
     };
   }
 }
 
 export const getKpiSummary = fetchKpiSummary;
+
+// ─── SALES CHART (HISTORIS + PROYEKSI) ────────────────────────────────────────
+
+export async function fetchSalesChart(): Promise<SalesChartResponse> {
+  try {
+    const recaps = await fetchRecaps();
+    const safeRecaps = Array.isArray(recaps) ? recaps : [];
+
+    const now = new Date();
+    const historical: SalesDataPoint[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const total = safeRecaps.reduce((acc, r) => {
+        const rd = normalizeRecapDate(r);
+        if (rd && rd.getFullYear() === d.getFullYear() && rd.getMonth() === d.getMonth()) {
+          return acc + (Number(r.totalAmount) || 0);
+        }
+        return acc;
+      }, 0);
+      historical.push({
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        revenue: total,
+      });
+    }
+
+    // Proyeksi sederhana: rata-rata 3 bulan terakhir untuk 3 bulan ke depan
+    const last3 = historical.slice(-3);
+    const avg = last3.length
+      ? last3.reduce((acc, m) => acc + m.revenue, 0) / last3.length
+      : 0;
+    const prediction: SalesDataPoint[] = [];
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      prediction.push({
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        revenue: Math.round(avg),
+      });
+    }
+
+    return { historical, prediction, currency: 'IDR' };
+  } catch (error) {
+    console.error('Error fetching sales chart:', error);
+    return { historical: [], prediction: [], currency: 'IDR' };
+  }
+}
+
+export const getSalesChart = fetchSalesChart;
+
+// ─── RESTOCK PLAN (MINGGU BERJALAN) ───────────────────────────────────────────
+
+export async function fetchRestockPlan(): Promise<RestockPlanResponse> {
+  try {
+    const recaps = await fetchRecaps();
+    const safeRecaps = Array.isArray(recaps) ? recaps : [];
+
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7; // 0 = Senin
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dow);
+    monday.setHours(0, 0, 0, 0);
+
+    const dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const plan: RestockDataPoint[] = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const quantity = safeRecaps.reduce((acc, r) => {
+        const rd = normalizeRecapDate(r);
+        if (rd && rd.toDateString() === d.toDateString()) {
+          return acc + (Number(r.unitsSold) || 0);
+        }
+        return acc;
+      }, 0);
+      return { day: dayNames[i], quantity };
+    });
+
+    return { weekOf: monday.toISOString().slice(0, 10), plan };
+  } catch (error) {
+    console.error('Error fetching restock plan:', error);
+    return { weekOf: '', plan: [] };
+  }
+}
+
+export const getRestockPlan = fetchRestockPlan;
 
 // ─── INITIALIZATION ───────────────────────────────────────────────────────────
 

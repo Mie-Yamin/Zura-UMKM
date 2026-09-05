@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import React from 'react';
 import ProductList from './ProductList';
 import type { Product } from '../types';
 import { NEON_GREEN, SOFT_RED } from '../utils/tokens';
@@ -213,7 +212,7 @@ describe('ProductList', () => {
   });
 
   it('renders SKUs in monospace font style', () => {
-    const { container } = render(
+    render(
       <ProductList products={sampleProducts} isLoading={false} />,
     );
 
