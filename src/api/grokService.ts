@@ -59,8 +59,8 @@ export async function askGrokAI(
   context: { products: any[]; recaps: any[] },
 ): Promise<string> {
   const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey) {
-    return "Maaf, API Key Grok belum dikonfigurasi. Silakan tambahkan VITE_GROK_API_KEY di file .env Anda.";
+  if (!apiKey || apiKey.trim() === "") {
+    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan tambahkan VITE_GROK_API_KEY di file .env Anda atau di Vercel Environment Variables.";
   }
 
   const isGroq = apiKey.startsWith("gsk_");
@@ -147,8 +147,8 @@ export async function generateGrokInsights(
   recaps: any[],
 ): Promise<string> {
   const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey) {
-    return "Maaf, API Key Grok belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda.";
+  if (!apiKey || apiKey.trim() === "") {
+    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda atau Vercel Environment Variables.";
   }
 
   const isGroq = apiKey.startsWith("gsk_");
@@ -229,8 +229,8 @@ export async function generateFinanceInsights(finances: {
   operational: number;
 }): Promise<string> {
   const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey) {
-    return "Maaf, API Key Grok belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda.";
+  if (!apiKey || apiKey.trim() === "") {
+    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda atau Vercel Environment Variables.";
   }
 
   const isGroq = apiKey.startsWith("gsk_");
