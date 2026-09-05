@@ -3,76 +3,47 @@ export interface Message {
   content: string;
 }
 
-// Helper untuk mengirim request ke Grok / Groq API dengan fallback model otomatis
-async function fetchChatCompletion(
-  apiUrl: string,
-  apiKey: string,
-  messages: Message[],
-  isGroq: boolean
-): Promise<string> {
-  const models = isGroq
-    ? ["groq/compound-mini", "groq/compound", "openai/gpt-oss-20b"]
-    : ["grok-2", "grok-beta"];
+// Helper untuk mengirim request melalui Vercel Serverless Proxy (/api/ai)
+async function fetchChatCompletion(messages: Message[]): Promise<string> {
+  const response = await fetch("/api/ai", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // Tidak ada API Key di browser! Proxy backend yang akan menambahkannya secara aman.
+    },
+    body: JSON.stringify({
+      messages,
+      temperature: 0.3,
+    }),
+  });
 
-  let lastErrorMessage = "";
-
-  for (const model of models) {
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          messages,
-          model,
-          stream: false,
-          temperature: 0.3,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`Grok/Groq API Error (model: ${model}):`, errorData);
-        lastErrorMessage = errorData?.error?.message || `HTTP error ${response.status}`;
-        continue; // Coba model fallback berikutnya jika error 400/404/rate limit
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        return content;
-      }
-    } catch (err: any) {
-      console.error(`Fetch error (model: ${model}):`, err);
-      lastErrorMessage = err?.message || "Koneksi gagal";
-    }
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("AI Proxy Error:", errorData);
+    throw new Error(
+      errorData?.error || `HTTP error ${response.status} dari server AI`
+    );
   }
 
-  throw new Error(lastErrorMessage || "Gagal memperoleh respon dari AI");
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (content) {
+    return content;
+  }
+
+  throw new Error("Respon AI kosong atau format tidak sesuai.");
 }
 
 export async function askGrokAI(
   userInput: string,
   chatHistory: { sender: "user" | "bot"; text: string }[],
-  context: { products: any[]; recaps: any[] },
+  context: { products: any[]; recaps: any[] }
 ): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey || apiKey.trim() === "") {
-    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan tambahkan VITE_GROK_API_KEY di file .env Anda atau di Vercel Environment Variables.";
-  }
-
-  const isGroq = apiKey.startsWith("gsk_");
-  const apiUrl = isGroq
-    ? "/groq-api/v1/chat/completions"
-    : "/grok-api/v1/chat/completions";
-
   const { products = [], recaps = [] } = context;
 
   const totalSKU = products.length;
   const lowStockProducts = products.filter(
-    (p) => p.stockCount <= (p.minStock || 10),
+    (p) => p.stockCount <= (p.minStock || 10)
   );
   const deadstockProducts = products.filter((p) => p.isDeadstock === true);
 
@@ -85,7 +56,7 @@ export async function askGrokAI(
       .slice(0, 20)
       .map(
         (p) =>
-          `- SKU: ${p.sku}, Nama: ${p.name}, Stok: ${p.stockCount} unit, Harga Jual: Rp ${p.sellPrice.toLocaleString("id-ID")}, Kategori: ${p.category || "Lainnya"}`,
+          `- SKU: ${p.sku}, Nama: ${p.name}, Stok: ${p.stockCount} unit, Harga Jual: Rp ${p.sellPrice.toLocaleString("id-ID")}, Kategori: ${p.category || "Lainnya"}`
       )
       .join("\n") || "Belum ada produk di inventaris.";
 
@@ -93,7 +64,7 @@ export async function askGrokAI(
     lowStockProducts
       .map(
         (p) =>
-          `- SKU: ${p.sku}, Nama: ${p.name} (Stok: ${p.stockCount}, Batas Minimum: ${p.minStock || 10})`,
+          `- SKU: ${p.sku}, Nama: ${p.name} (Stok: ${p.stockCount}, Batas Minimum: ${p.minStock || 10})`
       )
       .join("\n") || "Tidak ada produk dengan stok kritis.";
 
@@ -123,7 +94,7 @@ Aturan Penting:
     { role: "system", content: systemPrompt },
   ];
 
-  // Tambahkan histori chat
+  // Histori chat
   chatHistory.forEach((msg) => {
     formattedMessages.push({
       role: msg.sender === "user" ? "user" : "assistant",
@@ -131,47 +102,37 @@ Aturan Penting:
     });
   });
 
-  // Tambahkan input terbaru dari user
+  // Input terbaru
   formattedMessages.push({ role: "user", content: userInput });
 
   try {
-    return await fetchChatCompletion(apiUrl, apiKey, formattedMessages, isGroq);
+    return await fetchChatCompletion(formattedMessages);
   } catch (error: any) {
-    console.error("Error calling Grok AI:", error);
-    return `Maaf, terjadi kesalahan saat menghubungi Zura AI (${error?.message || 'Koneksi gagal'}). Pastikan API Key Grok/Groq Anda benar.`;
+    console.error("Error calling Zura AI:", error);
+    return `Maaf, terjadi kesalahan saat menghubungi Zura AI (${error?.message || "Koneksi gagal"}). Silakan coba lagi nanti.`;
   }
 }
 
 export async function generateGrokInsights(
   products: any[],
-  recaps: any[],
+  recaps: any[]
 ): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey || apiKey.trim() === "") {
-    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda atau Vercel Environment Variables.";
-  }
-
-  const isGroq = apiKey.startsWith("gsk_");
-  const apiUrl = isGroq
-    ? "/groq-api/v1/chat/completions"
-    : "/grok-api/v1/chat/completions";
-
   const totalSKU = products.length;
   const lowStockProducts = products.filter(
-    (p) => p.stockCount <= (p.minStock || 10),
+    (p) => p.stockCount <= (p.minStock || 10)
   );
   const deadstockProducts = products.filter((p) => p.isDeadstock === true);
 
   const totalOmzet = recaps.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
   const totalUnits = recaps.reduce((sum, r) => sum + (r.unitsSold || 0), 0);
 
-  // Format ringkasan inventaris untuk AI (maksimal 20 produk pertama agar tidak over token)
+  // Format ringkasan inventaris untuk AI (maksimal 20 produk pertama)
   const inventorySummary =
     products
       .slice(0, 20)
       .map(
         (p) =>
-          `- SKU: ${p.sku}, Nama: ${p.name}, Stok: ${p.stockCount} unit, Harga Jual: Rp ${p.sellPrice.toLocaleString("id-ID")}, Kategori: ${p.category || "Lainnya"}`,
+          `- SKU: ${p.sku}, Nama: ${p.name}, Stok: ${p.stockCount} unit, Harga Jual: Rp ${p.sellPrice.toLocaleString("id-ID")}, Kategori: ${p.category || "Lainnya"}`
       )
       .join("\n") || "Belum ada produk di inventaris.";
 
@@ -179,7 +140,7 @@ export async function generateGrokInsights(
     lowStockProducts
       .map(
         (p) =>
-          `- SKU: ${p.sku}, Nama: ${p.name} (Stok: ${p.stockCount}, Batas Minimum: ${p.minStock || 10})`,
+          `- SKU: ${p.sku}, Nama: ${p.name} (Stok: ${p.stockCount}, Batas Minimum: ${p.minStock || 10})`
       )
       .join("\n") || "Tidak ada produk dengan stok kritis.";
 
@@ -213,10 +174,10 @@ Tolong berikan laporan analisis bisnis berkala berdasarkan data di atas sesuai d
   ];
 
   try {
-    return await fetchChatCompletion(apiUrl, apiKey, messages, isGroq);
+    return await fetchChatCompletion(messages);
   } catch (error: any) {
     console.error("Error generating insights:", error);
-    return `Maaf, terjadi kesalahan saat menghubungi Zura AI (${error?.message || 'Koneksi gagal'}). Pastikan API Key Grok/Groq Anda benar.`;
+    return `Maaf, terjadi kesalahan saat menghubungi Zura AI (${error?.message || "Koneksi gagal"}). Silakan coba lagi nanti.`;
   }
 }
 
@@ -228,16 +189,6 @@ export async function generateFinanceInsights(finances: {
   netProfit: number;
   operational: number;
 }): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROK_API_KEY;
-  if (!apiKey || apiKey.trim() === "") {
-    return "Maaf, API Key Grok/Groq belum dikonfigurasi. Silakan masukkan VITE_GROK_API_KEY di file .env Anda atau Vercel Environment Variables.";
-  }
-
-  const isGroq = apiKey.startsWith("gsk_");
-  const apiUrl = isGroq
-    ? "/groq-api/v1/chat/completions"
-    : "/grok-api/v1/chat/completions";
-
   const systemPrompt = `Anda adalah Zura AI Financial Analyst. Tugas Anda adalah menganalisis metrik laba rugi toko UMKM pengguna dan memberikan rangkuman kesehatan finansial yang sangat ringkas, padat (maksimal 4-5 kalimat), solutif, dan ramah.
 
 Aturan Penting:
@@ -263,10 +214,9 @@ Berikan rangkuman analisis narasi finansial singkat berdasarkan data di atas.`;
   ];
 
   try {
-    return await fetchChatCompletion(apiUrl, apiKey, messages, isGroq);
+    return await fetchChatCompletion(messages);
   } catch (error: any) {
     console.error("Error generating finance insights:", error);
-    return `Terjadi kesalahan saat menghubungi Zura AI (${error?.message || 'Koneksi gagal'}). Silakan periksa koneksi internet Anda.`;
+    return `Terjadi kesalahan saat menghubungi Zura AI (${error?.message || "Koneksi gagal"}). Silakan periksa koneksi internet Anda.`;
   }
 }
-
