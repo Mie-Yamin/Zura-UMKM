@@ -95,8 +95,15 @@ async function fetchChatCompletion(messages: Message[]): Promise<string> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const rawError = errorData?.error;
+    const detail =
+      typeof rawError === "string"
+        ? rawError
+        : typeof rawError?.message === "string"
+          ? rawError.message
+          : JSON.stringify(errorData) || "";
     throw new Error(
-      errorData?.error || `HTTP error ${response.status} dari server AI`
+      detail || `HTTP error ${response.status} dari server AI`
     );
   }
 
