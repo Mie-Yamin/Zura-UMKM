@@ -5,6 +5,6 @@ import type { KpiSummaryResponse } from '../types';
 export function useKpiSummary() {
   return useQuery<KpiSummaryResponse, Error>({
     queryKey: ['kpi-summary'],
-    queryFn: fetchKpiSummary,
+    queryFn: () => fetchKpiSummary(),
   });
 }

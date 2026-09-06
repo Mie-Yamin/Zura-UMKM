@@ -45,7 +45,7 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
 
   // ─── AMBIL DATA FIRESTORE SECARA ASYNC (SHARED HOOK) ───
-  const { data: products = [] } = useProducts();
+  const { data: products = [], isLoading } = useProducts();
 
   // States Filter & Search
   const [searchQuery, setSearchQuery] = useState('');

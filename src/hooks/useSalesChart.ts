@@ -5,6 +5,6 @@ import type { SalesChartResponse } from '../types';
 export function useSalesChart() {
   return useQuery<SalesChartResponse, Error>({
     queryKey: ['sales-chart'],
-    queryFn: fetchSalesChart,
+    queryFn: () => fetchSalesChart(),
   });
 }

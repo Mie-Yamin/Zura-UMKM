@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import { auth } from '../config/firebase';
 
 export default function AntiGravityLandingPage() {
   const navigate = useNavigate();

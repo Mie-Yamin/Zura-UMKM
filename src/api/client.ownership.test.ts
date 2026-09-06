@@ -132,7 +132,7 @@ describe('client.ts — data-layer ownership & fast batching', () => {
         stockCount: 10,
       } as never);
 
-      expect(created.userId).toBe('user-a');
+      expect((created as any).userId).toBe('user-a');
       const stored = [...dbStore.docs.values()].find(
         (d) => d.name === 'Kopi Arabica',
       );

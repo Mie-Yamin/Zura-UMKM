@@ -8,7 +8,12 @@ import WebhookDemoModal from '../components/sales/WebhookDemoModal';
 import ImportModal from '../components/sales/ImportModal';
 import ManualEntryModal from '../components/sales/ManualEntryModal';
 import RecapDetailModal from '../components/sales/RecapDetailModal';
-import type { SalesRecap, Product } from '../types';
+import type { SalesRecap } from '../types';
+
+const formatRupiah = (val?: number) => {
+  if (val === undefined || isNaN(val)) return 'Rp 0';
+  return `Rp ${val.toLocaleString('id-ID')}`;
+};
 
 // Interface untuk Baris Item Dinamis Modal Manual
 interface DynamicItemRow {
@@ -20,7 +25,7 @@ export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
   // ─── AMBIL DATA FIRESTORE (SHARED HOOKS) ───
-  const { data: recaps = [] } = useRecaps();
+  const { data: recaps = [], isLoading: isLoadingRecaps } = useRecaps();
 
   const { data: products = [] } = useProducts();
 
