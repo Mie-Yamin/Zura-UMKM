@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
-import { addRecap, importRecapsFromFile, updateProduct, deleteRecap, recordSaleWithBatch } from '../api/client';
+import { importRecapsFromFile, deleteRecap, recordSaleWithBatch } from '../api/client';
 import { useRecaps, useProducts } from '../hooks/useBusinessData';
 import ChannelSummaryGrid from '../components/sales/ChannelSummaryGrid';
 import WebhookDemoModal from '../components/sales/WebhookDemoModal';
@@ -9,11 +9,6 @@ import ImportModal from '../components/sales/ImportModal';
 import ManualEntryModal from '../components/sales/ManualEntryModal';
 import RecapDetailModal from '../components/sales/RecapDetailModal';
 import type { SalesRecap, Product } from '../types';
-
-const formatRupiah = (val?: number) => {
-  if (val === undefined || isNaN(val)) return 'Rp 0';
-  return `Rp ${val.toLocaleString('id-ID')}`;
-};
 
 // Interface untuk Baris Item Dinamis Modal Manual
 interface DynamicItemRow {
@@ -25,7 +20,7 @@ export default function SalesRecapPage() {
   const queryClient = useQueryClient();
 
   // ─── AMBIL DATA FIRESTORE (SHARED HOOKS) ───
-  const { data: recaps = [], isLoading: isLoadingRecaps } = useRecaps();
+  const { data: recaps = [] } = useRecaps();
 
   const { data: products = [] } = useProducts();
 

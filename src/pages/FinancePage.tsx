@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { fetchUserSettings, updateUserSettings } from "../api/client";
 import { useRecaps, useProducts } from "../hooks/useBusinessData";
 import { exportToExcel, exportToPdfPrint } from "../utils/exportHelpers";

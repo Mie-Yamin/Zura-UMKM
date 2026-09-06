@@ -7,10 +7,6 @@ import {
   Target,
   Sparkles,
   ArrowRight,
-  Check,
-  ShieldCheck,
-  Zap,
-  Wallet
 } from 'lucide-react';
 import { useRecaps, useProducts } from '../hooks/useBusinessData';
 import { generateGrokInsights, AI_PRIVACY_NOTICE } from '../api/grokService';

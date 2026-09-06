@@ -21,8 +21,7 @@ import {
   updateUserProfile
 } from "../api/client";
 import { readStoredJSON, writeStoredJSON, STORAGE_KEYS } from "../utils/storage";
-import { DEFAULT_BUSINESS_CATEGORIES } from "../components/profile/types";
-import type { UserProfile, SopTask, SopTemplateKey } from "../components/profile/types";
+import type { UserProfile, SopTask } from "../components/profile/types";
 import ProfileInfoCard from "../components/profile/ProfileInfoCard";
 import SopChecklistCard from "../components/profile/SopChecklistCard";
 import SecuritySettingsSection from "../components/profile/SecuritySettingsSection";
