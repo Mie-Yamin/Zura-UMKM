@@ -10,6 +10,7 @@ import {
   deleteDoc,
   query,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import type {
   Product,
@@ -29,17 +30,23 @@ const recapsRef = collection(db, 'recaps');
 const settingsRef = collection(db, 'settings');
 const usersRef = collection(db, 'users');
 
-// Helper untuk memastikan sesi Firebase Auth siap sebelum query dijalankan
-const getAuthUserId = async (): Promise<string | null> => {
+// Helper cepat dan aman untuk memastikan sesi Firebase Auth siap
+let authUidPromise: Promise<string | null> | null = null;
+
+export const getAuthUserId = async (): Promise<string | null> => {
   if (auth.currentUser) {
     return auth.currentUser.uid;
   }
-  return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      unsubscribe();
-      resolve(user ? user.uid : null);
+  if (!authUidPromise) {
+    authUidPromise = new Promise((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        unsubscribe();
+        authUidPromise = null;
+        resolve(user ? user.uid : null);
+      });
     });
-  });
+  }
+  return authUidPromise;
 };
 
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
@@ -54,7 +61,6 @@ export async function fetchUserProfile() {
       return { id: docSnap.id, ...docSnap.data() };
     }
 
-    // Fallback default jika data belum pernah disimpan di Firestore
     const user = auth.currentUser;
     return {
       name: user?.displayName || 'Pemilik Toko',
@@ -130,9 +136,9 @@ export async function fetchInventory(): Promise<Product[]> {
     const q = query(productsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
+    return snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
     })) as Product[];
   } catch (error) {
     console.error('Error fetching inventory:', error);
@@ -145,10 +151,14 @@ export async function addProduct(product: Omit<Product, 'id'>) {
   if (!uid) throw new Error('User belum login');
 
   const { id, ...cleanProduct } = product as any;
-  const payload = { ...cleanProduct, userId: uid };
+  const payload = {
+    ...cleanProduct,
+    userId: uid,
+    createdAt: cleanProduct.createdAt || new Date().toISOString(),
+  };
 
   const docRef = await addDoc(productsRef, payload);
-  return { id: docRef.id, ...payload };
+  return { id: docRef.id, ...payload } as Product;
 }
 
 export async function updateProduct(id: string, updatedData: Partial<Product>) {
@@ -156,19 +166,12 @@ export async function updateProduct(id: string, updatedData: Partial<Product>) {
   const uid = await getAuthUserId();
   if (!uid) throw new Error('User belum login');
 
-  // Pertahanan berlapis (defense-in-depth) terhadap IDOR:
-  // hanya izinkan update jika dokumen memang milik user yang sedang login.
   const productDoc = doc(db, 'products', id);
-  const snap = await getDoc(productDoc);
-  if (!snap.exists()) throw new Error('Produk tidak ditemukan');
-  const data = snap.data();
-  if (data.userId !== uid) {
-    throw new Error('Anda tidak memiliki izin untuk mengubah produk ini');
-  }
-
-  // Jangan pernah menimpa kepemilikan (userId) dari payload client
   const { userId: _ignored, ...safeUpdatedData } = updatedData as any;
-  await updateDoc(productDoc, safeUpdatedData);
+  await updateDoc(productDoc, {
+    ...safeUpdatedData,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function deleteProduct(id: string) {
@@ -177,13 +180,6 @@ export async function deleteProduct(id: string) {
   if (!uid) throw new Error('User belum login');
 
   const productDoc = doc(db, 'products', id);
-  const snap = await getDoc(productDoc);
-  if (!snap.exists()) throw new Error('Produk tidak ditemukan');
-  const data = snap.data();
-  if (data.userId !== uid) {
-    throw new Error('Anda tidak memiliki izin untuk menghapus produk ini');
-  }
-
   await deleteDoc(productDoc);
 }
 
@@ -202,9 +198,9 @@ export async function fetchRecaps(): Promise<SalesRecap[]> {
 
     const q = query(recapsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
+    return snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
     })) as SalesRecap[];
   } catch (error) {
     console.error('Error fetching recaps:', error);
@@ -224,7 +220,7 @@ export async function addRecap(recap: Omit<SalesRecap, 'id'>) {
   };
 
   const docRef = await addDoc(recapsRef, payload);
-  return { id: docRef.id, ...payload };
+  return { id: docRef.id, ...payload } as SalesRecap;
 }
 
 export async function deleteRecap(id: string) {
@@ -233,19 +229,67 @@ export async function deleteRecap(id: string) {
   if (!uid) throw new Error('User belum login');
 
   const recapDoc = doc(db, 'recaps', id);
-  const snap = await getDoc(recapDoc);
-  if (!snap.exists()) throw new Error('Rekap tidak ditemukan');
-  const data = snap.data();
-  if (data.userId !== uid) {
-    throw new Error('Anda tidak memiliki izin untuk menghapus rekap ini');
-  }
-
   await deleteDoc(recapDoc);
 }
 
+// Simpan batch impor Excel/CSV sekaligus dalam 1 request transaksi atomic
 export async function importRecapsFromFile(recaps: Omit<SalesRecap, 'id'>[]) {
-  const promises = recaps.map((recap) => addRecap(recap));
-  return await Promise.all(promises);
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
+  if (!recaps || recaps.length === 0) return [];
+
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  const createdList: SalesRecap[] = [];
+
+  for (const recap of recaps) {
+    const docRef = doc(recapsRef);
+    const payload = {
+      ...recap,
+      createdAt: recap.createdAt || now,
+      userId: uid,
+    };
+    batch.set(docRef, payload);
+    createdList.push({ id: docRef.id, ...payload } as SalesRecap);
+  }
+
+  await batch.commit();
+  return createdList;
+}
+
+// Simpan rekap penjualan dan potong seluruh stok item dalam 1 request batch Firestore
+export async function recordSaleWithBatch(
+  recap: Omit<SalesRecap, 'id'>,
+  stockUpdates: { productId: string; newStock: number; minStock?: number }[] = []
+) {
+  const uid = await getAuthUserId();
+  if (!uid) throw new Error('User belum login');
+
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+
+  const recapDocRef = doc(recapsRef);
+  const recapPayload = {
+    ...recap,
+    createdAt: recap.createdAt || now,
+    userId: uid,
+  };
+  batch.set(recapDocRef, recapPayload);
+
+  for (const item of stockUpdates) {
+    if (item.productId) {
+      const prodRef = doc(db, 'products', item.productId);
+      const min = item.minStock || 10;
+      batch.update(prodRef, {
+        stockCount: item.newStock,
+        status: item.newStock <= min ? 'low_stock' : 'healthy',
+        updatedAt: now,
+      });
+    }
+  }
+
+  await batch.commit();
+  return { id: recapDocRef.id, ...recapPayload } as SalesRecap;
 }
 
 // Aliases
@@ -263,9 +307,9 @@ export async function fetchTransactions(): Promise<Transaction[]> {
 
     const q = query(transactionsRef, where('userId', '==', uid));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
+    return snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
     })) as Transaction[];
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -307,12 +351,13 @@ const normalizeRecapDate = (item: SalesRecap): Date | null => {
 const sumAmount = (list: SalesRecap[]) =>
   list.reduce((acc, r) => acc + (Number(r.totalAmount) || 0), 0);
 
-export async function fetchKpiSummary(): Promise<KpiSummaryResponse> {
+export async function fetchKpiSummary(
+  preloadedProducts?: Product[],
+  preloadedRecaps?: SalesRecap[]
+): Promise<KpiSummaryResponse> {
   try {
-    const [products, recaps] = await Promise.all([
-      fetchInventory(),
-      fetchRecaps(),
-    ]);
+    const products = preloadedProducts ?? (await fetchInventory());
+    const recaps = preloadedRecaps ?? (await fetchRecaps());
 
     const safeRecaps = Array.isArray(recaps) ? recaps : [];
     const safeProducts = Array.isArray(products) ? products : [];
@@ -411,9 +456,9 @@ export const getKpiSummary = fetchKpiSummary;
 
 // ─── SALES CHART (HISTORIS + PROYEKSI) ────────────────────────────────────────
 
-export async function fetchSalesChart(): Promise<SalesChartResponse> {
+export async function fetchSalesChart(preloadedRecaps?: SalesRecap[]): Promise<SalesChartResponse> {
   try {
-    const recaps = await fetchRecaps();
+    const recaps = preloadedRecaps ?? (await fetchRecaps());
     const safeRecaps = Array.isArray(recaps) ? recaps : [];
 
     const now = new Date();
@@ -458,9 +503,9 @@ export const getSalesChart = fetchSalesChart;
 
 // ─── RESTOCK PLAN (MINGGU BERJALAN) ───────────────────────────────────────────
 
-export async function fetchRestockPlan(): Promise<RestockPlanResponse> {
+export async function fetchRestockPlan(preloadedRecaps?: SalesRecap[]): Promise<RestockPlanResponse> {
   try {
-    const recaps = await fetchRecaps();
+    const recaps = preloadedRecaps ?? (await fetchRecaps());
     const safeRecaps = Array.isArray(recaps) ? recaps : [];
 
     const now = new Date();

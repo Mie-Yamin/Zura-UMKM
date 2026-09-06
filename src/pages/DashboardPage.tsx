@@ -313,7 +313,10 @@ export default function DashboardPage() {
 
     await updateProduct(updated.id, updated);
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
-    queryClient.invalidateQueries({ queryKey: ["kpi"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["kpi-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["sales-chart"] });
+    queryClient.invalidateQueries({ queryKey: ["restock-plan"] });
     setRestockItem(null);
     showToast(`Restock sukses! Stok ${updated.name} ditambah +${qty} unit.`);
   };

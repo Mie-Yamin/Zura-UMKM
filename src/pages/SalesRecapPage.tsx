@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
-import { addRecap, importRecapsFromFile, updateProduct, deleteRecap } from '../api/client';
+import { addRecap, importRecapsFromFile, updateProduct, deleteRecap, recordSaleWithBatch } from '../api/client';
 import { useRecaps, useProducts } from '../hooks/useBusinessData';
 import ChannelSummaryGrid from '../components/sales/ChannelSummaryGrid';
 import WebhookDemoModal from '../components/sales/WebhookDemoModal';
@@ -233,7 +233,10 @@ export default function SalesRecapPage() {
 
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
 
       setShowImportModal(false);
       setShowMappingStep(false);
@@ -288,19 +291,21 @@ export default function SalesRecapPage() {
     };
 
     try {
-      await addRecap(simulatedRecap);
-
       const updatedStock = randomProduct.stockCount - orderQty;
-      const updatedProduct: Product = {
-        ...randomProduct,
-        stockCount: updatedStock,
-        status: updatedStock <= (randomProduct.minStock || 10) ? 'low_stock' : 'healthy',
-      };
-      await updateProduct(updatedProduct.id, updatedProduct);
+      await recordSaleWithBatch(simulatedRecap, [
+        {
+          productId: randomProduct.id,
+          newStock: updatedStock,
+          minStock: randomProduct.minStock,
+        },
+      ]);
 
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
 
       setShowWebhookDemoModal(false);
       showToast(`⚡ DEMO EVENT WEBHOOK! [${source}] Pesanan Baru: ${orderQty}x ${randomProduct.name} (Stok Otomatis Terpotong -${orderQty})`);
@@ -404,24 +409,24 @@ export default function SalesRecapPage() {
     };
 
     try {
-      await addRecap(manualRecap);
-
-      for (const item of recapItems) {
+      const stockUpdates = recapItems.map((item) => {
         const targetProd = products.find((p) => p.id === item.id);
-        if (targetProd) {
-          const updatedStock = targetProd.stockCount - item.qty;
-          const updatedProduct: Product = {
-            ...targetProd,
-            stockCount: updatedStock,
-            status: updatedStock <= (targetProd.minStock || 10) ? 'low_stock' : 'healthy',
-          };
-          await updateProduct(updatedProduct.id, updatedProduct);
-        }
-      }
+        const currentStock = targetProd ? targetProd.stockCount : item.qty;
+        return {
+          productId: item.id,
+          newStock: currentStock - item.qty,
+          minStock: targetProd?.minStock,
+        };
+      });
+
+      await recordSaleWithBatch(manualRecap, stockUpdates);
 
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
 
       setShowManualModal(false);
       setItemRows([{ productId: '', qty: '' }]);
@@ -442,7 +447,9 @@ export default function SalesRecapPage() {
     try {
       await deleteRecap(recapId);
       queryClient.invalidateQueries({ queryKey: ['recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
       showToast(`Dokumen rekap ${recapId} berhasil dihapus!`);
     } catch (err) {
       console.error('Gagal menghapus rekap:', err);

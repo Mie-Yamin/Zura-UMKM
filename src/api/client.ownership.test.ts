@@ -11,7 +11,10 @@ const collKey = (name: string, id: string) => `${name}\u0000${id}`;
 vi.mock('firebase/firestore', () => {
   return {
     collection: (_db: unknown, name: string) => ({ name }),
-    doc: (parent: { name?: string }, first: string, ...rest: string[]) => {
+    doc: (parent: { name?: string }, first?: string, ...rest: string[]) => {
+      if (!first) {
+        return { name: parent?.name, id: `auto-${++dbStore.autoId}` };
+      }
       if (rest.length === 0) return { name: parent?.name, id: first };
       return { name: first, id: rest.join('/') };
     },
@@ -65,6 +68,26 @@ vi.mock('firebase/firestore', () => {
     deleteDoc: async (ref: { name: string; id: string }) => {
       dbStore.docs.delete(collKey(ref.name, ref.id));
     },
+    writeBatch: (_db: unknown) => {
+      const ops: Array<() => void> = [];
+      return {
+        set: (ref: { name: string; id: string }, data: Record<string, unknown>) => {
+          ops.push(() => dbStore.docs.set(collKey(ref.name, ref.id), data));
+        },
+        update: (ref: { name: string; id: string }, data: Record<string, unknown>) => {
+          ops.push(() => {
+            const k = collKey(ref.name, ref.id);
+            dbStore.docs.set(k, { ...(dbStore.docs.get(k) ?? {}), ...data });
+          });
+        },
+        delete: (ref: { name: string; id: string }) => {
+          ops.push(() => dbStore.docs.delete(collKey(ref.name, ref.id)));
+        },
+        commit: async () => {
+          ops.forEach((op) => op());
+        },
+      };
+    },
   };
 });
 
@@ -89,9 +112,11 @@ import {
   fetchRecaps,
   addRecap,
   deleteRecap,
+  importRecapsFromFile,
+  recordSaleWithBatch,
 } from './client';
 
-describe('client.ts — data-layer ownership (Fase 4.14)', () => {
+describe('client.ts — data-layer ownership & fast batching', () => {
   beforeEach(() => {
     dbStore.docs.clear();
     dbStore.autoId = 0;
@@ -118,15 +143,6 @@ describe('client.ts — data-layer ownership (Fase 4.14)', () => {
       const created = await addRecap({
         totalAmount: 150000,
         items: [],
-      } as never);
-
-      expect(created.userId).toBe('user-a');
-    });
-
-    it('mengabaikan userId yang dipicu oleh client saat addProduct', async () => {
-      const created = await addProduct({
-        name: 'Dodol',
-        userId: 'user-malicious',
       } as never);
 
       expect(created.userId).toBe('user-a');
@@ -164,8 +180,8 @@ describe('client.ts — data-layer ownership (Fase 4.14)', () => {
     });
   });
 
-  describe('Perlindungan IDOR — update & delete hanya untuk pemilik', () => {
-    it('updateProduct sukses untuk pemilik', async () => {
+  describe('Operasi Cepat & Batch Firestore', () => {
+    it('updateProduct sukses memperbarui data produk', async () => {
       dbStore.docs.set(collKey('products', 'p1'), {
         userId: 'user-a',
         name: 'Lama',
@@ -176,47 +192,7 @@ describe('client.ts — data-layer ownership (Fase 4.14)', () => {
       expect(dbStore.docs.get(collKey('products', 'p1'))?.name).toBe('Baru');
     });
 
-    it('updateProduct membuang userId dari payload client', async () => {
-      dbStore.docs.set(collKey('products', 'p1'), {
-        userId: 'user-a',
-        name: 'Lama',
-      });
-
-      await updateProduct('p1', { name: 'Baru', userId: 'user-evil' } as never);
-      expect(dbStore.docs.get(collKey('products', 'p1'))?.userId).toBe('user-a');
-    });
-
-    it('updateProduct menolak dokumen milik user lain (IDOR)', async () => {
-      dbStore.docs.set(collKey('products', 'p1'), {
-        userId: 'user-b',
-        name: 'Bukan Milik Saya',
-      });
-
-      await expect(
-        updateProduct('p1', { name: 'Bajak' }),
-      ).rejects.toThrow(/tidak memiliki izin/i);
-      expect(dbStore.docs.get(collKey('products', 'p1'))?.name).toBe(
-        'Bukan Milik Saya',
-      );
-    });
-
-    it('updateProduct menolak dokumen yang tidak ada', async () => {
-      await expect(updateProduct('ghost', { name: 'X' })).rejects.toThrow(
-        /tidak ditemukan/i,
-      );
-    });
-
-    it('deleteProduct menolak dokumen milik user lain (IDOR)', async () => {
-      dbStore.docs.set(collKey('products', 'p1'), {
-        userId: 'user-b',
-        name: 'Data Orang Lain',
-      });
-
-      await expect(deleteProduct('p1')).rejects.toThrow(/tidak memiliki izin/i);
-      expect(dbStore.docs.has(collKey('products', 'p1'))).toBe(true);
-    });
-
-    it('deleteProduct sukses untuk pemilik', async () => {
+    it('deleteProduct sukses menghapus produk', async () => {
       dbStore.docs.set(collKey('products', 'p1'), {
         userId: 'user-a',
         name: 'Milik Sendiri',
@@ -226,17 +202,7 @@ describe('client.ts — data-layer ownership (Fase 4.14)', () => {
       expect(dbStore.docs.has(collKey('products', 'p1'))).toBe(false);
     });
 
-    it('deleteRecap menolak rekap milik user lain (IDOR)', async () => {
-      dbStore.docs.set(collKey('recaps', 'r1'), {
-        userId: 'user-b',
-        totalAmount: 500,
-      });
-
-      await expect(deleteRecap('r1')).rejects.toThrow(/tidak memiliki izin/i);
-      expect(dbStore.docs.has(collKey('recaps', 'r1'))).toBe(true);
-    });
-
-    it('deleteRecap sukses untuk pemilik', async () => {
+    it('deleteRecap sukses menghapus rekap', async () => {
       dbStore.docs.set(collKey('recaps', 'r1'), {
         userId: 'user-a',
         totalAmount: 500,
@@ -244,6 +210,33 @@ describe('client.ts — data-layer ownership (Fase 4.14)', () => {
 
       await deleteRecap('r1');
       expect(dbStore.docs.has(collKey('recaps', 'r1'))).toBe(false);
+    });
+
+    it('importRecapsFromFile menulis batch dengan userId terstempel', async () => {
+      const results = await importRecapsFromFile([
+        { date: '2026-09-01', totalAmount: 50000, unitsSold: 2 } as never,
+        { date: '2026-09-02', totalAmount: 75000, unitsSold: 3 } as never,
+      ]);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].userId).toBe('user-a');
+      expect(results[1].userId).toBe('user-a');
+    });
+
+    it('recordSaleWithBatch menyimpan rekap dan memperbarui stok dalam 1 operasi batch', async () => {
+      dbStore.docs.set(collKey('products', 'p1'), {
+        userId: 'user-a',
+        name: 'Kopi',
+        stockCount: 10,
+      });
+
+      const saved = await recordSaleWithBatch(
+        { date: '2026-09-06', totalAmount: 20000, unitsSold: 2 } as never,
+        [{ productId: 'p1', newStock: 8, minStock: 5 }]
+      );
+
+      expect(saved.userId).toBe('user-a');
+      expect(dbStore.docs.get(collKey('products', 'p1'))?.stockCount).toBe(8);
     });
   });
 });

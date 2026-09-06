@@ -59,7 +59,7 @@ export default function InventoryPage() {
   );
 
   useEffect(() => {
-    // Sinkronkan kategori custom dari Firestore cloud
+    // Sinkronkan kategori custom dari Firestore cloud tanpa menimpa data Cloud saat awal buka
     fetchUserSettings().then((settings) => {
       if (settings && Array.isArray(settings.customCategories)) {
         setCustomCategories((prev) => {
@@ -71,10 +71,11 @@ export default function InventoryPage() {
     });
   }, []);
 
-  useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, customCategories);
-    updateUserSettings({ customCategories });
-  }, [customCategories]);
+  const saveCustomCategories = (cats: string[]) => {
+    setCustomCategories(cats);
+    writeStoredJSON(STORAGE_KEYS.CUSTOM_CATEGORIES, cats);
+    updateUserSettings({ customCategories: cats });
+  };
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -191,7 +192,8 @@ export default function InventoryPage() {
 
   const handleDeleteCustomCategory = (catToDelete: string) => {
     if (window.confirm(`Hapus kategori "${catToDelete}" dari daftar?`)) {
-      setCustomCategories((prev) => prev.filter((c) => c !== catToDelete));
+      const updated = customCategories.filter((c) => c !== catToDelete);
+      saveCustomCategories(updated);
       if (category === catToDelete) {
         setCategory('MAKANAN & MINUMAN (F&B)');
       }
@@ -217,7 +219,7 @@ export default function InventoryPage() {
       finalCategory = trimmedCustom;
 
       if (!fullCategoriesList.includes(trimmedCustom)) {
-        setCustomCategories((prev) => [...prev, trimmedCustom]);
+        saveCustomCategories([...customCategories, trimmedCustom]);
       }
     }
 
@@ -247,7 +249,10 @@ export default function InventoryPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
       setShowAddModal(false);
       resetForm();
     } catch (err) {
@@ -274,7 +279,9 @@ export default function InventoryPage() {
       });
 
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
       setRestockProduct(null);
       showToast(`Stok ${restockProduct.name} berhasil ditambah +${qty} unit!`);
     } catch (err) {
@@ -290,7 +297,10 @@ export default function InventoryPage() {
     try {
       await deleteProduct(id);
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['kpi'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
       showToast('Produk berhasil dihapus!');
     } catch (err) {
       console.error(err);
