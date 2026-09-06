@@ -18,7 +18,7 @@
 
 ## 📋 Daftar Isi
 
-- [Tim Developer](#-tim-pengembang)
+- [Tim Developer](#-tim-developer)
 - [Tentang Proyek](#-tentang-proyek)
 - [Fitur Unggulan](#-fitur-unggulan)
 - [Demo & Screenshot](#-demo--screenshot)
