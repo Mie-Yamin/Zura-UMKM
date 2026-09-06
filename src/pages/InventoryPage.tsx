@@ -241,22 +241,35 @@ export default function InventoryPage() {
 
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, payload);
+        // Optimistic UI update instan
+        queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+          old.map((item) => (item.id === editingProduct.id ? { ...item, ...payload } : item))
+        );
+        setShowAddModal(false);
+        resetForm();
         showToast('Produk berhasil diperbarui!');
+        await updateProduct(editingProduct.id, payload);
       } else {
-        await addProduct(payload);
+        const tempId = `temp-${Date.now()}`;
+        const optimisticProduct: Product = { id: tempId, ...payload };
+        // Optimistic UI update instan
+        queryClient.setQueryData<Product[]>(['inventory'], (old = []) => [optimisticProduct, ...old]);
+        setShowAddModal(false);
+        resetForm();
         showToast('Produk baru berhasil ditambahkan!');
+        const realProduct = await addProduct(payload);
+        queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+          old.map((item) => (item.id === tempId ? realProduct : item))
+        );
       }
 
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-      setShowAddModal(false);
-      resetForm();
     } catch (err) {
       console.error(err);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       showToast('Gagal menyimpan data produk ke Firestore!');
     } finally {
       setIsSubmitting(false);
@@ -271,21 +284,32 @@ export default function InventoryPage() {
     const qty = parseInt(restockQty) || 0;
     if (qty <= 0) return;
 
+    const updatedStock = restockProduct.stockCount + qty;
+    const updatedStatus = updatedStock <= (restockProduct.minStock || 10) ? 'low_stock' : 'healthy';
+
     try {
-      const updatedStock = restockProduct.stockCount + qty;
+      // Optimistic UI update instan
+      queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+        old.map((item) =>
+          item.id === restockProduct.id
+            ? { ...item, stockCount: updatedStock, status: updatedStatus }
+            : item
+        )
+      );
+      setRestockProduct(null);
+      showToast(`Stok ${restockProduct.name} berhasil ditambah +${qty} unit!`);
+
       await updateProduct(restockProduct.id, {
         stockCount: updatedStock,
-        status: updatedStock <= (restockProduct.minStock || 10) ? 'low_stock' : 'healthy',
+        status: updatedStatus,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-      setRestockProduct(null);
-      showToast(`Stok ${restockProduct.name} berhasil ditambah +${qty} unit!`);
     } catch (err) {
       console.error(err);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       showToast('Gagal menambah stok!');
     }
   };
@@ -295,15 +319,20 @@ export default function InventoryPage() {
     if (!window.confirm('Apakah Anda yakin ingin menghapus produk ini?')) return;
 
     try {
+      // Optimistic UI update instan
+      queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+        old.filter((item) => item.id !== id)
+      );
+      showToast('Produk berhasil dihapus!');
+
       await deleteProduct(id);
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-      showToast('Produk berhasil dihapus!');
     } catch (err) {
       console.error(err);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       showToast('Gagal menghapus produk!');
     }
   };

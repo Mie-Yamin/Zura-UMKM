@@ -8,7 +8,7 @@ import WebhookDemoModal from '../components/sales/WebhookDemoModal';
 import ImportModal from '../components/sales/ImportModal';
 import ManualEntryModal from '../components/sales/ManualEntryModal';
 import RecapDetailModal from '../components/sales/RecapDetailModal';
-import type { SalesRecap } from '../types';
+import type { SalesRecap, Product } from '../types';
 
 const formatRupiah = (val?: number) => {
   if (val === undefined || isNaN(val)) return 'Rp 0';
@@ -290,8 +290,26 @@ export default function SalesRecapPage() {
       ],
     };
 
+    const updatedStock = randomProduct.stockCount - orderQty;
+
+    // Optimistic UI updates instan (0ms)
+    queryClient.setQueryData<SalesRecap[]>(['recaps'], (old = []) => [simulatedRecap, ...old]);
+    queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+      old.map((p) =>
+        p.id === randomProduct.id
+          ? {
+              ...p,
+              stockCount: updatedStock,
+              status: updatedStock <= (randomProduct.minStock || 10) ? 'low_stock' : 'healthy',
+            }
+          : p
+      )
+    );
+
+    setShowWebhookDemoModal(false);
+    showToast(`⚡ DEMO EVENT WEBHOOK! [${source}] Pesanan Baru: ${orderQty}x ${randomProduct.name} (Stok Otomatis Terpotong -${orderQty})`);
+
     try {
-      const updatedStock = randomProduct.stockCount - orderQty;
       await recordSaleWithBatch(simulatedRecap, [
         {
           productId: randomProduct.id,
@@ -300,17 +318,14 @@ export default function SalesRecapPage() {
         },
       ]);
 
-      queryClient.invalidateQueries({ queryKey: ['recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-
-      setShowWebhookDemoModal(false);
-      showToast(`⚡ DEMO EVENT WEBHOOK! [${source}] Pesanan Baru: ${orderQty}x ${randomProduct.name} (Stok Otomatis Terpotong -${orderQty})`);
     } catch (err) {
       console.error('Simulasi Webhook gagal:', err);
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       showToast('Gagal menjalankan simulasi webhook!');
     } finally {
       setIsSimulating(false);
@@ -408,31 +423,48 @@ export default function SalesRecapPage() {
       items: recapItems,
     };
 
-    try {
-      const stockUpdates = recapItems.map((item) => {
-        const targetProd = products.find((p) => p.id === item.id);
-        const currentStock = targetProd ? targetProd.stockCount : item.qty;
-        return {
-          productId: item.id,
-          newStock: currentStock - item.qty,
-          minStock: targetProd?.minStock,
-        };
-      });
+    const stockUpdates = recapItems.map((item) => {
+      const targetProd = products.find((p) => p.id === item.id);
+      const currentStock = targetProd ? targetProd.stockCount : item.qty;
+      return {
+        productId: item.id,
+        newStock: currentStock - item.qty,
+        minStock: targetProd?.minStock,
+      };
+    });
 
+    // Optimistic UI updates instan (0ms)
+    queryClient.setQueryData<SalesRecap[]>(['recaps'], (old = []) => [manualRecap, ...old]);
+    queryClient.setQueryData<Product[]>(['inventory'], (old = []) =>
+      old.map((p) => {
+        const update = stockUpdates.find((u) => u.productId === p.id);
+        if (update) {
+          const min = p.minStock || 10;
+          return {
+            ...p,
+            stockCount: update.newStock,
+            status: update.newStock <= min ? 'low_stock' : 'healthy',
+          };
+        }
+        return p;
+      })
+    );
+
+    setShowManualModal(false);
+    setItemRows([{ productId: '', qty: '' }]);
+    showToast('Penjualan Multi-Item berhasil disimpan & stok terpotong!');
+
+    try {
       await recordSaleWithBatch(manualRecap, stockUpdates);
 
-      queryClient.invalidateQueries({ queryKey: ['recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-
-      setShowManualModal(false);
-      setItemRows([{ productId: '', qty: '' }]);
-      showToast('Penjualan Multi-Item berhasil disimpan & stok terpotong!');
     } catch (error) {
       console.error('Error saving recap to Firestore:', error);
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       showToast('Gagal menyimpan transaksi ke Firestore!');
     } finally {
       setIsSubmittingManual(false);
@@ -444,15 +476,20 @@ export default function SalesRecapPage() {
       return;
     }
 
+    // Optimistic UI updates instan (0ms)
+    queryClient.setQueryData<SalesRecap[]>(['recaps'], (old = []) =>
+      old.filter((r) => r.id !== recapId)
+    );
+    showToast(`Dokumen rekap ${recapId} berhasil dihapus!`);
+
     try {
       await deleteRecap(recapId);
-      queryClient.invalidateQueries({ queryKey: ['recaps'] });
       queryClient.invalidateQueries({ queryKey: ['kpi-summary'] });
       queryClient.invalidateQueries({ queryKey: ['sales-chart'] });
       queryClient.invalidateQueries({ queryKey: ['restock-plan'] });
-      showToast(`Dokumen rekap ${recapId} berhasil dihapus!`);
     } catch (err) {
       console.error('Gagal menghapus rekap:', err);
+      queryClient.invalidateQueries({ queryKey: ['recaps'] });
       showToast('Gagal menghapus dokumen rekap!');
     }
   };
